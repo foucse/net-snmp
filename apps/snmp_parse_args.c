@@ -115,7 +115,7 @@ snmp_parse_args(argc, argv, session, type)
   int arg;
   char *psz;
   u_char buf[BUF_SIZE];
-  int bsize = BUF_SIZE;
+  int bsize;
 #ifdef USE_V2PARTY_PROTOCOL
   static oid src[MAX_NAME_LEN];
   static oid dst[MAX_NAME_LEN];
@@ -290,7 +290,7 @@ snmp_parse_args(argc, argv, session, type)
           usage();
           exit(1);
         }
-	if (hex_str2bin(buf,&bsize,psz)) {
+	if ((bsize = hex_to_binary(psz,buf)) <= 0) {
           fprintf(stderr,"Need engine ID value after -e flag. \n");
           usage();
           exit(1);
