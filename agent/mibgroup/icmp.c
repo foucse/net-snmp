@@ -7,7 +7,6 @@
 #include "../common_header.h"
 #include "icmp.h"
 
-
 	/*********************
 	 *
 	 *  Kernel & interface information,
@@ -111,9 +110,20 @@ var_icmp(vp, name, length, exact, var_len, write_method)
     /*
      *        Get the ICMP statistics from the kernel...
      */
+#if !defined(CAN_USE_SYSCTL) || !defined(ICMPCTL_STATS)
     KNLookup(icmp_nl, N_ICMPSTAT, (char *)&icmpstat, sizeof (icmpstat));
+#else
+    {
+	    int sname[] = { CTL_NET, PF_INET, IPPROTO_ICMP, ICMPCTL_STATS };
+	    size_t len;
+	    
+	    len = sizeof icmpstat;
+	    if (sysctl(sname, 4, &icmpstat, &len, 0, 0) < 0)
+		    return NULL;
+    }
+#endif /* use sysctl */
 
-    switch (vp->magic){
+    switch (vp->magic) {
 	case ICMPINMSGS:
 	    long_return = icmpstat.icps_badcode + icmpstat.icps_tooshort +
 			  icmpstat.icps_checksum + icmpstat.icps_badlen;
