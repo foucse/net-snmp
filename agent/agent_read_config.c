@@ -23,6 +23,9 @@
 #endif
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
+#if HAVE_SYS_QUEUE_H
+#include <sys/queue.h>
+#endif
 #include <sys/socket.h>
 #if HAVE_NET_ROUTE_H
 #include <net/route.h>
