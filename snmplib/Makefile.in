@@ -42,7 +42,7 @@ CSRCS=	snmp_client.c               snmp_api.c snmp.c 		\
 	scapi.c callback.c default_store.c snmp_alarm.c		\
 	mt_support.c snmp_enum.c				\
 	snprintf.c strtol.c strtoul.c				\
-	snmp_transport.c @transport_src_list@                   \
+	transport/snmp_transport.c @transport_src_list@         \
 	snmp_secmod.c @security_src_list@			\
 	mib/mib_api.c mib/mib_conf.c				\
 	mib/mib_dir.c mib/mib_module.c mib/mib_object.c		\
@@ -63,7 +63,7 @@ OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	scapi.o callback.o default_store.o snmp_alarm.o	  	\
 	mt_support.o snmp_enum.o				\
 	snprintf.o strtol.o strtoul.o				\
-	snmp_transport.o @transport_obj_list@                   \
+	transport/snmp_transport.o @transport_obj_list@         \
 	snmp_secmod.o @security_obj_list@			\
 	mib/mib_api.o mib/mib_conf.o				\
 	mib/mib_dir.o mib/mib_module.o mib/mib_object.o		\
@@ -84,7 +84,7 @@ LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	scapi.lo callback.lo default_store.lo snmp_alarm.lo	\
 	mt_support.lo snmp_enum.lo				\
 	snprintf.lo strtol.lo strtoul.lo			\
-	snmp_transport.lo @transport_lobj_list@                 \
+	transport/snmp_transport.lo @transport_lobj_list@       \
         snmp_secmod.lo @security_lobj_list@			\
 	mib/mib_api.lo mib/mib_conf.lo				\
 	mib/mib_dir.lo mib/mib_module.lo mib/mib_object.lo	\
