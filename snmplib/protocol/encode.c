@@ -728,3 +728,52 @@ encode_double(netsnmp_buf *buf, double d_val)
     return 0;
 }
 
+
+                /**************************************
+                 *
+                 *      Temporary - hijacked from snmp_api.c
+                 *
+                 **************************************/
+
+
+
+#include <ucd/ucd_api.h>
+#include <ucd/ucd_convert.h>
+
+int
+snmp_pdu_realloc_rbuild(u_char **pkt, size_t *pkt_len, size_t *offset,
+                        struct snmp_pdu *pdu)
+{
+    netsnmp_pdu *p;
+    netsnmp_buf *buf;
+
+    p = ucd_convert_pdu( pdu );
+    if (NULL == p) {
+	return 0;	/* Error */
+    }
+    memset( *pkt, 0, *pkt_len );	/* clear the buffer! */
+    buf = buffer_new( *pkt, *pkt_len,
+			NETSNMP_BUFFER_RESIZE|NETSNMP_BUFFER_REVERSE );
+
+
+    if (0 > encode_basic_pdu( buf, p )) {
+	return 0;
+    }
+
+/*
+    *pkt = buffer_string(buf);
+    *pkt_len = buf->cur_len;
+ */
+
+    *pkt     = buf->string;	/* I think this is right? */
+    *pkt_len = buf->max_len;
+    *offset  = buf->cur_len;
+    buf->flags |= NETSNMP_BUFFER_NOFREE;
+
+    pdu_free( p );
+    buffer_free( buf );
+    return 1;
+}
+
+
+

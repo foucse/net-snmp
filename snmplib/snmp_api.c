@@ -2381,7 +2381,7 @@ snmp_pdu_build (struct snmp_pdu *pdu, u_char *cp, size_t *out_length)
   return cp;
 }
 
-#ifdef USE_REVERSE_ASNENCODING
+#ifdef USE_REVERSE_ASNENCODING__NO_LONGER_ACTIVE
 /*  On error, returns 0 (likely an encoding problem).  */
 int
 snmp_pdu_realloc_rbuild(u_char **pkt, size_t *pkt_len, size_t *offset, 
