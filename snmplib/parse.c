@@ -229,6 +229,7 @@ struct objgroup {
 #define APPSYNTAX	(98 | SYNTAX_MASK)
 #define OBJSYNTAX	(99 | SYNTAX_MASK)
 #define SIMPLESYNTAX	(100 | SYNTAX_MASK)
+#define OBJNAME		(101 | SYNTAX_MASK)
 /* Beware of reaching SYNTAX_MASK (0x80) */
 
 struct tok {
@@ -330,6 +331,7 @@ static struct tok tokens[] = {
     { "ObjectSyntax", sizeof("ObjectSyntax")-1, OBJSYNTAX },
     { "SimpleSyntax", sizeof("SimpleSyntax")-1, SIMPLESYNTAX },
     { "ApplicationSyntax", sizeof("ApplicationSyntax")-1, APPSYNTAX },
+    { "ObjectName", sizeof("ObjectName")-1, OBJNAME },
     { NULL }
 };
 
@@ -3494,6 +3496,7 @@ parse(FILE *fp,
 	case OBJSYNTAX:
 	case APPSYNTAX:
 	case SIMPLESYNTAX:
+	case OBJNAME:
 	case KW_OPAQUE:
 	case TIMETICKS:
             break;
