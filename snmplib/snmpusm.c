@@ -29,6 +29,9 @@
 #include "system.h"
 #include "read_config.h"
 #include "snmpusm.h"
+#include "tools.h"
+#include "scapi.h"
+#include "keytools.h"
 
 /* misc protocol oids */
 static oid usmNoAuthProtocol[]      = { 1,3,6,1,6,3,10,1,1,1 };
@@ -607,16 +610,12 @@ usm_create_initial_user(void)
 }
 
 /* usm_save_users(): saves a list of users to the persistent cache */
-void 
-usm_save_users(char *token, char *type)
-{
+void usm_save_users(char *token, char *type) {
   usm_save_users_from_list(userList, token, type);
 }
 
-void 
-usm_save_users_from_list(struct usmUser *userList, char *token,
-                              char *type)
-{
+void usm_save_users_from_list(struct usmUser *userList, char *token,
+                              char *type) {
   struct usmUser *uptr;
   for (uptr = userList; uptr != NULL; uptr = uptr->next) {
     if (uptr->userStorageType == ST_NONVOLATILE)
@@ -625,9 +624,7 @@ usm_save_users_from_list(struct usmUser *userList, char *token,
 }
 
 /* usm_save_user(): saves a user to the persistent cache */
-void
-usm_save_user(struct usmUser *user, char *token, char *type)
-{
+void usm_save_user(struct usmUser *user, char *token, char *type) {
   char line[4096];
   char *cptr;
   int i, tmp;
@@ -668,8 +665,7 @@ usm_save_user(struct usmUser *user, char *token, char *type)
 /* usm_parse_user(): reads in a line containing a saved user profile
    and returns a pointer to a newly created struct usmUser. */
 struct usmUser *
-usm_read_user(char *line)
-{
+usm_read_user(char *line) {
   struct usmUser *user;
   int len;
 
@@ -716,4 +712,111 @@ void usm_parse_config_usmUser(char *token, char *line) {
 
   uptr = usm_read_user(line);
   usm_add_user(uptr);
+}
+
+void usm_set_password(char *token, char *line) {
+  /* format: userSetAuthPass     secname engineIDLen engineID pass */
+  /*     or: userSetPrivPass     secname engineIDLen engineID pass */
+  /*     or: userSetAuthKey      secname engineIDLen engineID KuLen Ku */
+  /*     or: userSetPrivKey      secname engineIDLen engineID KuLen Ku */
+  /*     or: userSetAuthLocalKey secname engineIDLen engineID KulLen Kul */
+  /*     or: userSetPrivLocalKey secname engineIDLen engineID KulLen Kul */
+
+  char *cp;
+  char nameBuf[SNMP_MAXBUF];
+  u_char *engineID;
+  int nameLen, engineIDLen;
+  struct usmUser *user;
+
+  u_char **key;
+  int *keyLen;
+
+  u_char *userKey;
+  int userKeyLen;
+  int type, ret;
+  
+  cp = copy_word(line, nameBuf);
+  if (cp == NULL) {
+    config_perror("invalid name specifier");
+    return;
+  }
+    
+  cp = read_config_read_octet_string(cp, &engineID, &engineIDLen);
+  if (cp == NULL) {
+    config_perror("invalid engineID specifier");
+    return;
+  }
+
+  user = usm_get_user(engineID, engineIDLen, nameBuf);
+  if (user == NULL) {
+    config_perror("not a valid user/engineID pair");
+    return;
+  }
+
+  if (strcmp(token, "userSetAuthPass") == 0) {
+    key = &user->authKey;
+    keyLen = &user->authKeyLen;
+    type = 0;
+  } else if (strcmp(token, "userSetPrivPass") == 0) {
+    key = &user->privKey;
+    keyLen = &user->privKeyLen;
+    type = 0;
+  } else if (strcmp(token, "userSetAuthKey") == 0) {
+    key = &user->authKey;
+    keyLen = &user->authKeyLen;
+    type = 1;
+  } else if (strcmp(token, "userSetPrivKey") == 0) {
+    key = &user->privKey;
+    keyLen = &user->privKeyLen;
+    type = 1;
+  } else if (strcmp(token, "userSetAuthLocalKey") == 0) {
+    key = &user->authKey;
+    keyLen = &user->authKeyLen;
+    type = 2;
+  } else if (strcmp(token, "userSetPrivLocalKey") == 0) {
+    key = &user->privKey;
+    keyLen = &user->privKeyLen;
+    type = 2;
+  }
+  
+  if (*key) {
+    /* (destroy and) free the old key */
+    memset(*key, 0, *keyLen);
+    free(*key);
+  }
+
+  if (type == 0) {
+    /* convert the password into a key */
+    ret = generate_Ku(cp, strlen(cp), &userKey, &userKeyLen);
+  
+    if (ret == 1) {
+      config_perror("setting key failed (in sc_genKu())");
+      return;
+    }
+  }
+   
+  if (type == 1) {
+    cp = read_config_read_octet_string(cp, &userKey, &userKeyLen);
+    
+    if (cp == NULL) {
+      config_perror("invalid user key");
+      return;
+    }
+  }
+  
+  if (type < 2) {
+    /* generate the kul */
+    generate_kul(engineID, engineIDLen, userKey, userKeyLen, key, keyLen);
+    /* (destroy and) free the old key */
+    memset(userKey, 0, userKeyLen);
+    free(userKey);
+  } else {
+    /* the key is given, copy it in */
+    cp = read_config_read_octet_string(cp, key, keyLen);
+    
+    if (cp == NULL) {
+      config_perror("invalid localized user key");
+      return;
+    }
+  }
 }
