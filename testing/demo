@@ -1,0 +1,360 @@
+#!/bin/sh
+
+defpass="hi_there"
+engineID="9 800007E501D0D6A623"         # example for comments, never used.
+
+# Assumptions;
+#
+#  - we are running in a fully built ucd-snmp-crypto/testing directory
+#
+#  - some snmpd.conf file contains (using the correct engineIDs):
+#
+#      userSetAuthPass initial 	   $engineID $defpass
+#      userSetPrivPass initial 	   $engineID $defpass
+#      userSetAuthPass templateMD5 $engineID $defpass
+#      userSetPrivPass templateMD5 $engineID $defpass
+#      userSetAuthPass templateSHA $engineID $defpass
+#      userSetPrivPass templateSHA $engineID $defpass
+#      group local any initial
+#      group local any templateMD5
+#      group local any templateSHA
+#      group local any dolphin
+#      group local any shark
+#      group local any shark2
+#      group local any stingray
+#      group local any stingray2
+#      group local any whale
+#      view all    included  .1                               80
+#      access local   ""      any       noauth    0      all    all   all
+#
+#
+
+# -u: don't create users, they already exist.
+#
+
+createUsers=1
+autoread=1
+autodoit=1
+runcommands=1
+
+for arg
+do
+  if test $arg = "-u"; then
+    createUsers=0
+  fi
+  if test $arg = "-t"; then
+    autoread=0
+  fi
+  if test $arg = "-c"; then
+    autodoit=0
+  fi
+  if test $arg = "-n"; then
+    runcommands=0
+  fi
+  if test $arg = "-h"; then
+    echo "$0 [-t] [-c] [-u]"
+    echo "  -t:    pause at section titles"
+    echo "  -c:    pause before running commands"
+    echo "  -u:    do not create the users, assume they are already created."
+    echo "  -n:    don't actually run any commands."
+    exit 0
+  fi
+done
+
+export PATH=../apps:../agent:$PATH
+
+noAuthArgs="-p 1600 -n default -u initial -l noAuthNoPriv -v 3"
+AuthArgs="-p 1600 -n default -u initial -a MD5 -A $defpass -l authNoPriv -v 3"
+host=localhost
+
+# simple commands
+snmpset="snmpset -s -R $AuthArgs $host"
+snmpwalk="snmpwalk -s -R $noAuthArgs $host"
+snmpget="snmpget -s -R $noAuthArgs $host"
+asnmpget="snmpget -s -R $AuthArgs $host"
+
+# misc oids needed
+usmUserSecurityName=`snmptranslate -R usmUserSecurityName`
+noAuth=`snmptranslate -R usmNoAuthProtocol`
+noPriv=`snmptranslate -R usmNoPrivProtocol`
+sysUpTime=system.sysUpTime.0
+
+SETDEBUGGING() {
+  echo "  turning agent debugging to $1..."
+  DOIT $snmpset versionDoDebugging.0 i $1
+}
+
+DOIT() {
+  echo ""
+  echo "% $*"
+  if test "x$autodoit" != "x1"; then
+    echo -n "Hit RETURN to run the above command: "
+    read ret
+  fi
+  if test $runcommands = 1; then
+    $* | sed 's/^/     /'
+  fi
+}
+
+STARTAGENT() {
+  echo "   Starting the agent"
+  snmpd -p 1600 -f -L -P /tmp/snmpd.pid 2>&1 | sed 's/^/       agent:/' &
+  sleep 3 # give the agent time to start up
+}
+
+STOPAGENT() {
+  echo "   Stopping the agent"
+  kill `cat /tmp/snmpd.pid`
+}
+
+COMMENT() {
+  echo "  $*"
+}
+
+TITLE() {
+  echo ""
+  echo "**"
+  echo "** $1"
+  shift
+  for i
+  do
+    echo "**   $i"
+  done
+  echo "**"
+  echo ""
+  if test "x$autoread" != "x1"; then
+    echo -n "Hit RETURN to continue: "
+    read ret
+  fi
+}
+
+GETENGINEIDOID() {
+    string=`$snmpwalk snmpEngineID | sed 's/.*Hex: //'`
+    engineidoid=`perl -e 'print (($#ARGV+1) . "." . join(".",map(hex,@ARGV)));' $string`
+    engineidstr=`echo $string | sed 's/ //g'`
+}
+
+MAKEUSEROID() {
+  user="$*"
+  useroid=`perl -e '$a = shift; print length($a) . "." . join(".",unpack("c*",$a));' $user`
+  eval ${user}oid=$engineidoid.$useroid
+}
+
+CREATEUSER() {
+  user=$1
+  MAKEUSEROID $user
+  fulluser=$engineidoid.$useroid
+  DOIT $snmpset usmUserStatus.$fulluser i 4
+  DOIT $snmpset usmUserCloneFrom.$fulluser o $usmUserSecurityName.$2
+  if test "x$3" != "x"; then
+    DOIT $snmpset usmUserPrivProtocol.$fulluser o $3
+  fi
+  if test "x$4" != "x"; then
+    DOIT $snmpset usmUserAuthProtocol.$fulluser o $4
+  fi
+  DOIT $snmpget usmUserStatus.$engineidoid.$useroid
+}
+
+#
+# BEGIN
+#
+
+TITLE  "Beginning Demonstration"
+STARTAGENT
+
+#
+# Message types
+#
+
+TITLE "Sending a SNMPv1 message."
+DOIT snmpget -v 1 -p 1600 $host private system.sysUpTime.0
+
+TITLE "Sending a SNMP v2c message."
+DOIT snmpget -v 2c -p 1600 $host private system.sysUpTime.0
+
+TITLE "Sending a SNMP v3 message -- noAuthNoPriv."
+DOIT snmpget $noAuthArgs $host system.sysUpTime.0
+
+#
+# Persistent storage
+#
+
+TITLE "Demonstrate persistent storage of snmpEngineBoots:" \
+      "Note: You should see snmpEngineBoots.0 increment by one."
+DOIT $snmpwalk snmpFrameworkMIB
+
+STOPAGENT
+
+STARTAGENT
+
+DOIT $snmpwalk snmpFrameworkMIB
+
+#
+# agent configuration
+#
+
+TITLE "Demonstrate that users, user passphrases -or- Ku,"\
+      "and engineIDs can be configured in a configuration file."
+
+## FIX: these may not be there, they could be somewhere else.
+DOIT grep userSet $HOME/.snmp/snmpd.conf
+
+TITLE "+++++++ NOT Demonstrating syntax for user creation at the agent"
+
+TITLE "+++++++ NOT Demontrate that initial user data from USM RFC can be specified."
+
+#
+# Creating users
+#
+
+GETENGINEIDOID
+MAKEUSEROID templateMD5
+MAKEUSEROID templateSHA
+
+if test $createUsers = 1; then
+    TITLE "Creating Users: dolphin shark shark2 stingray stingray2"
+
+    TITLE "Creating user dolphin"
+    CREATEUSER dolphin $templateMD5oid $noPriv $noAuth 
+
+    TITLE "Creating user shark"
+    CREATEUSER shark $templateMD5oid $noPriv
+
+    TITLE "Creating user shark2"
+    CREATEUSER shark2 $templateSHAoid $noPriv
+
+    TITLE "Creating user stingray"
+    CREATEUSER stingray $templateMD5oid
+
+    TITLE "Creating user stingray2"
+    CREATEUSER stingray2 $templateSHAoid
+fi
+
+#
+# authPriv & encryption
+#
+
+TITLE "Send crypted packets." \
+      "Prove results are the same as noAuthNoPriv"\
+      "parse the agent debug output:"
+
+## FIX: CRYPT
+SETDEBUGGING 1
+TITLE "Perform a get with shark."
+DOIT snmpget -p 1600 -n default -u shark -l noAuthNoPriv -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u shark -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+
+## FIX: CRYPT
+TITLE "Perform a get with shark2."
+DOIT snmpget -p 1600 -n default -u shark2 -l noAuthNoPriv -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u shark2 -l authNoPriv -a SHA -A $defpass -v 3 $host $sysUpTime
+
+## FIX: CRYPT
+TITLE "Perform a get with stingray."
+DOIT snmpget -p 1600 -n default -u stingray -l noAuthNoPriv -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+
+## FIX: CRYPT
+TITLE "Perform a get with stingray2."
+DOIT snmpget -p 1600 -n default -u stingray2 -l noAuthNoPriv -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u stingray2 -l authNoPriv -a SHA -A $defpass -v 3 $host $sysUpTime
+
+SETDEBUGGING 0
+
+#
+# Users can use lower levels of auth/priv requirements
+#
+
+TITLE "Send AuthNoPriv messages with a user configured for AuthPriv."
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+
+#
+# Malformed packets (wrong key)
+#
+
+## FIX: CRYPT
+TITLE "Send malformed crypted packets and examine the result for proper information."
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a SHA -A $defpass -v 3 $host $sysUpTime
+
+#
+# Key Change
+#
+
+TITLE "Demonstrate KeyChange."\
+      "Change kul for a user at the remote node:"
+
+oldkey=`ktest -q -l -P $defpass -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
+newkey=`ktest -q -l -P new_$defpass -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
+
+keychange=`ktest -k -N $newkey -O $oldkey | grep string | awk '{print $NF}'`
+
+TITLE "changing stingray's auth and priv key"\
+      "(from $oldkey to $newkey using $keychange)"
+
+DOIT $snmpset usmUserAuthKeyChange.$stingrayoid x $keychange
+DOIT $snmpset usmUserPrivKeyChange.$stingrayoid x $keychange
+
+TITLE "Perform a get using stingray to demonstrate it fails."\
+      "(using old key)"
+## FIX: authpriv
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+
+TITLE "Perform a get using stingray to demonstrate it succeeds." "(using new key)"
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A new_$defpass -v 3 $host $sysUpTime
+
+#
+# Cloning an account
+#
+
+TITLE "Use an admin user to clone a new account that has additional priveleges."
+CREATEUSER whale $sharkoid
+DOIT snmpget -p 1600 -n default -u whale -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+
+#
+# engineID & time discovery
+#
+
+TITLE "Demonstrate engineID and time discovery." "snmpget -noAuthNoPriv- to an agent that is not pre-configured."	"Note: Trace the 4 message exchange."
+DOIT snmpget -s -R $noAuthArgs -d $host
+
+TITLE "snmpget -AuthNoPriv- to an agent that is not pre-configured." 	"Note: Trace the 6 message exchange."
+DOIT snmpget -s -R $AuthArgs -d $host
+
+#
+# Proper time stamp handling.
+#
+
+TITLE "Demonstrate proper judgement of time stamps."
+
+TITLE "Set the agent 200 seconds ahead of the client." \
+      "snmpget and demonstrate the client updates its sense of time for the agent."
+
+## FIX: set agent 200 seconds ahead of client
+DOIT $asnmpget $sysUpTime
+
+TITLE "Set the client 200 seconds behind the agent." \
+      "snmpget and trace the 4 message exchange."
+
+## FIX: set client 200 seconds behind the client
+DOIT $asnmpget $sysUpTime
+
+TITLE "Set the agent 200 seconds behind the client." \
+      "snmpget and trace/demonstrate lack of time synchronization" \
+      "and failure of the get."
+
+## FIX: set agent 200 seconds behind the client
+DOIT $asnmpget $sysUpTime
+
+TITLE "Reboot the agent." \
+      "snmpget and trace the 4 message exchange."
+
+## FIX: reboot the agent
+DOIT $asnmpget $sysUpTime
+
+#
+# Exit
+#
+
+TITLE "Done with the demonstration"
+
+STOPAGENT
