@@ -11,6 +11,7 @@
 #include "snmp_agent.h"
 
 #include "snmp_api.h"
+#include "snmp_client.h"
 #include "helpers/table.h"
 #include "helpers/instance.h"
 
@@ -29,46 +30,32 @@ init_testhandler(void) {
     /*
      * basic handler test
      */
-    my_test = SNMP_MALLOC_TYPEDEF(handler_registration);
-    if (!my_test)
-        return;
-
-    my_test->handler = create_handler("myTest", my_test_handler);
-    my_test->rootoid = my_test_oid;
-    my_test->rootoid_len = 4;
-
-    register_handler(my_test);
+    register_handler(create_handler_registration("myTest", my_test_handler,
+                                                 my_test_oid, 4));
 
     /*
      * instance handler test
      */
-    my_test = SNMP_MALLOC_TYPEDEF(handler_registration);
-    if (!my_test)
-        return;
 
-    my_test->rootoid = my_instance_oid;
-    my_test->rootoid_len = 5;
-    my_test->handler = create_handler("myInstance", my_test_instance_handler);
-
-    register_instance(my_test);
-
+    register_instance(create_handler_registration("myInstance",
+                                                  my_test_instance_handler,
+                                                  my_instance_oid, 5));
+    
     /*
      * table helper test
      */
 
-    my_test = SNMP_MALLOC_TYPEDEF(handler_registration);
+    my_test = create_handler_registration("myTable",
+                                          my_test_table_handler,
+                                          my_table_oid, 4);
+    
     if (!my_test)
         return;
 
-    my_test->rootoid = my_table_oid;
-    my_test->rootoid_len = sizeof(my_table_oid)/sizeof(oid);
-    my_test->handler = create_handler("myTable", my_test_table_handler);
-
     table_info = SNMP_MALLOC_TYPEDEF(table_registration_info);
-    table_info->indexes = SNMP_MALLOC_STRUCT(variable_list);
-    table_info->indexes->type = ASN_INTEGER;
-    table_info->indexes->next_variable = SNMP_MALLOC_STRUCT(variable_list);
-    table_info->indexes->next_variable->type = ASN_INTEGER;
+
+    table_helper_add_index(table_info, ASN_INTEGER);
+    table_helper_add_index(table_info, ASN_INTEGER);
     table_info->min_column = 3;
     table_info->max_column = 3;
     register_table(my_test, table_info);
@@ -139,7 +126,8 @@ my_test_table_handler(mib_handler               *handler,
                       agent_request_info        *reqinfo,
                       request_info              *requests) {
 
-    table_registration_info   *handler_reg_info = (table_registration_info *) handler->prev->myvoid;
+    table_registration_info
+        *handler_reg_info = (table_registration_info *) handler->prev->myvoid;
     table_request_info *table_info;
     u_long result;
     int x, y;
@@ -180,7 +168,7 @@ my_test_table_handler(mib_handler               *handler,
                     y = *(table_info->indexes->next_variable->val.integer);
                 }
 
-				if (table_info->number_indexes == handler_reg_info->number_indexes) {
+                if (table_info->number_indexes == handler_reg_info->number_indexes) {
                 y++; /* GETNEXT is basically just y+1 for this table */
                 if (y > MAX_COLTWO) { /* (with wrapping) */
                     y = 0;
