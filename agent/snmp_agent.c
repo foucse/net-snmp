@@ -387,7 +387,7 @@ statp_loop:
 			   exact, &write_method, asp->pdu, &noSuchObject);
 			   
 	if (statP == NULL && rw != WRITE) {
-	    	varbind_ptr->val   = NULL;
+	    	varbind_ptr->val.integer   = NULL;
 	    	varbind_ptr->val_len = 0;
 		if ( exact ) {
 	            if ( noSuchObject == TRUE ){
