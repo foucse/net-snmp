@@ -31,11 +31,142 @@
 #include "snmpusm.h"
 #include "snmp_api.h"
 #include "scapi.h"
-
-
+#include "lcd_time.h"
+#include "keytools.h"
+#include "tools.h"
 
 int
-usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize, 
+asn_predict_int_length (int type, long number, int len)
+{
+	/* Do this the same way as asn_built_int... */
+	register u_long mask;
+
+	if (len != sizeof (long)) return -1;
+
+	mask = ((u_long) 0x1FF) << ((8 * (sizeof(long) - 1)) - 1);
+	/* mask is 0xFF800000 on a big-endian machine */
+
+	while((((number & mask) == 0) || ((number & mask) == mask)) && len > 1)
+	{
+		len--;
+		number <<= 8;
+	}
+
+	return 1+1+len;
+}
+
+int
+asn_predict_length (int type, u_char *ptr, int u_char_len)
+{
+	if (type & ASN_SEQUENCE) return 1+3+u_char_len;
+
+	if (type &  ASN_INTEGER)
+		return asn_predict_int_length (type, (long) *ptr, u_char_len);
+
+	if (u_char_len < 0x80)
+		return 1+1+u_char_len;
+	else if (u_char_len < 0xFF)
+		return 1+2+u_char_len;
+	else
+		return 1+3+u_char_len;
+}
+
+int usm_calc_offsets (	int globalDataLen,
+						int secLevel,
+						int secEngineIDLen,
+						int secNameLen,
+						int scopedPduLen,
+						long engineboots,
+						long enginetime,
+						int *theTotalLength,
+						int *authParamsOffset,
+						int *privParamsOffset,
+						int *dataOffset,
+						int *datalen,
+						int *msgAuthParmLen,
+						int *msgPrivParmLen,
+						int *otstlen,
+						int *seq_len,
+						int *msgSecParmLen)
+{
+	int engIDlen, engBtlen, engTmlen, namelen, authlen, privlen;
+
+	/* If doing authentication, msgAuthParmLen = 12 else msgAuthParmLen = 0 */
+	*msgAuthParmLen = (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
+						|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)?12:0;
+
+	/* If doing encryption, msgPrivParmLen = 8 else msgPrivParmLen = 0 */
+	*msgPrivParmLen = (secLevel & SNMP_SEC_LEVEL_AUTHPRIV)?8:0;
+
+	/* Calculate lengths */
+	if ((engIDlen = asn_predict_length (ASN_OCTET_STR,0,secEngineIDLen))==-1)
+	{
+		return -1;
+	}
+	if ((engBtlen = asn_predict_length (ASN_INTEGER,
+					(u_char*)&engineboots,sizeof(long)))==-1)
+	{
+		return -1;
+	}
+	if ((engTmlen = asn_predict_length (ASN_INTEGER,
+					(u_char*)&enginetime,sizeof(long)))==-1)
+	{
+		return -1;
+	}
+	if ((namelen = asn_predict_length (ASN_OCTET_STR,0,secNameLen))==-1)
+	{
+		return -1;
+	}
+	if ((authlen = asn_predict_length (ASN_OCTET_STR,0,*msgAuthParmLen))==-1)
+	{
+		return -1;
+	}
+	if ((privlen = asn_predict_length (ASN_OCTET_STR,0,*msgPrivParmLen))==-1)
+	{
+		return -1;
+	}
+
+	*seq_len = engIDlen+engBtlen+engTmlen+namelen+authlen+privlen;
+	if ((*otstlen = asn_predict_length (ASN_SEQUENCE,0, *seq_len))==-1)
+	{
+		return -1;
+	}
+
+	if ((*msgSecParmLen = asn_predict_length (ASN_OCTET_STR,0,*otstlen))==-1)
+	{
+		return -1;
+	}
+
+	*authParamsOffset = 	globalDataLen +
+						+ (*msgSecParmLen/*-otstlen)+(otstlen*/-*seq_len)
+						+ engIDlen + engBtlen + engTmlen + namelen
+						+ (authlen - *msgAuthParmLen);
+
+	*privParamsOffset =	*authParamsOffset + *msgAuthParmLen
+						+ (privlen - *msgPrivParmLen);
+
+	if (secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
+	{
+		/* Assumes that the encrypted(sPDU) length is the same as plaintext */
+		if ((*datalen = asn_predict_length (ASN_OCTET_STR,0,scopedPduLen))==-1)
+		{
+			return -1;
+		}
+	}
+	else
+	{
+		*datalen = scopedPduLen;
+	}
+
+	*dataOffset = globalDataLen + *msgSecParmLen + (*datalen - scopedPduLen);
+
+	*theTotalLength = globalDataLen + *msgSecParmLen + *datalen;
+
+	return 0;
+}
+
+int
+usm_generate_out_msg_NULL (msgProcModel, globalData, globalDataLen, maxMsgSize, 
 		    secModel, secEngineID, secEngineIDLen, secName, secNameLen,
 		    secLevel, scopedPdu, scopedPduLen, secStateRef,
 		    secParams, secParamsLen, wholeMsg, wholeMsgLen)
@@ -77,6 +208,8 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
                                 /* buffer */
      int *wholeMsgLen;          /* IN/OUT - len available, len returned */
 {
+/* This is the function used when no security is possible.  Only around
+for reference now. */
   u_char *cp, *msg_hdr_e, *oct_hdr_e, *seq_hdr_e;
   int asn_len = *secParamsLen;
   long boots = 0;
@@ -140,6 +273,327 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
   *wholeMsgLen = globalDataLen + *secParamsLen + scopedPduLen;
   *wholeMsg = globalData;
   return 0;
+}
+
+/*
+	This is the seed for the salt (an arbitrary number - RFC2274, Sect 8.1.1.1.
+*/
+static u_int salt_integer = 4985517;
+
+int
+usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int prev_key_length)
+{
+	/*
+		The salt is defined to be the concatenation of the boots and the
+		salt integer.  The result of the concatenation is then XORed with
+		the last 8 bytes of the key.
+		The salt integer is then incremented.
+	*/
+	int index;
+	int boots = snmpv3_get_engine_boots();
+
+	if (iv_length == NULL || *iv_length != 8 || iv == NULL
+		|| prev_key_length != 16 || priv_key == NULL) return -1;
+
+	memcpy (iv, &boots, sizeof(int));
+	memcpy (&iv[sizeof(int)], &salt_integer, sizeof(int));
+	salt_integer++;
+
+	/* Now, must XOR the iv with the last 8 bytes of the priv_key */
+
+	for (index = 0; index < 8; index++)
+		iv[index] ^= priv_key[8+index];
+
+	return 0;
+}
+
+int
+usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize, 
+		    secModel, secEngineID, secEngineIDLen, secName, secNameLen,
+		    secLevel, scopedPdu, scopedPduLen, secStateRef,
+		    secParams, secParamsLen, wholeMsg, wholeMsgLen)
+     int msgProcModel;          /* not used */
+     u_char *globalData;        /* IN - pointer to msg header data */
+                                /* will point to the beginning of the entire */
+                                /* packet buffer to be transmitted on wire, */
+                                /* memory will be contiguous with secParams, */
+                                /* typically this pointer will be passed */
+                                /* back as beginning of wholeMsg below. */
+                                /* asn seq. length is updated w/ new length */
+     int globalDataLen;         /* length of msg header data */
+     int maxMsgSize;            /* not used */
+     int secModel;              /* not used */
+     u_char *secEngineID;       /* IN - pointer snmpEngineID */
+     int secEngineIDLen;        /* IN - snmpEngineID length */
+     u_char *secName;           /* IN - pointer to securityName */
+     int secNameLen;            /* IN - securityName length */
+     int secLevel;              /* IN - authNoPriv, authPriv etc. */
+     u_char *scopedPdu;         /* IN - pointer to scopedPdu */
+                                /* will be encrypted by USM if needed and */
+                                /* written to packet buffer immediately */
+                                /* following securityParameters, entire msg */
+                                /* will be authenticated by USM if needed */
+     int scopedPduLen;          /* IN - scopedPdu length */
+     void *secStateRef;         /* IN - secStateRef, pointer to cached info */
+                                /* provided only for Response, otherwise NULL */
+     u_char *secParams;         /* OUT - BER encoded securityParameters */
+                                /* pointer to offset within packet buffer */
+                                /* where secParams should be written, the */
+                                /* entire BER encoded OCTET STRING (including */
+                                /* header) is written here by USM */
+                                /* secParams = globalData + globalDataLen */
+     int *secParamsLen;         /* IN/OUT - len available, len returned */
+     u_char **wholeMsg;         /* OUT - complete authenticated/encrypted */
+                                /* message - typically the pointer to start */
+                                /* of packet buffer provided in globalData */
+                                /* is returned here, could also be a separate */
+                                /* buffer */
+     int *wholeMsgLen;          /* IN/OUT - len available, len returned */
+{
+	int otstlen;
+	int seq_len;
+	int msgAuthParmLen;
+	int msgPrivParmLen;
+	int msgSecParmLen;
+	int authParamsOffset;
+	int privParamsOffset;
+	int datalen;
+	int dataOffset;
+	int theTotalLength;
+
+	u_char	*ptr;
+	int ptr_len, remaining, offSet;
+	struct usmUser	*user;
+	u_int	boot_uint;
+	u_int	time_uint;
+	long	boot_long;
+	long	time_long;
+
+
+	if (secStateRef != NULL) free (secStateRef);
+
+	/* Identify the user record */
+
+	if ((user = usm_get_user(secEngineID, secEngineIDLen, secName)) == NULL)
+	{
+		/* RETURN: unknownSecurityName */
+		return USM_ERR_UNKNOWN_SECURITY_NAME;
+	}
+
+	/* Check to see if the user can use the requested sec services */
+
+	if (usm_check_secLevel(secLevel, user) == 1)
+	{
+		/* RETURN: unsupportedSecurityLevel */
+		return USM_ERR_UNSUPPORTED_SECURITY_LEVEL;
+	}
+
+	/* Retrieve the engine information */
+
+	if (get_enginetime(secEngineID, secEngineIDLen, &boot_uint, &time_uint)==-1)
+	{
+		return USM_ERR_GENERIC_ERROR;
+	}
+
+	boot_long = boot_uint;
+	time_long = time_uint;
+	
+	/* Set up the Offsets */
+
+	if (usm_calc_offsets (globalDataLen, secLevel, secEngineIDLen,
+							secNameLen, scopedPduLen, boot_long, time_long,
+							&theTotalLength, &authParamsOffset,
+							&privParamsOffset, &dataOffset, &datalen,
+							&msgAuthParmLen, &msgPrivParmLen,
+							&otstlen, &seq_len, &msgSecParmLen) == -1)
+	{
+		return USM_ERR_GENERIC_ERROR;
+	}
+
+	/*
+		So, we have the offsets for the three parts that need to be determined,
+		and an overall length.  Now we need to make sure all of this would
+		fit in the outgoing buffer, and whether or not we need to make a
+		new buffer, etc.
+	*/
+
+	/* For now, fuck it, *wholeMsg is globalData, regardless */
+	ptr = *wholeMsg = globalData;
+	if (theTotalLength > *wholeMsgLen)
+	{
+		return USM_ERR_GENERIC_ERROR;
+	}
+
+	ptr_len = *wholeMsgLen = theTotalLength;
+
+	/* Do the encryption */
+
+	if (secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
+	{
+		/* We have to do encryption */
+
+		int encrypted_length = datalen;
+		int iv_length = msgPrivParmLen;
+
+		if (usm_set_salt (&ptr[privParamsOffset], &iv_length,
+						user->privKey, user->privKeyLen) == -1)
+		{
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (sc_encrypt (user->privProtocol, user->privProtocolLen,
+						user->privKey, user->privKeyLen,
+						&ptr[privParamsOffset], iv_length,
+						scopedPdu, scopedPduLen,
+						&ptr[dataOffset], &encrypted_length)
+											!= SNMP_ERR_NOERROR)
+		{
+			/* RETURN: encryptionError */
+			return USM_ERR_ENCRYPTION_ERROR;
+		}
+
+		if (encrypted_length != datalen || iv_length != msgPrivParmLen)
+		{
+			/* RETURN: encryptionError */
+			return USM_ERR_ENCRYPTION_ERROR;
+		}
+	}
+	else
+	{
+		/* No encryption for you! */
+		memcpy (&ptr[dataOffset],scopedPdu,scopedPduLen);
+		/* I don't think I need to do this:
+				 memset (&ptr[privParamsOffset],0,1);*/
+	}
+
+	/* Start filling in the other fields (in prep for authentication) */
+
+	remaining = ptr_len - globalDataLen;
+
+	offSet =  ptr_len - remaining;
+	asn_build_header (&ptr[offSet], &remaining, 
+					(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+					msgSecParmLen);
+
+	offSet = ptr_len - remaining;
+	asn_build_header (&ptr[offSet], &remaining, 
+					(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), otstlen);
+	
+	offSet = ptr_len - remaining;
+	asn_build_string (&ptr[offSet], &remaining,
+					(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+					secEngineID, secEngineIDLen);
+	
+	offSet = ptr_len - remaining;
+	asn_build_int (&ptr[offSet], &remaining,
+					(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
+					&boot_long, sizeof(long));
+	
+	offSet = ptr_len - remaining;
+	asn_build_int (&ptr[offSet], &remaining,
+					(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
+					&time_long, sizeof(long));
+	
+	offSet = ptr_len - remaining;
+	asn_build_string (&ptr[offSet], &remaining,
+					(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+					secName, secNameLen);
+
+	/* Time for the authentication area - for now, blank sig if signing */
+
+	offSet = ptr_len - remaining;
+	if (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
+						|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
+	{
+		asn_build_header(&ptr[offSet], &remaining,
+						(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+						msgAuthParmLen);
+		offSet = ptr_len - remaining;
+		memset (&ptr[offSet],0,msgAuthParmLen);
+	}
+	else
+	{
+		asn_build_string(&ptr[offSet], &remaining,
+							(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+							NULL, msgAuthParmLen);
+	}
+
+	/* Time for the encryption parameters - if privacy is applied, the
+		parameters are already in there, just the header is needed. */
+
+	offSet = ptr_len - remaining;
+	if (secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
+	{
+		asn_build_header(&ptr[offSet], &remaining,
+							(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+							msgPrivParmLen);
+		/* Privacy parameters are already in there */
+	}
+	else
+	{
+		asn_build_string(&ptr[offSet], &remaining,
+							(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+							NULL, msgPrivParmLen);
+	}
+
+	offSet = ptr_len - remaining;
+	asn_build_header(&ptr[offSet], &remaining,
+						(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+						msgPrivParmLen);
+
+	/* In doing encyption, need to add the octet string header for it */
+
+	if (secLevel==SNMP_SEC_LEVEL_AUTHPRIV)
+	{
+		offSet = ptr_len - remaining;
+		asn_build_header(&ptr[offSet], &remaining,
+						(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+						scopedPduLen);
+	}
+
+	/* Need to adjust overall length */
+
+	remaining = theTotalLength;
+	asn_build_sequence (ptr, &remaining, 
+				(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), theTotalLength-4);
+
+	/* Now, time to consider / do authentication */
+
+	if (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
+						|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
+	{
+		int temp_sig_len = msgAuthParmLen;
+		u_char *temp_sig = (u_char *) malloc (temp_sig_len);
+
+		if (temp_sig == NULL)
+		{
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (sc_generate_keyed_hash (user->authProtocol, user->authProtocolLen,
+									user->authKey, user->authKeyLen,
+									ptr, ptr_len,
+									temp_sig, &temp_sig_len)
+											!= SNMP_ERR_NOERROR)
+		{
+			free (temp_sig);
+			/* RETURN: authenticationFailure */
+			return USM_ERR_AUTHENTICATION_FAILURE;
+		}
+
+		if (temp_sig_len != msgAuthParmLen)
+		{
+			free (temp_sig);
+			/* RETURN: authenticationFailure */
+			return USM_ERR_AUTHENTICATION_FAILURE;
+		}
+
+		memcpy (&ptr[authParamsOffset], temp_sig, msgAuthParmLen);
+
+		free (temp_sig);
+	}
+	
+	return USM_ERR_NO_ERROR;
 }
 
 int
