@@ -38,6 +38,7 @@ autodoit=1
 runcommands=1
 host=localhost
 handleagent=1
+dosleep=0
 tmpfile=/tmp/snmp.demo.out
 
 for arg
@@ -52,6 +53,8 @@ do
     runcommands=0
   elif test $arg = "-a"; then
     handleagent=0
+  elif test $arg = "-s"; then
+    dosleep=1
   elif test $arg = "-h"; then
     echo "$0 [-t] [-c] [-u] [host]"
     echo "    -t:    pause at section titles"
@@ -59,6 +62,7 @@ do
     echo "    -u:    do not create the users, assume they are already created."
     echo "    -n:    don't actually run any commands."
     echo "    -a:    don't start/stop the agent.  Let the user do this."
+    echo "    -s:    sleep 1 second instead of pausing at requested spots"
     echo "  host:    The host with the agent that the commands should talk to."
     exit 0
   else
@@ -135,8 +139,12 @@ REPORT() {
 }
 
 GETRET() {
-  echo -n "Hit RETURN to continue: "
-  read ret
+  if test $dosleep = 1 -o "x$1" != "x"; then
+    sleep 1
+  else
+    echo -n "Hit RETURN to continue: "
+    read ret
+  fi
 }
 
 
@@ -147,7 +155,7 @@ STARTAGENT() {
     sleep 3 # give the agent time to start up
   else
     echo "!! You need to start the agent on $host now"
-    GETRET
+    GETRET x
   fi
 }
 
@@ -157,7 +165,7 @@ STOPAGENT() {
     kill `cat /tmp/snmpd.pid`
   else
     echo "!! You need to start the agent on $host now"
-    GETRET
+    GETRET x
   fi
 }
 
@@ -185,6 +193,11 @@ GETENGINEIDOID() {
     string=`$snmpwalk snmpEngineID | sed 's/.*Hex: //'`
     engineidoid=`perl -e 'print (($#ARGV+1) . "." . join(".",map(hex,@ARGV)));' $string`
     engineidstr=`echo $string | sed 's/ //g'`
+}
+
+GETBOOTSANDTIME() {
+    boots=`$snmpget snmpEngineBoots.0 | awk '{print $NF}'`
+    time=`$snmpget snmpEngineTime.0 | awk '{print $NF}'`
 }
 
 MAKEUSEROID() {
@@ -296,6 +309,7 @@ TITLE "Send crypted packets." \
       "parse the agent debug output:"
 
 SETDEBUGGING 1
+
 TITLE "Perform a get with shark."
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l noAuthNoPriv -v 3 $host $sysUpTime
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
@@ -328,7 +342,7 @@ OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNo
 ## FIX: Change "FIXME" below to the proper error message to look for
 
 TITLE "Send malformed crypted packets and examine the result for proper information."
-OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "Authentication.Failure" snmpget -p 1600 -n default -u stingray -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
 
 #
 # Key Change
@@ -340,7 +354,7 @@ TITLE "Demonstrate KeyChange."\
 keychange=`encode_keychange -t md5 -N "new_$defpass" -O "$defpass" -E 0x$engineidstr`
 
 TITLE "changing stingray's auth and priv key"\
-      "(from $oldkey to $newkey using $keychange)"
+      "(using $keychange)"
 
 OKORFAIL "usmUserPrivKeyChange.$stingrayoid.=.+Hex:" $snmpset usmUserPrivKeyChange.$stingrayoid x $keychange
 OKORFAIL "usmUserAuthKeyChange.$stingrayoid.=.+Hex:" $snmpset usmUserAuthKeyChange.$stingrayoid x $keychange
@@ -349,7 +363,7 @@ TITLE "Perform a get using stingray to demonstrate it fails."\
       "(using old key)"
 
 ## FIX: change FIXME to proper error message
-OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authPriv -a MD5 -A "$defpass" -x DES -X "$defpass"  -v 3 $host $sysUpTime
+OKORFAIL "Authentication.Failure" snmpget -p 1600 -n default -u stingray -l authPriv -a MD5 -A "$defpass" -x DES -X "$defpass"  -v 3 $host $sysUpTime
 
 TITLE "Perform a get using stingray to demonstrate it succeeds." "(using new key)"
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
@@ -381,27 +395,33 @@ TITLE "Demonstrate proper judgement of time stamps."
 TITLE "Set the agent 200 seconds ahead of the client." \
       "snmpget and demonstrate the client updates its sense of time for the agent."
 
-## FIX: set agent 200 seconds ahead of client
-DOIT $asnmpget $sysUpTime
+GETBOOTSANDTIME
+
+DOIT $snmpset snmpEngineTime.0 i `expr $time + 300`
+OKORFAIL "sysUpTime.*Timeticks" snmpget -T $boots $time -s -R $AuthArgs $host $sysUpTime
 
 TITLE "Set the client 200 seconds behind the agent." \
       "snmpget and trace the 4 message exchange."
 
-## FIX: set client 200 seconds behind the client
-DOIT $asnmpget $sysUpTime
+GETBOOTSANDTIME # update us
+
+OKORFAIL "sysUpTime.*Timeticks" snmpget -T $boots `expr $time - 200 ` -s -R $AuthArgs $host $sysUpTime
 
 TITLE "Set the agent 200 seconds behind the client." \
       "snmpget and trace/demonstrate lack of time synchronization" \
       "and failure of the get."
 
-## FIX: set agent 200 seconds behind the client
-DOIT $asnmpget $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -T $boots `expr $time + 200 ` -s -R $AuthArgs $host $sysUpTime
 
 TITLE "Reboot the agent." \
       "snmpget and trace the 4 message exchange."
 
+STOPAGENT
+
+STARTAGENT
+
 ## FIX: reboot the agent, keep same boots/time
-DOIT $asnmpget $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -d -e $engineidstr -T $boots `expr $time + 200 ` -s -R $AuthArgs $host $sysUpTime
 
 #
 # Exit
