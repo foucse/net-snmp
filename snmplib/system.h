@@ -122,7 +122,7 @@ char *strcasestr(const char *, const char *);
 long strtol(const char *, char **, int);
 #endif
 #ifndef HAVE_STRTOUL
-unsigned long strtol(const char *, char **, int);
+unsigned long strtoul(const char *, char **, int);
 #endif
 #ifndef HAVE_SNPRINTF
 int snprintf(char *, size_t, const char *, ...);
