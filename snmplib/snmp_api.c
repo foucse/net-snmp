@@ -662,10 +662,6 @@ snmp_sess_open(in_session)
 	      session->contextEngineIDLen * sizeof(u_char));
       session->contextEngineID = cp;
 
-      if (session->engineBoots || session->engineTime) {
-	set_enginetime(session->contextEngineID, session->contextEngineIDLen,
-		       session->engineBoots, session->engineTime, TRUE);
-      }
     }
 
     if (session->contextName) {
@@ -895,6 +891,11 @@ snmp_sess_open(in_session)
 	    DEBUGP("%x", slp->session->contextEngineID[i]);
 	  DEBUGP("\n");
 	}
+      }
+      /* if boot/time supplied set it for this engineID */
+      if (session->engineBoots || session->engineTime) {
+	set_enginetime(session->contextEngineID, session->contextEngineIDLen,
+		       session->engineBoots, session->engineTime, TRUE);
       }
       if (create_user_from_session(slp->session) != SNMPERR_SUCCESS)
 	DEBUGP("snmp_sess_open(): failed(2) to create a new user from session\n");
