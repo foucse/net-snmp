@@ -953,7 +953,7 @@ handle_snmp_packet(int op, struct snmp_session *session, int reqid,
                    struct snmp_pdu *pdu, void *magic)
 {
     struct agent_snmp_session  *asp;
-    int status;
+    int status, access_ret;
     struct variable_list *var_ptr;
 #ifndef NEWAPI
     int allDone, i;
@@ -979,22 +979,36 @@ handle_snmp_packet(int op, struct snmp_session *session, int reqid,
 	return 1;
     }
 
-    if ( check_access(pdu) != 0) {
-        /* access control setup is incorrect */
-	send_easy_trap(SNMP_TRAP_AUTHFAIL, 0);
-        if (asp->pdu->version != SNMP_VERSION_1 && asp->pdu->version != SNMP_VERSION_2c) {
-            asp->pdu->errstat = SNMP_ERR_AUTHORIZATIONERROR;
-            asp->pdu->command = SNMP_MSG_RESPONSE;
-            snmp_increment_statistic(STAT_SNMPOUTPKTS);
-            if (! snmp_send( asp->session, asp->pdu ))
-	        snmp_free_pdu(asp->pdu);
-	    asp->pdu = NULL;
-	    remove_and_free_agent_snmp_session(asp);
-            return 1;
-        } else {
+    if ((access_ret = check_access(pdu)) != 0) {
+        if (access_ret == VACM_NOSUCHCONTEXT) {
+            /* rfc2573 section 3.2, step 5 says that we increment the
+               counter but don't return a response of any kind */
+               
+            /* we currently don't support unavailable contexts, as
+               there is no reason to that I currently know of */
+            snmp_increment_statistic(STAT_SNMPUNKNOWNCONTEXTS);
+
             /* drop the request */
             remove_and_free_agent_snmp_session( asp );
             return 0;
+        } else {
+            /* access control setup is incorrect */
+            send_easy_trap(SNMP_TRAP_AUTHFAIL, 0);
+            if (asp->pdu->version != SNMP_VERSION_1 &&
+                asp->pdu->version != SNMP_VERSION_2c) {
+                asp->pdu->errstat = SNMP_ERR_AUTHORIZATIONERROR;
+                asp->pdu->command = SNMP_MSG_RESPONSE;
+                snmp_increment_statistic(STAT_SNMPOUTPKTS);
+                if (! snmp_send( asp->session, asp->pdu ))
+                    snmp_free_pdu(asp->pdu);
+                asp->pdu = NULL;
+                remove_and_free_agent_snmp_session(asp);
+                return 1;
+            } else {
+                /* drop the request */
+                remove_and_free_agent_snmp_session( asp );
+                return 0;
+            }
         }
     }
 
