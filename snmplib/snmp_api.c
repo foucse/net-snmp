@@ -978,6 +978,12 @@ snmpv3_build(session, pdu, packet, out_length)
     memcpy(cp, sec_param_buf, sec_param_buf_len);
     cp += sec_param_buf_len;
     memcpy(cp, msg_buf, msg_buf_len);
+    cp += msg_buf_len;
+
+    /* insert actual length */
+    asn_build_sequence(packet, &length, 
+		       (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
+		       cp - msg_hdr_e);
 
     *out_length = cp - packet;
     snmp_errno = 0;
