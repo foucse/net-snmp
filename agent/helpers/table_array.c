@@ -85,6 +85,26 @@ extract_array_context(request_info *request)
     return request_get_list_data(request, TABLE_ARRAY_NAME);
 }
 
+const oid_array_header*
+table_array_get_by_index(handler_registration *reginfo,
+                         oid_array_header * hdr)
+{
+    table_array_data* tad;
+    
+    if(!reginfo ||
+       !reginfo->handler ||
+       ! reginfo->handler->next ||
+       ! reginfo->handler->next->myvoid )
+        return NULL;
+
+    tad = (table_array_data*)
+        reginfo->handler->next->myvoid;
+    if(!tad->array)
+        return NULL;
+
+    return Get_oid_data( tad->array, hdr, 1 );
+}
+
 /**********************************************************************
  **********************************************************************
  **********************************************************************
@@ -102,7 +122,6 @@ extract_array_context(request_info *request)
  **********************************************************************
  **********************************************************************
  **********************************************************************/
-
 
 /**********************************************************************
  **********************************************************************
@@ -424,22 +443,17 @@ process_set_group( oid_array_header* o, void *c )
 
     switch(context->agtreq_info->mode) {
 
-    case MODE_SET_RESERVE1:
+    case MODE_SET_RESERVE1: /** -> SET_RESERVE2 || SET_FREE */
         if(context->tad->cb->set_reserve1)
             /**context->status =*/ context->tad->cb->set_reserve1( ag );
         break;
         
-    case MODE_SET_RESERVE2:
+    case MODE_SET_RESERVE2: /** -> SET_ACTION || SET_FREE */
         if(context->tad->cb->set_reserve2)
             /**context->status =*/ context->tad->cb->set_reserve2( ag );
         break;
         
-    case MODE_SET_ACTION:
-        if(context->tad->cb->set_action)
-            /**context->status =*/ context->tad->cb->set_action( ag );
-        break;
-        
-    case MODE_SET_COMMIT:
+    case MODE_SET_ACTION: /** -> SET_COMMIT || SET_UNDO */
         if(ag->old_row) {
             /** remove or replace */
             if(ag->new_row) {
@@ -453,30 +467,33 @@ process_set_group( oid_array_header* o, void *c )
             /** insert new row */
             Add_oid_data(ag->table,ag->new_row);
         }
-        ag->new_row = NULL;
         
-        if(context->tad->cb->set_commit)
-            /**context->status =*/ context->tad->cb->set_commit( ag );
+        if(context->tad->cb->set_action)
+            /**context->status =*/ context->tad->cb->set_action( ag );
         break;
         
-    case MODE_SET_FREE:
-        if(context->tad->cb->set_free)
-            /**context->status =*/ context->tad->cb->set_free( ag );
+    case MODE_SET_COMMIT: /** FINAL CHANCE ON SUCCESS */
+        if(context->tad->cb->set_commit)
+            /**context->status =*/ context->tad->cb->set_commit( ag );
 
-        if(ag->new_row && context->tad->cb->delete_row) {
-            context->tad->cb->delete_row(ag->new_row);
-            ag->new_row = NULL;
-        }
-
+        /** old row inserted in action, so delete old one */
         if(ag->old_row && context->tad->cb->delete_row) {
             context->tad->cb->delete_row(ag->old_row);
             ag->old_row = NULL;
         }
-
         break;
         
-    case MODE_SET_UNDO:
-        ag->new_row = Get_oid_data(ag->table, ag, 1 );
+    case MODE_SET_FREE: /** FINAL CHANCE ON FAILURE */
+        if(context->tad->cb->set_free)
+            /**context->status =*/ context->tad->cb->set_free( ag );
+
+        if(ag->old_row && context->tad->cb->delete_row) {
+            context->tad->cb->delete_row(ag->new_row);
+            ag->new_row = NULL;
+        }
+        break;
+        
+    case MODE_SET_UNDO: /** FINAL CHANCE ON FAILURE */
         if(ag->new_row) {
             /** remove or replace */
             if(ag->old_row) {
@@ -492,11 +509,14 @@ process_set_group( oid_array_header* o, void *c )
             /** insert old row */
             Add_oid_data(ag->table,ag->old_row);
         }
-        ag->old_row = NULL;
-        
         /** status already set - don't change it now */
         if(context->tad->cb->set_undo)
             context->tad->cb->set_undo( ag );
+
+        if(ag->new_row && context->tad->cb->delete_row) {
+            context->tad->cb->delete_row(ag->new_row);
+            ag->new_row = NULL;
+        }
         break;
         
     default:
