@@ -107,6 +107,8 @@ int			snmp_transport_support	(const oid *in_oid,
 						 size_t *out_len);
 						 
 
+snmp_transport *
+snmp_transport_parse(char *peername, int local_port, struct snmp_session *session);
 
 #ifdef __cplusplus
 }
