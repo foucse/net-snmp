@@ -526,7 +526,6 @@ snmp_sess_open(in_session)
     struct hostent *hp;
     struct snmp_pdu *pdu, *response;
     int status, i;
-    struct usmUser *user;
 
     if (! servp)
       servp = getservbyname("snmp", "udp");
@@ -809,8 +808,20 @@ snmp_sess_open(in_session)
        handled correctly */
     if (session->version == SNMP_VERSION_3 &&
 	session->contextEngineIDLen == 0) {
-      DEBUGP("probing for engineID...\n");
       snmpv3_build_probe_pdu(&pdu);
+      /* create a USM user with a null engineID first */
+      if (usm_get_user(session->contextEngineID, session->contextEngineIDLen,
+                       pdu->securityName) == NULL) {
+        cp = session->securityName;
+        i = session->securityNameLen;
+        session->securityName = pdu->securityName;
+        session->securityNameLen = pdu->securityNameLen;
+        if (create_user_from_session(session) != SNMPERR_SUCCESS)
+          DEBUGP("snmp_sess_open(): failed to create a new user from session");
+        session->securityName = cp;
+        session->securityNameLen = i;
+      }
+      DEBUGP("probing for engineID...\n");
       status = snmp_sess_synch_response(slp, pdu, &response);
 
       if ((response == NULL) && (status == STAT_SUCCESS)) status = STAT_ERROR;
@@ -843,84 +854,101 @@ snmp_sess_open(in_session)
           DEBUGP("%x", slp->session->contextEngineID[i]);
         DEBUGP("\n");
       }
+      if (create_user_from_session(slp->session) != SNMPERR_SUCCESS)
+        DEBUGP("snmp_sess_open(): failed(2) to create a new user from session");
     }
-
-    /* now that we have the engineID, create an entry in the USM list
-       for this user using the information in the session */
-    user = usm_get_user(slp->session->contextEngineID,
-                        slp->session->contextEngineIDLen,
-                        slp->session->securityName);
-    if (user == NULL) {
-      /* user doesn't exist so we create and add it */
-      user = (struct usmUser *) SNMP_MALLOC(sizeof(struct usmUser));
-      if (user == NULL)
-        return (void *)slp;
-
-      /* copy in the securityName */
-      if (slp->session->securityName) {
-        user->name = strdup(slp->session->securityName);
-        user->secName = strdup(slp->session->securityName);
-        if (user->name == NULL || user->secName == NULL) {
-          usm_free_user(user);
-          return (void *)slp;
-        }
-      }
-
-      /* copy in the engineID */
-      if (memdup(&user->engineID, slp->session->contextEngineID,
-                 slp->session->contextEngineIDLen) != SNMPERR_SUCCESS) {
-        usm_free_user(user);
-        return (void *)slp;
-      }
-      user->engineIDLen = slp->session->contextEngineIDLen;
-
-      /* copy the auth protocol */
-      if (slp->session->securityAuthProto != NULL) {
-        user->authProtocol =
-          snmp_duplicate_objid(slp->session->securityAuthProto,
-                               slp->session->securityAuthProtoLen);
-        if (user->authProtocol == NULL) {
-          usm_free_user(user);
-          return (void *)slp;
-        }
-        user->authProtocolLen = slp->session->securityAuthProtoLen;
-      }
-
-      /* copy the priv protocol */
-      if (slp->session->securityPrivProto != NULL) {
-        user->privProtocol =
-          snmp_duplicate_objid(slp->session->securityPrivProto,
-                               slp->session->securityPrivProtoLen);
-        if (user->privProtocol == NULL) {
-          usm_free_user(user);
-          return (void *)slp;
-        }
-        user->privProtocolLen = slp->session->securityPrivProtoLen;
-      }
-
-      /* copy in the authentication Key */
-      if (memdup(&user->authKey, slp->session->securityAuthKey,
-                 slp->session->securityAuthKeyLen) != SNMPERR_SUCCESS) {
-        usm_free_user(user);
-        return (void *)slp;
-      }
-      user->authKeyLen = slp->session->securityAuthKeyLen;
-
-      /* copy in the privacy Key */
-      if (memdup(&user->privKey, slp->session->securityPrivKey,
-                 slp->session->securityPrivKeyLen) != SNMPERR_SUCCESS) {
-        usm_free_user(user);
-        return (void *)slp;
-      }
-      user->privKeyLen = slp->session->securityPrivKeyLen;
-
-      /* add the user into the database */
-      usm_add_user(user);
-    }
-
     return (void *)slp;
 }
 
+/* create_user_from_session(struct snmp_session *session):
+
+   creates a user in the usm table from the information in a session
+
+   Parameters:
+        session -- IN: pointer to the session to use when creating the user.
+
+   Returns:
+        SNMPERR_SUCCESS
+        SNMPERR_GENERR
+*/
+int
+create_user_from_session(struct snmp_session *session) {
+  struct usmUser *user;
+
+  /* now that we have the engineID, create an entry in the USM list
+     for this user using the information in the session */
+  user = usm_get_user(session->contextEngineID,
+                      session->contextEngineIDLen,
+                      session->securityName);
+  if (user == NULL) {
+    /* user doesn't exist so we create and add it */
+    user = (struct usmUser *) SNMP_MALLOC(sizeof(struct usmUser));
+    if (user == NULL)
+      return SNMPERR_GENERR;
+
+    /* copy in the securityName */
+    if (session->securityName) {
+      user->name = strdup(session->securityName);
+      user->secName = strdup(session->securityName);
+      if (user->name == NULL || user->secName == NULL) {
+        usm_free_user(user);
+        return SNMPERR_GENERR;
+      }
+    }
+
+    /* copy in the engineID */
+    if (memdup(&user->engineID, session->contextEngineID,
+               session->contextEngineIDLen) != SNMPERR_SUCCESS) {
+      usm_free_user(user);
+      return SNMPERR_GENERR;
+    }
+    user->engineIDLen = session->contextEngineIDLen;
+
+    /* copy the auth protocol */
+    if (session->securityAuthProto != NULL) {
+      user->authProtocol =
+        snmp_duplicate_objid(session->securityAuthProto,
+                             session->securityAuthProtoLen);
+      if (user->authProtocol == NULL) {
+        usm_free_user(user);
+        return SNMPERR_GENERR;
+      }
+      user->authProtocolLen = session->securityAuthProtoLen;
+    }
+
+    /* copy the priv protocol */
+    if (session->securityPrivProto != NULL) {
+      user->privProtocol =
+        snmp_duplicate_objid(session->securityPrivProto,
+                             session->securityPrivProtoLen);
+      if (user->privProtocol == NULL) {
+        usm_free_user(user);
+        return SNMPERR_GENERR;
+      }
+      user->privProtocolLen = session->securityPrivProtoLen;
+    }
+
+    /* copy in the authentication Key */
+    if (memdup(&user->authKey, session->securityAuthKey,
+               session->securityAuthKeyLen) != SNMPERR_SUCCESS) {
+      usm_free_user(user);
+      return SNMPERR_GENERR;
+    }
+    user->authKeyLen = session->securityAuthKeyLen;
+
+    /* copy in the privacy Key */
+    if (memdup(&user->privKey, session->securityPrivKey,
+               session->securityPrivKeyLen) != SNMPERR_SUCCESS) {
+      usm_free_user(user);
+      return SNMPERR_GENERR;
+    }
+    user->privKeyLen = session->securityPrivKeyLen;
+
+    /* add the user into the database */
+    usm_add_user(user);
+  }
+  return  SNMPERR_SUCCESS;
+}
 
 /*
  * Free each element in the input request list.
@@ -1049,13 +1077,31 @@ static int
 snmpv3_build_probe_pdu (pdu)
      struct snmp_pdu **pdu;
 {
+  struct usmUser *user;
+
+  /* create the pdu */
   if (!pdu) return -1;
   *pdu = snmp_pdu_create(SNMP_MSG_GET);
   (*pdu)->version = SNMP_VERSION_3;
   (*pdu)->securityName = strdup("initial");
-  (*pdu)->securityNameLen = strlen("initial");
+  (*pdu)->securityNameLen = strlen((*pdu)->securityName);
   (*pdu)->securityLevel = SNMP_SEC_LEVEL_NOAUTH;
   (*pdu)->securityModel = SNMP_SEC_MODEL_USM;
+
+  /* create the empty user */
+  user = usm_get_user(NULL, 0, (*pdu)->securityName);
+  if (user == NULL) {
+    user = (struct usmUser *) SNMP_MALLOC(sizeof(struct usmUser));
+    user->name = strdup((*pdu)->securityName);
+    user->secName = strdup((*pdu)->securityName);
+    user->authProtocolLen = sizeof(usmNoAuthProtocol)/sizeof(oid);
+    user->authProtocol =
+      snmp_duplicate_objid(usmNoAuthProtocol, user->authProtocolLen);
+    user->privProtocolLen = sizeof(usmNoPrivProtocol)/sizeof(oid);
+    user->privProtocol =
+      snmp_duplicate_objid(usmNoPrivProtocol, user->privProtocolLen);
+    usm_add_user(user);
+  }
   return 0;
 }
 
@@ -1545,6 +1591,7 @@ snmpv3_parse(pdu, data, length, after_header)
   u_char *msg_data;
   u_char *cp;
   int asn_len, msg_len, sec_params_len, ret;
+  int ret_val;
 
   msg_data = data;
   msg_len = *length;
@@ -1628,12 +1675,18 @@ snmpv3_parse(pdu, data, length, after_header)
   pdu->securityName = malloc(SNMP_MAX_SEC_NAME_SIZE);
   pdu->securityNameLen = SNMP_MAX_SEC_NAME_SIZE;
   cp = pdu_buf;
-  usm_process_in_msg(SNMP_VERSION_3, msg_max_size, sec_params,
-                     msg_sec_model, pdu->securityLevel, msg_data, msg_len,
-		     pdu->contextEngineID, &pdu->contextEngineIDLen,
-		     pdu->securityName, &pdu->securityNameLen,
-		     &cp, &pdu_buf_len, &max_size_response, NULL);
+  ret_val = 
+    usm_process_in_msg(SNMP_VERSION_3, msg_max_size, sec_params,
+                       msg_sec_model, pdu->securityLevel, msg_data, msg_len,
+                       pdu->contextEngineID, &pdu->contextEngineIDLen,
+                       pdu->securityName, &pdu->securityNameLen,
+                       &cp, &pdu_buf_len, &max_size_response, NULL);
 
+  if (ret_val != USM_ERR_NO_ERROR) {
+    snmp_errno = ret_val;
+    return -1;
+  }
+  
   /* parse plaintext ScopedPDU sequence */
   asn_len = *length = pdu_buf_len;
   data = asn_parse_header(cp, &asn_len, &type);
@@ -1713,7 +1766,7 @@ snmp_parse(session, pdu, data, length)
     switch (pdu->version) {
     case SNMP_VERSION_1:
     case SNMP_VERSION_2c:
-        DEBUGP("parsing SNMPv%d message\n", pdu->version);
+        DEBUGP("parsing SNMPv%d message\n", (1 + pdu->version));
 
 	/* authenticates message and returns length if valid */
 	data = snmp_comstr_parse(data, &length,
@@ -2217,7 +2270,7 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
                         session->community_len);
 	    pdu->community_len = session->community_len;
 	}
-        DEBUGP("building SNMPv%d message\n", pdu->version);
+        DEBUGP("building SNMPv%d message\n", (1 + pdu->version));
         break;
 
     case SNMP_VERSION_2p:
@@ -2281,8 +2334,9 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	  session->s_snmp_errno = SNMPERR_BAD_CONTEXT;
 	  return 0;
 	}
-	pdu->contextName = (u_char*)malloc((unsigned)session->contextNameLen *
-					   sizeof(u_char));
+	pdu->contextName =
+          (u_char*)SNMP_MALLOC(((unsigned)session->contextNameLen + 1) *
+                          sizeof(u_char));
 	if (pdu->contextName == NULL) {
 	  snmp_errno = SNMPERR_GENERR;
 	  session->s_snmp_errno = SNMPERR_GENERR;
@@ -2293,14 +2347,15 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	pdu->contextNameLen = session->contextNameLen;
       }
 
-      if (pdu->securityNameLen == 0) {
+      if (pdu->securityNameLen < 0) {
 	if (session->securityNameLen == 0){
 	  snmp_errno = SNMPERR_BAD_SEC_NAME;
 	  session->s_snmp_errno = SNMPERR_BAD_SEC_NAME;
 	  return 0;
 	}
 	pdu->securityName =
-	  (u_char*)malloc((unsigned)session->securityNameLen * sizeof(u_char));
+	  (u_char*)SNMP_MALLOC(((unsigned)session->securityNameLen + 1) *
+                               sizeof(u_char));
 	if (pdu->securityName == NULL) {
 	  snmp_errno = SNMPERR_GENERR;
 	  session->s_snmp_errno = SNMPERR_GENERR;
@@ -2522,9 +2577,24 @@ snmp_sess_read(sessp)
     pdu = (struct snmp_pdu *)malloc(sizeof(struct internal_snmp_pdu));
     memset (pdu, 0, sizeof(*pdu));
     pdu->address = from;
-    if (snmp_parse(sp, (struct internal_snmp_pdu *)pdu, packet, length) != SNMP_ERR_NOERROR){
+    /* XXX: special hack to deal with report pdu type (we think)
+       for returning an engineID discovery, which doesn't have a
+       corresponding USM entry */
+    if (snmp_parse(sp, (struct internal_snmp_pdu *)pdu, packet, length)
+        != SNMP_ERR_NOERROR &&
+        !(snmp_errno == USM_ERR_UNKNOWN_SECURITY_NAME && pdu->command == 0)){
 	snmp_free_internal_pdu(pdu);
 	return;
+    }
+
+    if (snmp_errno == USM_ERR_UNKNOWN_SECURITY_NAME &&
+        pdu->command == 0) {
+      /* XXX: special hack to deal with report pdu type (we think)
+         for returning an engineID discovery, which doesn't have a
+         corresponding USM entry */
+      /* the pdu type is never set to report by the parse, so we must
+         force it */
+      pdu->command = SNMP_MSG_REPORT;
     }
 
     if (pdu->command == SNMP_MSG_RESPONSE || pdu->command == SNMP_MSG_REPORT){

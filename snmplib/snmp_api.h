@@ -400,6 +400,7 @@ oid  *snmp_duplicate_objid(oid *objToCopy, int);
 u_int snmp_increment_statistic(int which);
 u_int snmp_get_statistic(int which);
 void  snmp_init_statistics(void);
+int create_user_from_session(struct snmp_session *session);
 
 #ifdef __STDC__
 void DEBUGP __P((const char *, ...));
