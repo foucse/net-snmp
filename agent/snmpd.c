@@ -810,8 +810,10 @@ snmp_read_packet(int sd)
     fromlength = sizeof from;
     length = recvfrom(sd, (char *) packet, 1500, 0, (struct sockaddr *)&from,
 		      &fromlength);
-    if (length == -1)
+    if (length == -1) {
 	perror("recvfrom");
+	return 0;
+    }
 
 #ifdef USE_LIBWRAP
 	addr_string = inet_ntoa(from.sin_addr);
