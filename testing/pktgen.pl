@@ -2,6 +2,7 @@
 use Convert::BER(BER_CONSTRUCTOR,BER_CONTEXT);
 use Getopt::Std;
 use Socket;
+use SSLeay;
 
 my $pktTmpl = 
 { TAG => snmpV3Msg,
@@ -96,6 +97,12 @@ my $pktTmpl =
 		] },
 	] };
 
+my @pkt_post_process_stack;
+sub pkt_push_post_process {
+    my $sub = shift;
+
+    unshift(@pkt_post_process_stack,$sub);
+}
 
 sub pkt_read_packet_data {
     my $file = shift;
@@ -133,6 +140,15 @@ sub pkt_read_packet_data {
     close DATA;
     
     return \%data;
+}
+sub pkt_cvt_hex {
+    my $val = shift;
+    my $size = shift || '*';
+
+    $val =~ s/0[xX]//;
+    $val =~ s/\s*//g;
+    
+    pack("H$size",$val) ;
 }
 
 sub pkt_resolve_field {
@@ -198,8 +214,7 @@ sub pkt_resolve_field {
 	    my $size = $obj->{SIZE} || '*';
 	    if ($val =~ s/^0[xX]//) {
 		$size = $size * 2 unless $size eq  '*';
-		$val =~ s/\s*//g;
-		$val = pack("H$size",$val);
+		$val = pkt_cvt_hex($val, $size);
 	    } elsif ($val =~ /^(\".*\"|\'.*\')$/) {
 		$val = eval($val);
 		$val = pack("a$size",$val);
@@ -220,8 +235,7 @@ sub pkt_resolve_field {
 	    my $size = $obj->{SIZE} || '*';
 	    if ($val =~ s/^0[xX]//) {
 		$size = $size * 2 unless $size eq  '*';
-		$val =~ s/\s*//g;
-		my $tval = pack("H$size",$val);
+		my $tval = pkt_cvt_hex($val, $size);
 		$val = sub {new Convert::BER($tval)};
 	    } elsif ($val =~ /^\[.*\]$/) {
 		print "pkt_resolve_field: resolving BER $val\n" if $opt_D;
@@ -245,10 +259,9 @@ sub pkt_resolve_field {
 	    }
 	    if ($val =~ s/^0[xX]//) {
 		$size = $size * 2 unless $size eq '*';
-		$val =~ s/\s*//g;
 		print "pkt_resolve_field: octets (val=>$val, size=>$size)\n" 
 		    if $opt_D;
-		my $tval = pack("H$size",$val) ;
+		my $tval = pkt_cvt_hex($val, $size);
 		$val = sub {new Convert::BER($tval)};
 	    } elsif ($val =~ /^(\".*\"|\'.*\')$/) {
 		$val = eval($val);
@@ -276,8 +289,7 @@ sub pkt_resolve_field {
 	    my $size = $obj->{SIZE};
 	    $size = ($size ? $size * 2 : '*');
 	    if ($val =~ s/^0[xX]//) {
-		$val =~ s/\s*//g;
-		my $tval = pack("H$size",$val) ;
+		my $tval = pkt_cvt_hex($val, $size);
 		$val = sub {new Convert::BER($tval);};
 	    } elsif ($val =~ /^(\".*\"|\'.*\')$/) {
 		$val = eval($val);
@@ -364,7 +376,13 @@ sub pkt_encode_ber_packet {
 
     my $ber = new Convert::BER();
     $ber->encode(@{$ber_args});
-    print $ber->error;
+    
+    foreach my $sub (@pkt_post_process_stack) {
+	&$sub($ber); # all post process subs are passed 'ber'
+    }
+
+    print $ber->error() if $opt_D and $ber->error();
+
     return $ber;
 }
 
@@ -422,11 +440,125 @@ sub pkt_exchange_packet {
     return undef;
 }
 
+sub pkt_gen_ku {
+    my $proto = shift;
+    my $pass = shift;
+    my $len = length($pass);
+
+    print "pkt_gen_ku: called ($proto, $pass)\n";
+    return undef unless $len;
+    
+    $meg = 1048576;
+    $md = new SSLeay::MD($proto);
+    $md->init();
+    $pass .= $pass x ($meg / $len);
+    $md->update(substr($pass,$offset,$meg));
+    my $final = $md->final();
+
+    print "pkt_gen_ku: genrating Ku-$proto (",
+       substr($pass,0,$len),"): ",
+       join(" ", "0x", map {sprintf "%02X", $_;} 
+	    unpack("C*", $final)),
+       "\n" if $opt_D;
+
+    return $final;
+}
+
+sub pkt_gen_kul {
+    my $proto = shift;
+    my $ku = shift;
+    my $engine_id = shift;
+
+    if ($proto eq 'md5') {
+	$blen = 16;
+    } elsif ($proto eq 'sha1') {
+	$blen = 20;
+    } else {
+	return undef;
+    }
+    $ku = substr($ku,0,$blen);
+    my $key = "$ku$engine_id$ku";
+
+    $md = new SSLeay::MD($proto);
+    $md->init();
+    $md->update($key);
+    my $final = $md->final();
+
+    print "pkt_gen_kul: generating Kul-$proto (from Ku) : ",
+       join(" ", "0x", map {sprintf "%02X", $_;} 
+	    unpack("C*", $final)),
+       "\n" if $opt_D;
+
+    return $final;
+}
+
+sub pkt_find_field_pos {
+    my $ber = shift;
+    my $field = shift;
+    my $tmpl = shift;
+    my $tag = $tmpl->{TAG};
+
+    print "pkt_find_field_pos: searching for $field in $tag at ", 
+    $ber->pos(), "\n" if $opt_D;
+    return $ber->pos() if $tag eq $field;
+
+    my $ber_tag = $ber->unpack_tag();
+    my $len = $ber->unpack_length();
+
+    my $def = $tmpl->{DEF};
+    if (defined $def) {
+	foreach my $sub_obj (@{$def}) {
+	    my $result = pkt_find_field_pos($ber,$field,$sub_obj);
+	    return $result if defined $result;
+	} 
+    } else {
+	$ber->pos($ber->pos() + $len);
+    }
+    return undef;
+}
+
 sub pkt_auth_param {
     my $auth_proto = shift;
     my $passphrase = shift;
+    my $engine_id = shift;
 
-    print "pkt_auth_param: $auth_proto, $passphrase\n";
+    my $ku = pkt_gen_ku($auth_proto,$passphrase);
+    $engine_id = pkt_cvt_hex($engine_id);
+    my $kul = pkt_gen_kul($auth_proto,$ku,$engine_id);
+    
+    my $extAuthKey = pack("a64",$kul);
+    my $ipad = pack("C*",map {0x36} (1..64));
+    my $k1 = $extAuthKey ^ $ipad;
+    my $opad = pack("C*",map {0x5C} (1..64));
+    my $k2 = $extAuthKey ^ $opad;
+
+    my $post_sub = 
+	sub {
+	    my $ber = shift; # all post process subs are passed 'ber'
+	    
+	    my $md = new SSLeay::MD($auth_proto);
+	    $md->update($k1);
+	    $md->update($ber->buffer());
+	    my $digest = $md->final();
+
+	    $md->init();
+	    $md->update($k2);
+	    $md->update($digest);
+	    $digest = $md->final();
+
+	    $digest = substr($digest,0,12);
+	    print "pkt_auth_param:anon: generating authParam : ",
+	       join(" ", "0x", map {sprintf "%02X", $_;} 
+		    unpack("C*", $digest)),
+	    "\n" if $opt_D;	    
+	    my $pos = pkt_find_field_pos($ber, 'msgAuthParam', $pktTmpl);
+	    return unless defined $pos;
+	    my $buffer = $ber->buffer();
+	    substr($buffer,$pos+2,12) = $digest;
+	    $ber->buffer($buffer);
+	};
+    pkt_push_post_process($post_sub);
+    print "pkt_auth_param: $auth_proto, $passphrase\n" if $opt_D;
     return "0x000000000000000000000000";
 }
 
