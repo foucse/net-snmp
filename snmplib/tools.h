@@ -58,6 +58,7 @@ void	free_zero __P((void *buf, u_long size));
 
 char   *malloc_random __P((int *size));
 char   *malloc_zero __P((u_long size));
+int     memdup __P((u_char **to, u_char *from, u_int size));
 
 u_int	binary_to_hex __P((char *input, u_long len, char **output));
 int	hex_to_binary2 __P((char *input, u_long len, char **output));
