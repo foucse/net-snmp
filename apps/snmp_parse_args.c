@@ -421,10 +421,10 @@ snmp_parse_args(argc, argv, session)
 
       case 'X':
         if (argv[arg][2] != 0)
-          psz = &(argv[arg][2]);
+          Xpsz = &(argv[arg][2]);
         else
-          psz = argv[++arg];
-        if( psz == NULL) {
+          Xpsz = argv[++arg];
+        if( Xpsz == NULL) {
           fprintf(stderr,"Need privacy pass phrase value after -X flag. \n");
           usage();
           exit(1);
