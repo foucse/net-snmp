@@ -456,7 +456,7 @@ var_hrswrun(struct variable *vp,
 	    sprintf( string, "/proc/%d/cmdline", pid );
 	    if ((fp = fopen( string, "r")) == NULL) return NULL;
 	    memset( buf, 0, sizeof(buf) );
-	    fgets( buf, sizeof(buf), fp );   /* argv[0] '\0' argv[1] '\0' .... */
+	    fgets( buf, sizeof(buf)-1, fp );   /* argv[0] '\0' argv[1] '\0' .... */
 
 		/* Skip over argv[0] */
 	    cp = buf;
