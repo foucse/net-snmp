@@ -45,7 +45,7 @@ void config_pwarn __P((char *));
 char *skip_white __P((char *));
 char *skip_not_white __P((char *));
 char *skip_token(char *ptr);
-void copy_word __P((char *, char *));
+char *copy_word __P((char *, char *));
 void read_config_with_type __P((char *, char *));
 struct config_line *register_config_handler __P((char *, char *,
                                                  void (*parser)(char *, char *),

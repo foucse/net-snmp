@@ -422,11 +422,12 @@ char *skip_token(char *ptr)
   return (ptr);
 }
 
-void copy_word(from, to)
+char *copy_word(from, to)
      char *from, *to;
 {
   while (*from != 0 && !isspace(*from)) *(to++) = *(from++);
   *to = 0;
+  return from;
 }
 
 
