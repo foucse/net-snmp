@@ -530,4 +530,4 @@ void   snmp_sess_error      __P((void *, int *, int *, char **));
 #define  STAT_SNMP_STATS_START              STAT_SNMPINPKTS
 #define  STAT_SNMP_STATS_END                STAT_SNMPOUTTRAPS
 
-#define  STAT_MAX_STATS                            35
+#define  MAX_STATS                            35
