@@ -506,8 +506,7 @@ dump_snmpEngineID_quit:
  * FIX	Put HAVE_TCGETATTR in autoconf?
  */
 #ifndef HAVE_GETPASS
-/* #ifdef HAVE_TCGETATTR */
-#if 1
+#ifdef HAVE_TCGETATTR
 #include <termios.h>
 int
 snmp_ttyecho(const int fd, const int echo)
