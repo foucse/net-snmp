@@ -180,7 +180,7 @@ EM(-1); /* */
 	/*
 	 * Sanity check.
 	 */
-	if ( !hashtype || !engineID || !Ku || *Kul || !kul_len
+	if ( !hashtype || !engineID || !Ku || !Kul || !kul_len
 		|| (engineID_len<=0) || (ku_len<=0) || (*kul_len<=0)
 		|| (hashtype_len != USM_LENGTH_OID_TRANSFORM) )
 	{
