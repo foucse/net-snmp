@@ -543,7 +543,7 @@ TITLE "Demonstrate engineID and time discovery." "snmpget -noAuthNoPriv- to an a
 OKORFAIL "sysUpTime.*Timeticks" snmpget -s -R $noAuthArgs -d $host $sysUpTime
 
 TITLE "snmpget -AuthNoPriv- to an agent that is not pre-configured." 	"Note: Trace the 6 message exchange."
-OKORFAIL "sysUpTime.*Timeticks" snmpget -s -R $AuthArgs -d $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -s -T 0 1 -R $AuthArgs -d $host $sysUpTime
 
 #
 # Proper time stamp handling.
