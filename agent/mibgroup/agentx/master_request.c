@@ -363,8 +363,6 @@ finish:
 }
 
 
-
-
 	/*
 	 * Return the request for this subagent transaction
 	 *   (creating a new one if necessary)

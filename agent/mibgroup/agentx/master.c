@@ -208,8 +208,7 @@ agentx_got_response( int operation,
             set_request_error(cache->reqinfo, requests, /* XXXWWW: should be index=0 */
                               SNMP_ERR_GENERR);
             ax_session = (struct snmp_session *) cache->localinfo;
-            free_agent_snmp_session_by_session(ax_session,
-                                               fully_free_agentx_request);
+            free_agent_snmp_session_by_session(ax_session, NULL);
             return 0;
         }
 
@@ -405,38 +404,3 @@ agentx_master_handler(
     return SNMP_ERR_NOERROR;
 }
 
-u_char *
-agentx_var(struct variable *vp,
-           oid *name,
-           size_t *length,
-           int exact,
-           size_t *var_len,
-           WriteMethod **write_method)
-{
-    int result;
-    AddVarMethod *add_method;
-
-    DEBUGMSGTL(("agentx/master", "%sexact request to pass to client: ",
-		exact?"":"in"));
-    DEBUGMSGOID(("agentx/master", name, *length));
-    DEBUGMSG(("agentx/master", "\n"));
-	/*
-	 * If the requested OID precedes the area of responsibility
-	 * of this subagent (and hence it's presumable a non-exact match),
-	 * then update the "matched" name to be the starting point
-	 */
-        /* XXX shouldn't we check exact in this case? */
-    result = snmp_oid_compare(name, *length, vp->name, vp->namelen);
-    if (result < 0) {
-	memcpy((char *)name, (char *)vp->name, vp->namelen*sizeof(oid));
-	*length = vp->namelen;
-    }
-				/* Return a pointer to an appropriate method */
-    add_method  = agentx_add_request;
-    *var_len = sizeof( add_method );
-    return (u_char*)add_method;
-}
-
-struct variable2 agentx_varlist[] = {
-  {0, ASN_PRIV_DELEGATED, RWRITE /* or RONLY ? */, agentx_var, 0, {0}}
-};

@@ -208,6 +208,8 @@ u_char		return_buf[256]; /* nee 64 */
 #endif
 
 struct timeval	starttime;
+struct snmp_session *callback_master_sess;
+int callback_master_num;
 
 /* init_agent() returns non-zero on error */
 int
@@ -234,6 +236,13 @@ init_agent (const char *app)
 #ifdef TESTING
   auto_nlist_print_tree(-2, 0);
 #endif
+
+  /* always register a callback transport for internal use */
+  callback_master_sess = snmp_callback_open(0, handle_snmp_packet,
+                                            snmp_check_packet,
+                                            snmp_check_parse);
+  callback_master_num = callback_master_sess->local_port;
+
 
   /* initialize agentx subagent if necessary. */
 #ifdef USING_AGENTX_SUBAGENT_MODULE

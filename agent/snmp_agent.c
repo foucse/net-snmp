@@ -88,6 +88,7 @@ SOFTWARE.
 
 #include "snmp_transport.h"
 #include "snmpUDPDomain.h"
+#include "snmpCallbackDomain.h"
 #ifdef SNMP_TRANSPORT_UNIX_DOMAIN
 #include "snmpUnixDomain.h"
 #endif
@@ -168,6 +169,81 @@ static void dump_var (
   }
 }
 
+typedef struct agent_set_cache_s {
+   /* match on these 2 */
+   int			  transID;
+   struct snmp_session   *sess;
+
+   /* store this info */
+   tree_cache **treecache;
+   int treecache_len;
+   int treecache_num;
+
+   request_info         *requests;
+   data_list            *agent_data;
+
+   /* list */
+   struct agent_set_cache_s *next;
+} agent_set_cache;
+
+static agent_set_cache *Sets = NULL;
+
+agent_set_cache *
+save_set_cache( struct agent_snmp_session  *asp)
+{
+    agent_set_cache *ptr;
+
+    ptr = SNMP_MALLOC_TYPEDEF(agent_set_cache);
+    if (ptr == NULL )
+	return NULL;
+
+    /* Save the important information */
+    ptr->transID       = asp->pdu->transid;
+    ptr->sess          = asp->session;
+    ptr->treecache     = asp->treecache;
+    ptr->treecache_len = asp->treecache_len;
+    ptr->treecache_num = asp->treecache_num;
+    ptr->agent_data    = asp->reqinfo->agent_data;
+
+    /* make the agent forget about what we've saved */
+    asp->treecache = NULL;
+    asp->reqinfo->agent_data = NULL;
+    
+    ptr->next = Sets;
+    Sets = ptr;
+
+    return ptr;
+}
+
+void
+get_set_cache( struct agent_snmp_session *asp )
+{
+    agent_set_cache *ptr, *prev=NULL;
+
+    for ( ptr=Sets ; ptr != NULL ; ptr=ptr->next ) {
+	if ( ptr->sess == asp->session && ptr->transID == asp->pdu->transid ) {
+	    if ( prev )
+		prev->next = ptr->next;
+	    else
+		Sets = ptr->next;
+
+            /* found it.  Get the needed data */
+            asp->treecache           = ptr->treecache;
+            asp->treecache_len       = ptr->treecache_len;
+            asp->treecache_num       = ptr->treecache_num;
+            if (!asp->reqinfo) {
+                asp->reqinfo = SNMP_MALLOC_TYPEDEF(agent_request_info);
+                if (asp->reqinfo) {
+                    asp->reqinfo->asp = asp;
+                    asp->reqinfo->agent_data = ptr->agent_data;
+                }
+            }
+            free(ptr);
+            return;
+	}
+	prev = ptr;
+    }
+}
 
 int getNextSessID()
 {
@@ -501,8 +577,6 @@ int	register_agent_nsap	(snmp_transport *t)
   }
 }
 
-
-
 void	deregister_agent_nsap	(int handle)
 {
   agent_nsap *a = NULL, **prevNext = &agent_nsap_list;
@@ -714,7 +788,7 @@ init_master_agent(void)
       return 1;
     }
 
-    if (register_agent_nsap(transport) < 0) {
+    if (register_agent_nsap(transport) == 0) {
       snmp_log(LOG_ERR,
 	     "Error registering specified transport \"%s\" as an agent NSAP\n",
 	       cptr);
@@ -728,6 +802,7 @@ init_master_agent(void)
     /*  Next transport please...  */
     cptr = strtok(NULL, ",");
   }
+
   return 0;
 }
 
@@ -747,7 +822,6 @@ init_agent_snmp_session( struct snmp_session *session, struct snmp_pdu *pdu )
     asp->orig_pdu = snmp_clone_pdu(pdu);
     asp->rw      = READ;
     asp->exact   = TRUE;
-    asp->outstanding_requests = NULL;
     asp->next    = NULL;
     asp->mode    = RESERVE1;
     asp->status  = SNMP_ERR_NOERROR;
@@ -799,6 +873,19 @@ wrap_up_request(struct agent_snmp_session *asp, int status) {
     struct variable_list *var_ptr;
     int i;
 
+    /* some stuff needs to be saved in special subagent cases */
+    switch(asp->pdu->command) {
+        case SNMP_MSG_INTERNAL_SET_BEGIN:
+        case SNMP_MSG_INTERNAL_SET_RESERVE1:
+        case SNMP_MSG_INTERNAL_SET_RESERVE2:
+        case SNMP_MSG_INTERNAL_SET_ACTION:
+        case SNMP_MSG_INTERNAL_SET_COMMIT:
+        case SNMP_MSG_INTERNAL_SET_FREE:
+        case SNMP_MSG_INTERNAL_SET_UNDO:
+            save_set_cache(asp);
+            break;
+    }
+    
     /*
      * May need to "dumb down" a SET error status for a
      * v1 query.  See RFC2576 - section 4.3
@@ -879,9 +966,6 @@ wrap_up_request(struct agent_snmp_session *asp, int status) {
     return 1;
 }
 
-
-#define NEWAPI
-
 void
 dump_sess_list(void)
 {
@@ -931,15 +1015,6 @@ free_agent_snmp_session_by_session(struct snmp_session *sess,
 	if (a->session == sess) {
 	    *prevNext = a->next;
 	    next = a->next;
-	    if (a->outstanding_requests != NULL && free_request) {
-		struct request_list *r = a->outstanding_requests, *s = NULL;
-
-		DEBUGMSGTL(("snmp_agent", "  has outstanding requests\n"));
-		for (; r != NULL; r = s) {
-		    s = r->next_request;
-		    free_request(r);
-		}
-	    }
 	    free_agent_snmp_session(a);
 	} else {
 	    prevNext = &(a->next);
@@ -948,6 +1023,7 @@ free_agent_snmp_session_by_session(struct snmp_session *sess,
     }
 }
 
+/** handles an incoming SNMP packet into the agent */
 int
 handle_snmp_packet(int op, struct snmp_session *session, int reqid,
                    struct snmp_pdu *pdu, void *magic)
@@ -955,30 +1031,18 @@ handle_snmp_packet(int op, struct snmp_session *session, int reqid,
     struct agent_snmp_session  *asp;
     int status, access_ret;
     struct variable_list *var_ptr;
-#ifndef NEWAPI
-    int allDone, i;
-    struct variable_list *var_ptr2;
-#endif
 
+    /* we only support receiving here */
     if (op != SNMP_CALLBACK_OP_RECEIVED_MESSAGE) {
       return 1;
     }
 
-    if ( magic == NULL ) {
-        /* new request */
-	asp = init_agent_snmp_session( session, pdu );
-	status = SNMP_ERR_NOERROR;
-    } else {
-        /* old request with updated information */
-	asp = (struct agent_snmp_session *)magic;
-        status =   asp->status;
-    }
+    /* new request */
+    asp = init_agent_snmp_session( session, pdu );
+    status = SNMP_ERR_NOERROR;
 
-    if (asp->outstanding_requests != NULL) {
-      	DEBUGMSGTL(("snmp_handle_packet", "asp->requests != NULL\n"));
-	return 1;
-    }
-
+    /* initial access check.  Is request user/community allowed to do
+       anything at all? If not, abondon all hope here. */
     if ((access_ret = check_access(pdu)) != 0) {
         if (access_ret == VACM_NOSUCHCONTEXT) {
             /* rfc2573 section 3.2, step 5 says that we increment the
@@ -1012,8 +1076,10 @@ handle_snmp_packet(int op, struct snmp_session *session, int reqid,
         }
     }
 
-#ifdef NEWAPI
+    /* process the request */
     status = handle_pdu(asp);
+
+    /* print the results in approrpiate debugging mode */
     DEBUGIF("results") {
         DEBUGMSGTL(("results","request results (status = %d): \n", status));
         for(var_ptr = asp->pdu->variables; var_ptr;
@@ -1023,304 +1089,22 @@ handle_snmp_packet(int op, struct snmp_session *session, int reqid,
             DEBUGMSGTL(("results","  %s\n", buf));
         }
     }
-#else
-    switch (pdu->command) {
-    case SNMP_MSG_GET:
-	if ( asp->mode != RESERVE1 )
-	    break;			/* Single pass */
-        snmp_increment_statistic(STAT_SNMPINGETREQUESTS);
-	status = handle_next_pass( asp );
-	asp->mode = RESERVE2;
-	break;
 
-    case SNMP_MSG_GETNEXT:
-	if ( asp->mode != RESERVE1 )
-	    break;			/* Single pass */
-        snmp_increment_statistic(STAT_SNMPINGETNEXTS);
-	asp->exact   = FALSE;
-	status = handle_next_pass( asp );
-	asp->mode = RESERVE2;
-	break;
-
-    case SNMP_MSG_GETBULK:
-	    /*
-	     * GETBULKS require multiple passes. The first pass handles the
-	     * explicitly requested varbinds, and subsequent passes append
-	     * to the existing var_op_list.  Each pass (after the first)
-	     * uses the results of the preceeding pass as the input list
-	     * (delimited by the start & end pointers.
-	     * Processing is terminated if all entries in a pass are
-	     * EndOfMib, or the maximum number of repetitions are made.
-	     */
-	if ( asp->mode == RESERVE1 ) {
-            snmp_increment_statistic(STAT_SNMPINGETREQUESTS);
-	    asp->exact   = FALSE;
-		    /*
-		     * Limit max repetitions to something reasonable
-		     *	XXX: We should figure out what will fit somehow...
-		     */
-	    if ( asp->pdu->errindex > 100 )
-	        asp->pdu->errindex = 100;
-    
-		    /*
-		     * If max-repetitions is 0, we shouldn't
-		     *   process the non-nonrepeaters at all
-		     *   so set up 'asp->end' accordingly
-		     */
-	    if ( asp->pdu->errindex == 0 ) {
-		if ( asp->pdu->errstat == 0 ) {
-				/* Nothing to do at all */
-		    snmp_free_varbind(asp->pdu->variables);
-		    asp->pdu->variables=NULL;
-		    asp->start=NULL;
-		}
-		else {
-		    asp->end   = asp->pdu->variables;
-		    i = asp->pdu->errstat;
-		    while ( --i > 0 ) 
-			if ( asp->end )
-			    asp->end = asp->end->next_variable;
-		    snmp_free_varbind(asp->end->next_variable);
-		    asp->end->next_variable = NULL;
-		}
-	    }
-
-	    status = handle_next_pass( asp );	/* First pass */
-	    asp->mode = RESERVE2;
-	    if ( status != SNMP_ERR_NOERROR )
-	        break;
-    
-	    while ( asp->pdu->errstat-- > 0 )	/* Skip non-repeaters */
-	    {
-	        if ( NULL != asp->start )	/* if there are variables ... */
-		    asp->start = asp->start->next_variable;
-	    }
-	    asp->pdu->errindex--;           /* Handled first repetition */
-
-	    if ( asp->outstanding_requests != NULL )
-		return 1;
-	}
-
-	if ( NULL != asp->start )	/* if there are variables ... */
-	while ( asp->pdu->errindex-- > 0 ) {	/* Process repeaters */
-		/*
-		 * Add new variable structures for the
-		 * repeating elements, ready for the next pass.
-		 * Also check that these are not all EndOfMib
-		 */
-	    allDone = TRUE;		/* Check for some content */
-	    for ( var_ptr = asp->start;
-		  var_ptr != asp->end->next_variable;
-		  var_ptr = var_ptr->next_variable ) {
-				/* XXX: we don't know the size of the next
-					OID, so assume the maximum length */
-		if ( var_ptr->type != SNMP_ENDOFMIBVIEW ) {
-		    var_ptr2 = snmp_add_null_var(asp->pdu, var_ptr->name, MAX_OID_LEN);
-		    for ( i=var_ptr->name_length ; i<MAX_OID_LEN ; i++)
-			var_ptr2->name[i] = 0;
-		    var_ptr2->name_length = var_ptr->name_length;
-
-		    allDone = FALSE;
-		}
-	    }
-	    if ( allDone )
-		break;
-
-	    asp->start = asp->end->next_variable;
-	    while ( asp->end->next_variable != NULL )
-		asp->end = asp->end->next_variable;
-	    
-	    status = handle_next_pass( asp );
-	    if ( status != SNMP_ERR_NOERROR )
-		break;
-	    if ( asp->outstanding_requests != NULL )
-		return 1;
-	}
-	break;
-
-    case SNMP_MSG_SET:
-    	    /*
-	     * SETS require 3-4 passes through the var_op_list.  The first two
-	     * passes verify that all types, lengths, and values are valid
-	     * and may reserve resources and the third does the set and a
-	     * fourth executes any actions.  Then the identical GET RESPONSE
-	     * packet is returned.
-	     * If either of the first two passes returns an error, another
-	     * pass is made so that any reserved resources can be freed.
-	     * If the third pass returns an error, another pass is made so that
-	     * any changes can be reversed.
-	     * If the fourth pass (or any of the error handling passes)
-	     * return an error, we'd rather not know about it!
-	     */
-	if ( asp->mode == RESERVE1 ) {
-            snmp_increment_statistic(STAT_SNMPINSETREQUESTS);
-	    asp->rw      = WRITE;
-
-	    status = handle_next_pass( asp );
-
-	    if ( status != SNMP_ERR_NOERROR )
-	        asp->mode = FREE;
-	    else
-	        asp->mode = RESERVE2;
-
-	    if ( asp->outstanding_requests != NULL )
-		return 1;
-	}
-
-	if ( asp->mode == RESERVE2 ) {
-	    status = handle_next_pass( asp );
-
-	    if ( status != SNMP_ERR_NOERROR )
-	        asp->mode = FREE;
-	    else
-	        asp->mode = ACTION;
-
-	    if ( asp->outstanding_requests != NULL )
-		return 1;
-	}
-
-	if ( asp->mode == ACTION ) {
-	    status = handle_next_pass( asp );
-
-	    if ( status != SNMP_ERR_NOERROR )
-	        asp->mode = UNDO;
-	    else
-	        asp->mode = COMMIT;
-
-	    if ( asp->outstanding_requests != NULL )
-		return 1;
-	}
-
-	if ( asp->mode == COMMIT ) {
-	    status = handle_next_pass( asp );
-
-	    if ( status != SNMP_ERR_NOERROR ) {
-		status    = SNMP_ERR_COMMITFAILED;
-	        asp->mode = FINISHED_FAILURE;
-	    }
-	    else
-	        asp->mode = FINISHED_SUCCESS;
-
-	    if ( asp->outstanding_requests != NULL )
-		return 1;
-	}
-
-	if ( asp->mode == UNDO ) {
-	    if (handle_next_pass( asp ) != SNMP_ERR_NOERROR )
-		status = SNMP_ERR_UNDOFAILED;
-
-	    asp->mode = FINISHED_FAILURE;
-	    break;
-	}
-
-	if ( asp->mode == FREE ) {
-	    (void) handle_next_pass( asp );
-	    break;
-	}
-
-	break;
-
-    case SNMP_MSG_RESPONSE:
-        snmp_increment_statistic(STAT_SNMPINGETRESPONSES);
-	remove_and_free_agent_snmp_session( asp );
-	return 0;
-    case SNMP_MSG_TRAP:
-    case SNMP_MSG_TRAP2:
-        snmp_increment_statistic(STAT_SNMPINTRAPS);
-	remove_and_free_agent_snmp_session( asp );
-	return 0;
-    default:
-        snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
-	remove_and_free_agent_snmp_session( asp );
-	return 0;
-    }
-
-#endif /* !NEWAPI */
+    /* check for uncompleted requests */
     if (check_for_delegated(asp)) {
         /* add to delegated request chain */
 	asp->status = status;
 	asp->next = agent_delegated_list;
 	agent_delegated_list = asp;
-    }
-    else if ( asp->outstanding_requests != NULL ) {
-        /* WWW: move or kill this stuff */
-	struct agent_snmp_session *a = agent_session_list;
-	asp->status = status;
-	/*  Careful not to add duplicates.  */
-
-	for (; a != NULL; a = a->next) {
-	    if (a == asp) {
-		break;
-	    }
-	}
-	if (a == NULL) {
-	    asp->next = agent_session_list;
-	    agent_session_list = asp;
-	    DEBUGMSGTL(("snmp_agent", "ADDED %08p agent_sess_list -> ", asp));
-	    for (a = agent_session_list; a != NULL; a = a->next) {
-		DEBUGMSG(("snmp_agent", "%08p -> ", a));
-	    }
-	    DEBUGMSG(("snmp_agent", "[NIL]\n"));
-	} else {
-	    DEBUGMSGTL(("snmp_agent", "DID NOT ADD %08p (duplicate)\n", asp));
-	}
-    }
-    
-    else {
+    } else {
         /* if we don't have anything outstanding (delegated), wrap up */
-        /* XXX: kill outstanding_requests methodology above and don't
-                need the if portion of the below */
         if (!check_for_delegated(asp))
             return wrap_up_request(asp, status);
     }
 
+    /* done */
     DEBUGMSGTL(("snmp_agent", "end of handle_snmp_packet, asp = %08p\n", asp));
     return 1;
-}
-
-int
-handle_next_pass(struct agent_snmp_session  *asp)
-{
-    int status;
-    struct request_list *req_p, *next_req;
-
-
-        if ( asp->outstanding_requests != NULL )
-	    return SNMP_ERR_NOERROR;
-	status = handle_var_list( asp );
-        if ( asp->outstanding_requests != NULL ) {
-	    if ( status == SNMP_ERR_NOERROR ) {
-		/* Send out any subagent requests */
-		for ( req_p = asp->outstanding_requests ;
-			req_p != NULL ; req_p = next_req ) {
-
-		    next_req = req_p->next_request;
-		    if ( snmp_async_send( req_p->session,  req_p->pdu,
-				      req_p->callback, req_p->cb_data ) == 0) {
-				/*
-				 * Send failed - call callback to handle this
-				 */
-			(void)req_p->callback( SNMP_CALLBACK_OP_SEND_FAILED,
-					 req_p->session,
-					 req_p->pdu->reqid,
-					 req_p->pdu,
-					 req_p->cb_data );
-			return SNMP_ERR_GENERR;
-		    }
-		}
-	    }
-	    else {
-	    	/* discard outstanding requests */
-		for ( req_p = asp->outstanding_requests ;
-			req_p != NULL ; req_p = next_req ) {
-			
-			next_req = req_p->next_request;
-			free( req_p );
-		}
-		asp->outstanding_requests = NULL;
-	    }
-	}
-	return status;
 }
 
 	/*
@@ -1363,7 +1147,7 @@ add_varbind_to_cache(struct agent_snmp_session  *asp, int vbcount,
                 return SNMPERR_GENERR; /* shouldn't get here */
         }
     } else {
-        if (asp->pdu->command != SNMP_MSG_SET)
+        if (!MODE_IS_SET(asp->pdu->command))
             varbind_ptr->type = ASN_NULL;
 
         /* malloc the request structure */
@@ -1479,7 +1263,7 @@ create_subtree_cache(struct agent_snmp_session  *asp) {
         ++vbcount;
         
         if (varbind_ptr->type != ASN_NULL &&  /* skip previously answered */
-            asp->pdu->command != SNMP_MSG_SET)
+            !(MODE_IS_SET(asp->pdu->command)))
             continue;
 
         /* find the owning tree */
@@ -1625,9 +1409,9 @@ handle_var_requests(struct agent_snmp_session  *asp) {
         asp->reqinfo = SNMP_MALLOC_TYPEDEF(agent_request_info);
         if (!asp->reqinfo)
             return SNMP_ERR_GENERR;
-        asp->reqinfo->asp = asp;
     }
 
+    asp->reqinfo->asp = asp;
     asp->reqinfo->mode = asp->mode;
 
     /* now, have the subtrees in the cache go search for their results */
@@ -1750,16 +1534,9 @@ check_delayed_request(struct agent_snmp_session  *asp) {
             break;
     }
 
-    if ( asp->outstanding_requests != NULL ) {
-	asp->status = status;
-	asp->next = agent_session_list;
-	agent_session_list = asp;
-    }
-    else {
-        /* if we don't have anything outstanding (delegated), wrap up */
-        if (!check_for_delegated(asp))
-            return wrap_up_request(asp, status);
-    }
+    /* if we don't have anything outstanding (delegated), wrap up */
+    if (!check_for_delegated(asp))
+        return wrap_up_request(asp, status);
 
     return 1;
 }
@@ -1839,55 +1616,57 @@ handle_set(struct agent_snmp_session  *asp) {
      * If the fourth pass (or any of the error handling passes)
      * return an error, we'd rather not know about it!
      */
-    switch (asp->mode) {
-        case MODE_SET_BEGIN:
-            snmp_increment_statistic(STAT_SNMPINSETREQUESTS);
-            asp->rw      = WRITE; /* WWW: still needed? */
-            asp->mode = MODE_SET_RESERVE1;
-            asp->status = SNMP_ERR_NOERROR;
-            break;
+    if (!(asp->pdu->flags & UCD_MSG_FLAG_ONE_PASS_ONLY)) {
+        switch (asp->mode) {
+            case MODE_SET_BEGIN:
+                snmp_increment_statistic(STAT_SNMPINSETREQUESTS);
+                asp->rw      = WRITE; /* WWW: still needed? */
+                asp->mode = MODE_SET_RESERVE1;
+                asp->status = SNMP_ERR_NOERROR;
+                break;
             
-        case MODE_SET_RESERVE1:
+            case MODE_SET_RESERVE1:
 
-            if ( asp->status != SNMP_ERR_NOERROR )
-                asp->mode = MODE_SET_FREE;
-            else
-                asp->mode = MODE_SET_RESERVE2;
-            break;
+                if ( asp->status != SNMP_ERR_NOERROR )
+                    asp->mode = MODE_SET_FREE;
+                else
+                    asp->mode = MODE_SET_RESERVE2;
+                break;
 
-        case MODE_SET_RESERVE2:
-            if ( asp->status != SNMP_ERR_NOERROR )
-                asp->mode = MODE_SET_FREE;
-            else
-                asp->mode = MODE_SET_ACTION;
-            break;
+            case MODE_SET_RESERVE2:
+                if ( asp->status != SNMP_ERR_NOERROR )
+                    asp->mode = MODE_SET_FREE;
+                else
+                    asp->mode = MODE_SET_ACTION;
+                break;
 
-        case MODE_SET_ACTION:
-            if ( asp->status != SNMP_ERR_NOERROR )
-                asp->mode = MODE_SET_UNDO;
-            else
-                asp->mode = MODE_SET_COMMIT;
-            break;
+            case MODE_SET_ACTION:
+                if ( asp->status != SNMP_ERR_NOERROR )
+                    asp->mode = MODE_SET_UNDO;
+                else
+                    asp->mode = MODE_SET_COMMIT;
+                break;
 
-        case MODE_SET_COMMIT:
-            if ( asp->status != SNMP_ERR_NOERROR ) {
-                asp->status    = SNMP_ERR_COMMITFAILED;
+            case MODE_SET_COMMIT:
+                if ( asp->status != SNMP_ERR_NOERROR ) {
+                    asp->status    = SNMP_ERR_COMMITFAILED;
+                    asp->mode = FINISHED_FAILURE;
+                }
+                else
+                    asp->mode = FINISHED_SUCCESS;
+                break;
+
+            case MODE_SET_UNDO:
+                if (asp->status != SNMP_ERR_NOERROR )
+                    asp->status = SNMP_ERR_UNDOFAILED;
+
                 asp->mode = FINISHED_FAILURE;
-            }
-            else
-                asp->mode = FINISHED_SUCCESS;
-            break;
+                break;
 
-        case MODE_SET_UNDO:
-            if (asp->status != SNMP_ERR_NOERROR )
-                asp->status = SNMP_ERR_UNDOFAILED;
-
-            asp->mode = FINISHED_FAILURE;
-            break;
-
-        case MODE_SET_FREE:
-            asp->mode = FINISHED_FAILURE;
-            break;
+            case MODE_SET_FREE:
+                asp->mode = FINISHED_FAILURE;
+                break;
+        }
     }
     
     if (asp->mode != FINISHED_SUCCESS && asp->mode != FINISHED_FAILURE) {
@@ -1907,6 +1686,8 @@ handle_set_loop(struct agent_snmp_session  *asp) {
         handle_set(asp);
         if (check_for_delegated(asp))
             return SNMP_ERR_NOERROR;
+        if (asp->pdu->flags & UCD_MSG_FLAG_ONE_PASS_ONLY)
+            return asp->status;
     }
     return asp->status;
 }
@@ -1915,20 +1696,38 @@ int
 handle_pdu(struct agent_snmp_session  *asp) {
     int status;
 
-    /* collect varbinds */
-    status = create_subtree_cache(asp);
-    if (status != SNMP_ERR_NOERROR)
-        return status;
+    /* for illegal requests, mark all nodes as ASN_NULL */
+    switch(asp->pdu->command) {
 
+        case SNMP_MSG_INTERNAL_SET_RESERVE2:
+        case SNMP_MSG_INTERNAL_SET_ACTION:
+        case SNMP_MSG_INTERNAL_SET_COMMIT:
+        case SNMP_MSG_INTERNAL_SET_FREE:
+        case SNMP_MSG_INTERNAL_SET_UNDO:
+            get_set_cache(asp);
+            break;
+
+        case SNMP_MSG_GET:
+        case SNMP_MSG_GETNEXT:
+        case SNMP_MSG_GETBULK:
+            snmp_reset_var_types(asp->pdu->variables, ASN_NULL);
+            /* fall through */
+
+        case SNMP_MSG_INTERNAL_SET_BEGIN:
+        case SNMP_MSG_INTERNAL_SET_RESERVE1:
+        default:
+            /* collect varbinds */
+            status = create_subtree_cache(asp);
+            if (status != SNMP_ERR_NOERROR)
+                return status;
+    }
+    
     asp->mode = asp->pdu->command;
     switch(asp->mode) {
         case SNMP_MSG_GET:
             /* increment the message type counter */
             snmp_increment_statistic(STAT_SNMPINGETREQUESTS);
 
-            /* make sure everything is of type ASN_NULL
-            snmp_reset_var_types(asp->pdu->variables, ASN_NULL);
-						 */
             /* check vacm ahead of time */
             check_acm(asp, SNMP_NOSUCHOBJECT);
                 
@@ -1948,9 +1747,6 @@ handle_pdu(struct agent_snmp_session  *asp) {
             /* loop through our mib tree till we find an
                appropriate response to return to the caller. */
 
-            /* make sure everything is of type ASN_NULL
-            snmp_reset_var_types(asp->pdu->variables, ASN_NULL);
-						*/
             /* first pass */
             status = handle_var_requests(asp);
             if (status != SNMP_ERR_NOERROR) {
@@ -1968,6 +1764,18 @@ handle_pdu(struct agent_snmp_session  *asp) {
             asp->mode = MODE_SET_BEGIN;
             status = handle_set_loop(asp);
             
+            break;
+
+        case SNMP_MSG_INTERNAL_SET_BEGIN:
+        case SNMP_MSG_INTERNAL_SET_RESERVE1:
+        case SNMP_MSG_INTERNAL_SET_RESERVE2:
+        case SNMP_MSG_INTERNAL_SET_ACTION:
+        case SNMP_MSG_INTERNAL_SET_COMMIT:
+        case SNMP_MSG_INTERNAL_SET_FREE:
+        case SNMP_MSG_INTERNAL_SET_UNDO:
+            asp->pdu->flags |= UCD_MSG_FLAG_ONE_PASS_ONLY;
+            status = handle_set_loop(asp);
+            /* asp related cache is saved in cleanup */
             break;
 
         case SNMP_MSG_GETBULK:
@@ -1990,242 +1798,6 @@ handle_pdu(struct agent_snmp_session  *asp) {
             /* WWW */
     }
     return status;
-}
-
-int
-handle_var_list(struct agent_snmp_session  *asp)
-{
-    struct variable_list *varbind_ptr;
-    int     status;
-    int     count;
-
-    count = 0;
-    varbind_ptr = asp->start;
-    if ( !varbind_ptr ) {
-	return SNMP_ERR_NOERROR;
-    }
-
-    while (1) {
-	count++;
-	asp->index = count;
-	status = handle_one_var(asp, varbind_ptr);
-
-	if ( status != SNMP_ERR_NOERROR ) {
-	    return status;
-	}
-
-	if ( varbind_ptr == asp->end )
-	     break;
-	varbind_ptr = varbind_ptr->next_variable;
-   }
-
-   asp->index = 0;
-   return SNMP_ERR_NOERROR;
-}
-
-static struct agent_snmp_session *current_agent_session = NULL;
-struct agent_snmp_session  *
-get_current_agent_session() {
-    return current_agent_session;
-}
-
-void
-set_current_agent_session(struct agent_snmp_session  *asp) {
-    current_agent_session = asp;
-}
-
-int
-handle_one_var(struct agent_snmp_session  *asp, struct variable_list *varbind_ptr)
-{
-    u_char  statType;
-    u_char *statP;
-    size_t  statLen;
-    u_short acl;
-    struct saved_var_data *saved;
-    WriteMethod *write_method;
-    AddVarMethod *add_method;
-    int	    noSuchObject = TRUE;
-    int     view;
-    oid	    save[MAX_OID_LEN];
-    size_t  savelen = 0;
-    
-statp_loop:
-	if ( asp->rw == WRITE && varbind_ptr->data != NULL ) {
-		/*
-		 * SET handling is "multi-pass", so restore
-		 *  results from an earlier 'getStatPtr' call
-		 *  to avoid repeating this processing.
-		 */
-	    saved = (struct saved_var_data *) varbind_ptr->data;
-	    write_method = saved->write_method;
-	    statP        = saved->statP;
-	    statType     = saved->statType;
-	    statLen      = saved->statLen;
-	    acl          = saved->acl;
-	}
-	else {
-		/*
-		 *  For exact requests (i.e. GET/SET),
-		 *   check whether this object is accessible
-		 *   before actually doing any work
-		 */
-	    if ( asp->exact )
-		view = in_a_view(varbind_ptr->name, &varbind_ptr->name_length,
-				   asp->pdu, varbind_ptr->type);
-	    else
-		view = 0;	/* Assume accessible */
-	    
-            memcpy(save, varbind_ptr->name,
-			varbind_ptr->name_length*sizeof(oid));
-            savelen = varbind_ptr->name_length;
-	    if ( view == 0 ) {
-                struct agent_snmp_session  *oldval = get_current_agent_session();
-                set_current_agent_session(asp);
-	        statP = getStatPtr(  varbind_ptr->name,
-			   &varbind_ptr->name_length,
-			   &statType, &statLen, &acl,
-			   asp->exact, &write_method, asp->pdu, &noSuchObject);
-                set_current_agent_session(oldval);
-            }
-	    else {
-		if (view != 5) send_easy_trap(SNMP_TRAP_AUTHFAIL, 0);
-		statP        = NULL;
-		write_method = NULL;
-	    }
-	}
-			   
-		/*
-		 * For a valid SET request, having no existing value
-		 *  is (possibly) acceptable (and implies creation).
-		 * In all other situations, this indicates failure.
-		 */
-	if (statP == NULL && (asp->rw != WRITE || write_method == NULL)) {
-	        /*  Careful -- if the varbind was lengthy, it will have
-		    allocated some memory.  */
-	        snmp_set_var_value(varbind_ptr, NULL, 0);
-		if ( asp->exact ) {
-	            if ( noSuchObject == TRUE ){
-		        statType = SNMP_NOSUCHOBJECT;
-		    } else {
-		        statType = SNMP_NOSUCHINSTANCE;
-		    }
-		} else {
-	            statType = SNMP_ENDOFMIBVIEW;
-		}
-		if (asp->pdu->version == SNMP_VERSION_1) {
-		    return SNMP_ERR_NOSUCHNAME;
-		}
-		else if (asp->rw == WRITE) {
-		    return
-			( noSuchObject	? SNMP_ERR_NOTWRITABLE
-					: SNMP_ERR_NOCREATION ) ;
-		}
-		else
-		    varbind_ptr->type = statType;
-	}
-                /*
-		 * Delegated variables should be added to the
-                 *  relevant outgoing request
-		 */
-        else if ( IS_DELEGATED(statType)) {
-                add_method = (AddVarMethod*)statP;
-                return (*add_method)( asp, varbind_ptr );
-        }
-		/*
-		 * GETNEXT/GETBULK should just skip inaccessible entries
-		 */
-	else if (!asp->exact &&
-		 (view = in_a_view(varbind_ptr->name, &varbind_ptr->name_length,
-				   asp->pdu, varbind_ptr->type))) {
-
-		if (view != 5) send_easy_trap(SNMP_TRAP_AUTHFAIL, 0);
-		goto statp_loop;
-	}
-#ifdef USING_AGENTX_PROTOCOL_MODULE
-		/*
-		 * AgentX GETNEXT/GETBULK requests need to take
-		 *   account of the end-of-range value
-		 *
-		 * This doesn't really belong here, but it works!
-		 */
-	else if (!asp->exact && asp->pdu->version == AGENTX_VERSION_1 &&
-		 snmp_oid_compare( varbind_ptr->name,
-			  	   varbind_ptr->name_length,
-				   varbind_ptr->val.objid,
-				   varbind_ptr->val_len/sizeof(oid)) > 0 ) {
-            	memcpy(varbind_ptr->name, save, savelen*sizeof(oid));
-            	varbind_ptr->name_length = savelen;
-		varbind_ptr->type = SNMP_ENDOFMIBVIEW;
-	}
-#endif
-		/*
-		 * Other access problems are permanent
-		 *   (i.e. writing to non-writeable objects)
-		 */
-	else if ( asp->rw == WRITE && !((acl & 2) && write_method)) {
-	    send_easy_trap(SNMP_TRAP_AUTHFAIL, 0);
-	    if (asp->pdu->version == SNMP_VERSION_1 ) {
-		return SNMP_ERR_NOSUCHNAME;
-	    }
-	    else {
-		return SNMP_ERR_NOTWRITABLE;
-	    }
-        }
-		
-	else {
-		/*
-		 *  Things appear to have worked (so far)
-		 *  Dump the current value of this object
-		 */
-	    if (ds_get_boolean(DS_APPLICATION_ID, DS_AGENT_VERBOSE) && statP)
-	        dump_var(varbind_ptr->name, varbind_ptr->name_length,
-				statType, statP, statLen);
-
-		/*
-		 *  FINALLY we can act on SET requests ....
-		 */
-	    if ( asp->rw == WRITE ) {
-                    struct agent_snmp_session  *oldval =
-                        get_current_agent_session();
-		    if ( varbind_ptr->data == NULL ) {
-				/*
-				 * Save the results from 'getStatPtr'
-				 *  to avoid repeating this call
-				 */
-			saved = (struct saved_var_data *)malloc(sizeof(struct saved_var_data));
-			if ( saved == NULL ) {
-			    return SNMP_ERR_GENERR;
-			}
-	    		saved->write_method = write_method;
-	    		saved->statP        = statP;
-	    		saved->statType     = statType;
-	    		saved->statLen      = statLen;
-	    		saved->acl          = acl;
-			varbind_ptr->data = (void *)saved;
-		    }
-				/*
-				 * Call the object's write method
-				 */
-                    set_current_agent_session(asp);
-		    return (*write_method)(asp->mode,
-                                               varbind_ptr->val.string,
-                                               varbind_ptr->type,
-                                               varbind_ptr->val_len, statP,
-                                               varbind_ptr->name,
-                                               varbind_ptr->name_length);
-                    set_current_agent_session(oldval);
-	    }
-		/*
-		 * ... or save the results from assorted GET requests
-		 */
-	    else {
-		snmp_set_var_value(varbind_ptr, statP, statLen);
-		varbind_ptr->type = statType;
-	    }
-	}
-
-	return SNMP_ERR_NOERROR;
-	
 }
 
 int set_request_error(agent_request_info *reqinfo, request_info *request,

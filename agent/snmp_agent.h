@@ -68,13 +68,13 @@ typedef struct tree_cache_s {
 #define MODE_GETBULK          SNMP_MSG_GETBULK
 #define MODE_IS_GET(x)        (x & ASN_CONTEXT)
 
-#define MODE_SET_BEGIN        -1
-#define MODE_SET_RESERVE1     RESERVE1
-#define MODE_SET_RESERVE2     RESERVE2
-#define MODE_SET_ACTION       ACTION
-#define MODE_SET_COMMIT       COMMIT
-#define MODE_SET_FREE         FREE
-#define MODE_SET_UNDO         UNDO
+#define MODE_SET_BEGIN        SNMP_MSG_INTERNAL_SET_BEGIN
+#define MODE_SET_RESERVE1     SNMP_MSG_INTERNAL_SET_RESERVE1
+#define MODE_SET_RESERVE2     SNMP_MSG_INTERNAL_SET_RESERVE2
+#define MODE_SET_ACTION       SNMP_MSG_INTERNAL_SET_ACTION
+#define MODE_SET_COMMIT       SNMP_MSG_INTERNAL_SET_COMMIT
+#define MODE_SET_FREE         SNMP_MSG_INTERNAL_SET_FREE
+#define MODE_SET_UNDO         SNMP_MSG_INTERNAL_SET_UNDO
 #define MODE_IS_SET(x)         (!MODE_IS_GET(x))
 
 typedef struct agent_request_info_s {
@@ -98,7 +98,6 @@ struct agent_snmp_session {
     int		status;
     int		index;
     
-    struct request_list *outstanding_requests;
     struct agent_snmp_session *next;
 
    /* new API pointers */
@@ -139,6 +138,9 @@ int marker_uptime( marker_t pm );
 int timeval_uptime( struct timeval *tv );
 int get_agent_uptime(void);
 int check_transaction_id(int transaction_id);
+int snmp_check_packet(struct snmp_session*, struct _snmp_transport *,
+		      void *, int);
+int snmp_check_parse(struct snmp_session*, struct snmp_pdu*, int);
 
 /*  Register and de-register agent NSAPs.  */
  
