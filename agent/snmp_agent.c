@@ -471,6 +471,9 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	    snmp_ingenerrs++;
 #endif
 reterr:
+            if (pi->version == SNMP_VERSION_1 && errstat > SNMP_ERR_GENERR)
+              errstat = SNMP_ERR_GENERR; /* translate newer errors into
+                                            a generic error */
 	    if (create_identical(startData, out_auth, startLength, errstat,
 				 errindex, pi)){
 		*out_length = pi->packet_end - out_auth;
