@@ -156,8 +156,10 @@ retry:
             fprint_objid(stderr, vars->name, vars->name_length);
           fprintf(stderr, "\n");
         }
-        if ((pdu = snmp_fix_pdu(response, SNMP_MSG_GET)) != NULL)
+        if ((pdu = snmp_fix_pdu(response, SNMP_MSG_GET)) != NULL) {
+	  snmp_free_pdu(response);
           goto retry;
+	}
       }
     } else if (status == STAT_TIMEOUT){
 	fprintf(stderr,"Timeout: No Response from %s.\n", session.peername);

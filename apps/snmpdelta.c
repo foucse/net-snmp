@@ -607,8 +607,10 @@ int main(int argc, char *argv[])
 	  exit_code = 1;
 	  break;
 	}
-	if ((pdu = snmp_fix_pdu(response, SNMP_MSG_GET)) != NULL)
+	if ((pdu = snmp_fix_pdu(response, SNMP_MSG_GET)) != NULL) {
+	  snmp_free_pdu(response);
 	  goto retry;
+	}
       }
 	    
     } else if (status == STAT_TIMEOUT){
