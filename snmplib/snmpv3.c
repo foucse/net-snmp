@@ -42,9 +42,11 @@
 #include "snmpv3.h"
 #include "snmpusm.h"
 #include "snmp.h"
+#include "snmp_api.h"
 #include "read_config.h"
 #include "scapi.h"
 #include "tools.h"
+
 
 
 
@@ -287,23 +289,74 @@ snmpv3_local_snmpEngineBoots(void)
   return engineBoots;
 }
 
+
+/*******************************************************************-o-******
+ * snmpv3_get_engineID
+ *
+ * Parameters:
+ *	*buf
+ *	 buflen
+ *      
+ * Returns:
+ *	Length of engineID	On Success
+ *	SNMPERR_GENERR		Otherwise.
+ *
+ *
+ * Store engineID in buf; return the length.
+ */
 int
-snmpv3_get_engineID(char *buf)
+snmpv3_get_engineID(char *buf, int buflen)
 {
+  /*
+   * Sanity check.
+   */
+  if ( !buf || (buflen < engineIDLength) ) {
+    return SNMPERR_GENERR;
+  }
+
   memcpy(buf,engineID,engineIDLength);
   return engineIDLength;
-}
 
-/* snmpv3_generate_engineID(): generates a malloced copy of our engineID. */
+}  /* end snmpv3_get_engineID() */
+
+
+
+
+
+/*******************************************************************-o-******
+ * snmpv3_generate_engineID
+ *
+ * Parameters:
+ *	*length
+ *      
+ * Returns:
+ *	Pointer to copy of engineID	On Success.
+ *	NULL				If malloc() or snmpv3_get_engineID()
+ *						fail.
+ *
+ * Generates a malloced copy of our engineID.
+ *
+ * 'length' is set to the length of engineID  -OR-  < 0 on failure.
+ */
 u_char *
 snmpv3_generate_engineID(int *length)
 {
   char *newID;
   newID = (char *) malloc(engineIDLength);
-  if (newID)
-    *length = snmpv3_get_engineID(newID);
+
+  if (newID) {
+    *length = snmpv3_get_engineID(newID, engineIDLength);
+  }
+
+  if (*length < 0) {
+    SNMP_FREE(newID);
+    newID = NULL;
+  }
+
   return newID;
-}
+
+}  /* end snmpv3_generate_engineID() */
+
 
 
 /* snmpv3_local_snmpEngineTime(): return the number of seconds since the

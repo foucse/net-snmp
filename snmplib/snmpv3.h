@@ -13,7 +13,7 @@ void    engineBoots_conf(char *, char *);
 void    init_snmpv3(char *);
 void    shutdown_snmpv3(char *type);
 int     snmpv3_local_snmpEngineBoots(void);
-int     snmpv3_get_engineID(char *buf);
+int     snmpv3_get_engineID(char *buf, int buflen);
 u_char *snmpv3_generate_engineID(int *);
 int     snmpv3_local_snmpEngineTime(void);
 char   *get_default_context(void);

@@ -43,7 +43,7 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
 
   /* variables we may use later */
   static long long_ret;
-  static unsigned char engineID[1500];
+  static unsigned char engineID[SNMP_MAXBUF];
   static oid objid[30];
   static struct counter64 c64;
   struct timeval now;
@@ -58,7 +58,8 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
   switch(vp->magic) {
 
     case SNMPENGINEID:
-      *var_len = snmpv3_get_engineID(engineID);
+      *var_len = snmpv3_get_engineID(engineID, SNMP_MAXBUF);
+      /* XXX  Set ERROR_MSG() upon error? */
       return (unsigned char *) engineID;
 
     case SNMPENGINEBOOTS:

@@ -10,7 +10,7 @@
 /* 
  * Macros and constants.
  */
-#define SNMP_MAXBUF		4096
+#define SNMP_MAXBUF		(1024 * 4)
 #define SNMP_MAXBUF_SMALL	512
 
 #define SNMP_MAXOID		64
@@ -20,7 +20,7 @@
 #define BYTESIZE(bitsize)       ((bitsize + 7) >> 3)
 
 
-#define SNMP_FREE(s)		if (s) free((void *)s);
+#define SNMP_FREE(s)		if (s) { free((void *)s); s=NULL; }
 #define SNMP_MALLOC(s)		malloc_zero(s)
 #define SNMP_ZERO(s,l)		memset(s, 0, l);
 

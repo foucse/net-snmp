@@ -254,6 +254,8 @@ EM(-1); /* */
 	fprintf(stdout, "%s = %d\n", s, hash_engineID(s, strlen(s)) );
 
 
+	OUTPUT("Visual spot check -- DONE.");
+
 	return failcount;
 
 }  /* end test_hashindex() */

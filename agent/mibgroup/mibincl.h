@@ -17,8 +17,10 @@
 #include "../../snmplib/snmp.h"
 #include "../../snmplib/mib.h"
 #include "util_funcs.h"
+#include "../../snmplib/tools.h"
 
 
 #define u_char unsigned char
 #define u_short unsigned short
+
 

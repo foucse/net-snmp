@@ -10,6 +10,12 @@
 
 #define USM_LENGTH_KU_HASHBLOCK		64		/* In bytes. */
 
+#define USM_LENGTH_P_MIN		8		/* In characters. */
+	/* Recommended practice given in <draft-ietf-snmpv3-usm-v2-02.txt>,
+	 * Section 11.2 "Defining Users".  Move into cmdline app argument
+	 * parsing, and out of the internal routine?  XXX
+	 */
+
 #define SET_HASH_TRANSFORM(t)   kmt_hash = t;
 
 

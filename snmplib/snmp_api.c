@@ -192,6 +192,8 @@ static char *api_errors[-SNMPERR_MAX+1] = {
 
 static char * usmSecLevelName[] = { "BAD_SEC_LEVEL", "noAuthNoPriv", "authNoPriv", "authPriv" };
 
+
+
 /*
  * Multiple threads may changes these variables.
  * Suggest using the Single API, which does not use Sessions.
@@ -200,16 +202,19 @@ static char * usmSecLevelName[] = { "BAD_SEC_LEVEL", "noAuthNoPriv", "authNoPriv
  *
  */
 /*MTCRITICAL_RESOURCE*/
-struct session_list *Sessions = NULL;
-long Reqid = 0;
+struct session_list	*Sessions	 = NULL;
+long			 Reqid		 = 0;
 /*END MTCRITICAL_RESOURCE*/
 
 /*struct timeval Now;*/
-static struct servent *servp = NULL;
-int snmp_errno = 0;
-char *snmp_detail = NULL;
 
-static int snmp_dump_packet = 0;
+static struct servent	*servp		 = NULL;
+int			 snmp_errno	 = 0;
+char			*snmp_detail	 = NULL;
+
+static int snmp_dump_packet		 = 0;
+
+
 
 static void free_request_list __P((struct request_list *));
 void shift_array __P((u_char *, int, int));

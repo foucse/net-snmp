@@ -44,6 +44,10 @@
  *
  * If successful, kulen contains the size of the hash written to Ku.
  *
+ * NOTE  Passphrases less than USM_LENGTH_P_MIN characters in length
+ *	 cause an error to be returned.
+ *	 (Punt this check to the cmdline apps?  XXX)
+ *
  * XXX	Should there be an option to store Ku in the KMT cache?  (!)
  */
 int
@@ -70,7 +74,7 @@ EM(-1); /* */
 	 * Sanity check.
 	 */
 	if ( !hashtype || !P || !Ku || !kulen
-		|| (pplen<=0) || (*kulen<=0)
+		|| (pplen < USM_LENGTH_P_MIN) || (*kulen<=0)
 		|| (hashtype_len != USM_LENGTH_OID_TRANSFORM) )
 	{
 		QUITFUN(SNMPERR_GENERR, generate_Ku_quit);

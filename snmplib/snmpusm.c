@@ -1099,11 +1099,11 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 #define USM_MAX_ID_LENGTH 1024
 	u_char myID[USM_MAX_ID_LENGTH];
 
-	int myIDLength = snmpv3_get_engineID (myID);
+	int myIDLength = snmpv3_get_engineID (myID, USM_MAX_ID_LENGTH);
 	u_int myBoots;
 	u_int myTime;
 
-	if (myIDLength > USM_MAX_ID_LENGTH)
+	if ( (myIDLength > USM_MAX_ID_LENGTH) || (myIDLength < 0) )
 	{
 		DEBUGP ("usm_check_and_update_timeliness():%s,%d: Buffer overflow\n",
 			__FILE__,__LINE__);

@@ -26,8 +26,8 @@
 					 *   delta portion of KeyChange TC. */
 
 static u_int snmp_debug =	DF(ON) | DF(EM)		/* */
-				/* | DF(KMTDUMP1)	/* */
-				/* | DF(RANDOMZEROS)	/* */
+				/* | DF(KMTDUMP1)	   */
+				/* | DF(RANDOMZEROS)	   */
 	;
 
 

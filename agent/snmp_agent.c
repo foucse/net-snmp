@@ -186,7 +186,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
         DEBUGP("parsing SNMPv%d message\n", (version));
         if (version == SNMP_VERSION_3) {
           pdu = snmp_pdu_create(SNMP_MSG_RESPONSE);
-          engineID = snmpv3_generate_engineID(&engineIDLen);
+          engineID = snmpv3_generate_engineID(&engineIDLen); /* XXX If NULL? */
           set_enginetime(engineID, engineIDLen, snmpv3_local_snmpEngineBoots(),
                          snmpv3_local_snmpEngineTime());
           if (snmpv3_parse(pdu, data, &length, &data) == -1) {
