@@ -222,6 +222,10 @@ struct objgroup {
 #define GROUP	    90
 #define OBJECT	    91
 #define IDENTIFIER  92
+#define CHOICE	    93
+#define LEFTSQBRACK	95
+#define RIGHTSQBRACK	96
+#define IMPLICIT    97
 
 struct tok {
     const char *name;                 /* token name */
@@ -317,6 +321,8 @@ static struct tok tokens[] = {
     { "CREATION-REQUIRES", sizeof ("CREATION-REQUIRES")-1, CREATEREQ },
     { "MANDATORY-GROUPS", sizeof ("MANDATORY-GROUPS")-1, MANDATORYGROUPS },
     { "GROUP", sizeof("GROUP")-1, GROUP },
+    { "CHOICE", sizeof("CHOICE")-1, CHOICE },
+    { "IMPLICIT", sizeof("IMPLICIT")-1, IMPLICIT },
     { NULL }
 };
 
@@ -1785,7 +1791,7 @@ parse_asntype(FILE *fp,
     int level;
 
     type = get_token(fp, token, MAXTOKEN);
-    if (type == SEQUENCE){
+    if (type == SEQUENCE || type == CHOICE){
         level = 0;
         while((type = get_token(fp, token, MAXTOKEN)) != ENDOFFILE){
             if (type == LEFTBRACKET){
@@ -1808,6 +1814,63 @@ parse_asntype(FILE *fp,
             return np;
         }
         return NULL;
+    } else if (type == LEFTSQBRACK) {
+	int size = 0;
+    	do {
+	    type = get_token(fp, token, MAXTOKEN);
+	} while (type != ENDOFFILE && type != RIGHTSQBRACK);
+	if (type != RIGHTSQBRACK) {
+	    print_error("Expected \"]\"", token, type);
+	    return NULL;
+	}
+	type = get_token(fp, token, MAXTOKEN);
+	if (type == IMPLICIT)
+	    type = get_token(fp, token, MAXTOKEN);
+	*ntype = get_token(fp, ntoken, MAXTOKEN);
+	if (*ntype == LEFTPAREN) {
+	    switch (type) {
+	    case OCTETSTR:
+	    	*ntype = get_token(fp, ntoken, MAXTOKEN);
+		if (*ntype != SIZE) {
+		    print_error("Expected SIZE", ntoken, *ntype);
+		    return NULL;
+		}
+		size = 1;
+		*ntype = get_token(fp, ntoken, MAXTOKEN);
+		if (*ntype != LEFTPAREN) {
+		    print_error("Expected \"(\" after SIZE", ntoken, *ntype);
+		    return NULL;
+		}
+		/* fall through */
+	    case INTEGER:
+		*ntype = get_token(fp, ntoken, MAXTOKEN);
+		do {
+		    if (*ntype != NUMBER)
+		        print_error("Expected NUMBER", ntoken, *ntype);
+		    *ntype = get_token(fp, ntoken, MAXTOKEN);
+		    if (*ntype == RANGE) {
+		    	*ntype = get_token(fp, ntoken, MAXTOKEN);
+			if (*ntype != NUMBER)
+			    print_error("Expected NUMBER", ntoken, *ntype);
+			*ntype = get_token(fp, ntoken, MAXTOKEN);
+		    }
+		} while (*ntype == BAR);
+		if (*ntype != RIGHTPAREN) {
+		    print_error("Expected \")\"", ntoken, *ntype);
+		    return NULL;
+		}
+		*ntype = get_token(fp, ntoken, MAXTOKEN);
+		if (size) {
+		    if (*ntype != RIGHTPAREN) {
+		        print_error("Expected \")\" to terminate SIZE",
+				ntoken, *ntype);
+			return NULL;
+		    }
+		    *ntype = get_token(fp, ntoken, MAXTOKEN);
+		}
+	    }
+	}
+	return NULL;
     } else {
         if (type == CONVENTION) {
             while (type != SYNTAX && type != ENDOFFILE) {
@@ -3416,6 +3479,16 @@ parse(FILE *fp,
                 type = get_token(fp, token, MAXTOKEN);
             continue;
         case LABEL:
+	case INTEGER32:
+	case UINTEGER32:
+	case COUNTER:
+	case COUNTER64:
+	case GAUGE:
+	case IPADDR:
+	case NETADDR:
+	case NSAPADDRESS:
+	case KW_OPAQUE:
+	case TIMETICKS:
             break;
         case ENDOFFILE:
             continue;
@@ -3655,6 +3728,10 @@ get_token(FILE *fp,
 	return LEFTBRACKET;
     case '}':
 	return RIGHTBRACKET;
+    case '[':
+    	return LEFTSQBRACK;
+    case ']':
+    	return RIGHTSQBRACK;
     case ';':
 	return SEMI;
     case ',':
