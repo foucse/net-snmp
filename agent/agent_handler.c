@@ -209,7 +209,7 @@ create_handler_registration(const char *name,
         the_reg->modes = HANDLER_CAN_DEFAULT;
 
     the_reg->handler = create_handler(name, handler_access_method);
-    memdup(&the_reg->rootoid, reg_oid, reg_oid_len * sizeof(int));
+    memdup(&the_reg->rootoid, reg_oid, reg_oid_len * sizeof(oid));
     the_reg->rootoid_len = reg_oid_len;
     return the_reg;
 }
