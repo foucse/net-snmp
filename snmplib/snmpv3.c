@@ -256,11 +256,7 @@ init_snmpv3(char *type) {
 #if		!defined(USE_INTERNAL_MD5)
 	sc_init();
 #endif		/* !USE_INTERNAL_MD5 */
-  usm_create_initial_user();
-  set_enginetime(engineID, engineIDLength, engineBoots, 0);
 }
-
-
 
 /*******************************************************************-o-******
  * shutdown_snmpv3
