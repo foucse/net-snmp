@@ -1427,7 +1427,9 @@ handle_var_requests(struct agent_snmp_session  *asp) {
         /* find any errors marked in the requests */
         retstatus =
             check_requests_status(asp, asp->treecache[i]->requests_begin);
-        if (retstatus != SNMP_ERR_NOERROR) /* always take lowest varbind if possible */
+
+        /* always take lowest varbind if possible */
+        if (retstatus != SNMP_ERR_NOERROR)
             status = retstatus;
         
         /* other things we know less about (no index) */
@@ -1545,7 +1547,53 @@ check_delayed_request(struct agent_snmp_session  *asp) {
     return 1;
 }
 
-/* it's expected that one pass has been made before entering this function */
+/** returns 1 if there are valid GETNEXT requests left.  Returns 0 if not. */
+int
+check_getnext_results(struct agent_snmp_session  *asp) {
+    /* get old info */
+    tree_cache **old_treecache = asp->treecache;
+    int old_treecache_num = asp->treecache_num;
+    int count = 0;
+    int i;
+    request_info *request;
+    
+    for(i = 0; i <= old_treecache_num; i++) {
+        for(request = old_treecache[i]->requests_begin; request;
+            request = request->next) {
+
+            /* out of range? */
+            if (snmp_oid_compare(request->requestvb->name,
+                                 request->requestvb->name_length,
+                                 request->range_end,
+                                 request->range_end_len) > 0) {
+                /* ack, it's beyond the accepted end of range. */
+                /* fix it by setting the oid to the end of range oid instead */
+                DEBUGMSGTL(("check_getnext_results",
+                            "request response %d out of range", request->index));
+                
+                snmp_set_var_objid(request->requestvb,
+                                   request->range_end, request->range_end_len);
+                snmp_set_var_typed_value(request->requestvb, ASN_NULL,
+                                         NULL, 0);
+            }
+
+            /* mark any existent requests with illegal results as NULL */
+            if (request->requestvb->type == SNMP_ENDOFMIBVIEW) {
+                /* illegal response from a subagent.  Change it back to NULL */
+                request->requestvb->type = ASN_NULL;
+            }
+                            
+            if (request->requestvb->type == ASN_NULL ||
+                request->requestvb->type == ASN_PRIV_RETRY)
+                count++;
+        }
+    }
+    return count;
+}
+
+/** repeatedly calls getnext handlers looking for an answer till all
+   requests are satisified.  It's expected that one pass has been made
+   before entering this function */
 int
 handle_getnext_loop(struct agent_snmp_session  *asp) {
     int status;
@@ -1555,33 +1603,24 @@ handle_getnext_loop(struct agent_snmp_session  *asp) {
     /* loop */
     while (1) {
 
-        /* WWW: check to see that old request didn't pass
-           end range */
-        /* or, implement in a "bad_handler" helper (heh)? */
-
-        /* check vacm against results */
-        check_acm(asp, ASN_PRIV_RETRY);
-
         /* bail for now if anything is delegated. */
         if (check_for_delegated(asp)) {
                 return SNMP_ERR_NOERROR;
         }
 
+        /* check vacm against results */
+        check_acm(asp, ASN_PRIV_RETRY);
+
         /* need to keep going we're not done yet. */
-        for(var_ptr = asp->pdu->variables, count = 0; var_ptr;
-            var_ptr = var_ptr->next_variable) {
-            count++;
-            if (var_ptr->type == ASN_NULL || var_ptr->type == ASN_PRIV_RETRY)
-                break;
-        }
-
-        /* nothing left, quit now */
-        if (!var_ptr)
+        if (!check_getnext_results(asp))
+            /* nothing left, quit now */
             break;
-
+            
         /* never had a request (empty pdu), quit now */
-        if (count == 0)
-            break;
+        /* XXXWWW: huh?  this would be too late, no?  shouldn't we
+           catch this earlier? */
+/*        if (count == 0)
+          break; */
         
         DEBUGIF("results") {
             DEBUGMSGTL(("results","getnext results, before next pass: \n"));
