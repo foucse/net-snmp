@@ -321,7 +321,7 @@ AC_MSG_CHECKING(for and configuring mib modules to use)
 mibdir="agent/mibgroup"
 module_list=""
 module_list_code=""
-new_module_list="mibII ucd_snmp v2party $with_mib_modules"
+new_module_list="mibII ucd_snmp v2party snmpv3mibs $with_mib_modules"
 trap_list_o=""
 
 case $target_os in
@@ -554,6 +554,8 @@ dnl AC_CHECK_LIB(ucb, bzero)
 AC_CHECK_LIB(rpm, rpmdbOpen,[
   AC_DEFINE(HAVE_LIBRPM)
   LIBS="$LIBS -lrpm -ldb"
+  dnl zlib is required for newer versions of rpm
+  AC_CHECK_LIB(z, zlibVersion)
 ],,-ldb)
 
 dnl Replace `main' with a function in -lkstat:
