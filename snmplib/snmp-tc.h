@@ -29,6 +29,8 @@ extern "C" {
 #define ST_READONLY	5
 
 char check_rowstatus_transition( int old_val, int new_val, int storage_type );
+char check_storage_transition( int old_val, int new_val );
+
 #ifdef __cplusplus
 }
 #endif

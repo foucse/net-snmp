@@ -6,10 +6,11 @@
 #include "snmp_api.h"
 
 
-// blatantly lifted from opensmp
+/* blatantly lifted from opensmp */
 char
 check_rowstatus_transition( int oldValue, int newValue, int storage_type )
 {
+/*
 // From the SNMPv2-TC MIB:
 //                                          STATE
 //               +--------------+-----------+-------------+-------------
@@ -109,6 +110,7 @@ check_rowstatus_transition( int oldValue, int newValue, int storage_type )
 //             NOTE: Other processing of (this and other varbinds of) the
 //             set request may result in a response other than noError
 //             being returned, e.g., wrongValue, noCreation, etc.
+*/
     
 	switch (newValue) {
 		// these two end up being equivelent as far as checking the
@@ -151,3 +153,41 @@ check_rowstatus_transition( int oldValue, int newValue, int storage_type )
 	return SNMP_ERR_NOERROR;
 }
 
+char
+check_storage_transition( int oldValue, int newValue ){
+/*
+// From the SNMPv2-TC MIB:
+
+//             "Describes the memory realization of a conceptual row.  A
+//             row which is volatile(2) is lost upon reboot.  A row which
+//             is either nonVolatile(3), permanent(4) or readOnly(5), is
+//             backed up by stable storage.  A row which is permanent(4)
+//             can be changed but not deleted.  A row which is readOnly(5)
+//             cannot be changed nor deleted.
+
+//             If the value of an object with this syntax is either
+//             permanent(4) or readOnly(5), it cannot be written.
+//             Conversely, if the value is either other(1), volatile(2) or
+//             nonVolatile(3), it cannot be modified to be permanent(4) or
+//             readOnly(5).  (All illegal modifications result in a
+//             'wrongValue' error.)
+
+//             Every usage of this textual convention is required to
+//             specify the columnar objects which a permanent(4) row must
+//             at a minimum allow to be writable."
+*/
+	switch (oldValue) {
+	case SNMP_STORAGE_PERMANENT:
+	case SNMP_STORAGE_READONLY:
+		return SNMP_ERR_INCONSISTENTVALUE;
+    
+	case SNMP_STORAGE_OTHER:
+	case SNMP_STORAGE_VOLATILE:
+	case SNMP_STORAGE_NONVOLATILE:
+		if (newValue == SNMP_STORAGE_PERMANENT ||
+				newValue == SNMP_STORAGE_READONLY)
+			return SNMP_ERR_INCONSISTENTVALUE;
+	}
+	
+	return SNMP_ERR_NOERROR;
+}
