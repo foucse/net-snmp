@@ -51,13 +51,6 @@
 #include <arpa/inet.h>
 #endif
 
-#ifdef HAVE_KMT_H
-#	include <kmt.h>
-#endif
-#ifdef HAVE_KMT_ALGS_H
-#	include <kmt_algs.h>
-#endif
-
 #include "asn1.h"
 #include "snmp_api.h"
 #include "snmp_impl.h"
