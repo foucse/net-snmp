@@ -35,7 +35,7 @@ serialize_helper_handler(
 
     request_info              *request;
 
-    DEBUGMSGTL(("helper:serialize", "Got request:\n"));
+    DEBUGMSGTL(("helper:serialize", "Got request\n"));
     /* loop through requests */
     for(request = requests; request; request = request->next) {
         int ret;
