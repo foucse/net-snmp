@@ -132,7 +132,7 @@ table_request_info *extract_table_info(request_info *);
         int rc = check_rowstatus_transition( orv, *rs, \
                                              st ? *st : osv ); \
         if(rc != SNMP_ERR_NOERROR) \
-            set_mode_request_error(MODE_SET_BEGIN, rsi, SNMP_ERR_BADVALUE ); \
+            set_mode_request_error(MODE_SET_BEGIN, rsi, rc ); \
     } \
 } while(0)
 
@@ -150,7 +150,7 @@ table_request_info *extract_table_info(request_info *);
     if( st ) { \
         int rc = check_storage_transition( osv, *st ); \
         if(rc != SNMP_ERR_NOERROR) \
-            set_mode_request_error(MODE_SET_BEGIN, sti, SNMP_ERR_BADVALUE ); \
+            set_mode_request_error(MODE_SET_BEGIN, sti, rc ); \
     } \
 } while(0)
 
