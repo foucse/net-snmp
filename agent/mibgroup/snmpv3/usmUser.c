@@ -116,6 +116,30 @@ int usm_parse_oid(oid *oidIndex, int oidLen,
   return 0;
 }
 
+/* usm_parse_user(): takes an (full) oid and returns a pointer to the
+   user in question if it exists. */
+
+struct usmUser *usm_parse_user(oid *name, int name_len) {
+  struct usmUser *uptr;
+
+  unsigned char *newName, *engineID;
+  int nameLen, engineIDLen;
+  
+  /* get the name and engineID out of the incoming oid */
+  if (usm_parse_oid(&(name[USM_MIB_LENGTH]), name_len-USM_MIB_LENGTH,
+                    &engineID, &engineIDLen, &newName, &nameLen))
+    return NULL;
+
+  /* Now see if a user exists with these index values */
+  uptr = usm_get_user(engineID, engineIDLen, newName, userList);
+  free(engineID);
+  free(newName);
+
+  return uptr;
+}
+
+/* var_usmUser(): this is our call back function passed to the agent
+   to appropriately return information for the mib tree we control. */
 unsigned char *
 var_usmUser(vp, name, length, exact, var_len, write_method)
     struct variable *vp;
@@ -324,6 +348,8 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
   return 0;
 }
 
+/* write_usmUserSpinLock(): called when a set is performed on the
+   usmUserSpinLock object */
 int
 write_usmUserSpinLock(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
@@ -380,7 +406,7 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
   int size, bigsize=1000;
   unsigned char *engineID;
   int engineIDLen;
-  struct usmUser *uptr;
+  struct usmUser *uptr, *cloneFrom;
   unsigned char *newName;
   int nameLen;
   
@@ -398,27 +424,37 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
     if(!asn_parse_objid(var_val, &bigsize, &var_val_type, objid, &size))
       return SNMP_ERR_GENERR;
 
-    /* see if we can parse the oid for engineID/name first */
-    if (usm_parse_oid(&(name[USM_MIB_LENGTH]), name_len-USM_MIB_LENGTH,
-                      &engineID, &engineIDLen, &newName, &nameLen))
-      return SNMP_ERR_NOSUCHNAME;
-
-    /* Now see if a user already exists with these index values */
-    uptr = usm_get_user(engineID, engineIDLen, newName, userList);
-    free(engineID);
-    free(newName);
-
-    if (uptr == NULL) 
-      /* if not, we don't allow creations here */
+    if ((uptr = usm_parse_user(name, name_len)) == NULL) 
+      /* We don't allow creations here */
       return SNMP_ERR_INCONSISTENTNAME;
 
-    /* see if the user has been clone previously, and if so ignore this set */
-/*    if ((oidptr = snmp_duplicate_oid(objid, size)) == NULL)
+    /* have the user already been cloned?  If so, second cloning is
+       not allowed, but does not generate an error */
+    if (uptr->cloneFrom)
+      return SNMP_ERR_NOERROR;
+
+    /* does the cloneFrom user exist? */
+    if ((cloneFrom = usm_parse_user(objid, size)) == NULL)
+      /* We don't allow creations here */
+      return SNMP_ERR_INCONSISTENTNAME;
+
+    /* is it active */
+    if (cloneFrom->userStatus != RS_ACTIVE)
+      return SNMP_ERR_INCONSISTENTNAME;
+
+    /* set the cloneFrom OID */
+    if ((oidptr = snmp_duplicate_objid(objid, size)) == NULL)
       return SNMP_ERR_GENERR;
-      if (uptr->cloneFrom)
+
+    /* do the actual cloning */
+
+    if (uptr->cloneFrom)
       free(uptr->cloneFrom);
-      uptr->cloneFrom = oidptr;
-      } else { */
+    uptr->cloneFrom = oidptr;
+
+    usm_cloneFrom_user(cloneFrom, uptr);
+    
+  } else { 
     /* Else we create a new user based on this cloneFromValue */
     
 
@@ -672,13 +708,8 @@ write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, nam
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT) {
-      if (usm_parse_oid(&(name[USM_MIB_LENGTH]), name_len-USM_MIB_LENGTH,
-                        &engineID, &engineIDLen, &newName, &nameLen))
-        return SNMP_ERR_NOSUCHNAME;
-      uptr = usm_get_user(engineID, engineIDLen, newName, userList);
-      free(engineID);
-      free(newName);
-      if (uptr == NULL) {
+      /* don't allow creations here */
+      if ((uptr = usm_parse_user(name, name_len)) == NULL) {
         return SNMP_ERR_NOSUCHNAME;
       }
       if (uptr->userPublicString)
@@ -773,7 +804,7 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
     /* see if we can parse the oid for engineID/name first */
     if (usm_parse_oid(&(name[USM_MIB_LENGTH]), name_len-USM_MIB_LENGTH,
                       &engineID, &engineIDLen, &newName, &nameLen))
-      return SNMP_ERR_NOSUCHNAME;
+      return SNMP_ERR_INCONSISTENTNAME;
 
     /* Now see if a user already exists with these index values */
     uptr = usm_get_user(engineID, engineIDLen, newName, userList);
