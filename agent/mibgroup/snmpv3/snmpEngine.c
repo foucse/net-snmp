@@ -29,6 +29,10 @@ void init_snmpEngine __P((void)) {
 
 extern struct timeval starttime;
 
+/* shhhhhhhhh! */
+int write_engineBoots(int, u_char *,u_char, int, u_char *,oid*, int);
+int write_engineTime(int, u_char *,u_char, int, u_char *,oid*, int);
+
 unsigned char *
 var_snmpEngine(vp, name, length, exact, var_len, write_method)
     struct variable *vp;
@@ -58,10 +62,12 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
       return (unsigned char *) engineID;
 
     case SNMPENGINEBOOTS:
+      *write_method = write_engineBoots;
       long_ret = snmpv3_local_snmpEngineBoots();
       return (unsigned char *) &long_ret;
 
     case SNMPENGINETIME:
+      *write_method = write_engineTime;
       long_ret = snmpv3_local_snmpEngineTime();
       return (unsigned char *) &long_ret;
 
@@ -75,3 +81,94 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
   return 0;
 }
 
+/* write_engineBoots():
+
+   XXX: This is technically not writable, but we allow it so we can run
+   some time synchronization tests.
+*/
+int
+write_engineBoots(action, var_val, var_val_type, var_val_len, statP, name, name_len)
+   int      action;
+   u_char   *var_val;
+   u_char   var_val_type;
+   int      var_val_len;
+   u_char   *statP;
+   oid      *name;
+   int      name_len;
+{
+  /* variables we may use later */
+  static long long_ret;
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
+  char buf[SNMP_MAXBUF_MEDIUM];
+  u_char engineIDBuf[SNMP_MAXBUF_MEDIUM];
+  int engineIDBufLen = 0;
+  u_int boots_uint = 0;
+  u_int time_uint = 0;
+
+  if (var_val_type != ASN_INTEGER){
+      DEBUGP("write to engineBoots not ASN_INTEGER\n");
+      return SNMP_ERR_WRONGTYPE;
+  }
+  if (var_val_len > sizeof(long_ret)){
+      DEBUGP("write to engineBoots: bad length\n");
+      return SNMP_ERR_WRONGLENGTH;
+  }
+  size = sizeof(long_ret);
+  asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
+  if (action == COMMIT) {
+    engineIDBufLen = snmpv3_get_engineID(engineIDBuf, SNMP_MAXBUF_MEDIUM);
+    /* set our local engineTime in the LCD timing cache */
+    snmpv3_set_engineBootsAndTime(long_ret, snmpv3_local_snmpEngineTime());
+    set_enginetime(engineIDBuf, engineIDBufLen, 
+                   snmpv3_local_snmpEngineBoots(), 
+                   snmpv3_local_snmpEngineTime(),
+                   TRUE);
+  }
+  return SNMP_ERR_NOERROR;
+}
+
+/* write_engineTime():
+
+   XXX: This is technically not writable, but we allow it so we can run
+   some time synchronization tests.
+*/
+int
+write_engineTime(action, var_val, var_val_type, var_val_len, statP, name, name_len)
+   int      action;
+   u_char   *var_val;
+   u_char   var_val_type;
+   int      var_val_len;
+   u_char   *statP;
+   oid      *name;
+   int      name_len;
+{
+  /* variables we may use later */
+  static long long_ret;
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
+  char buf[SNMP_MAXBUF_MEDIUM];
+  u_char engineIDBuf[SNMP_MAXBUF_MEDIUM];
+  int engineIDBufLen = 0;
+  u_int boots_uint = 0;
+  u_int time_uint = 0;
+
+  if (var_val_type != ASN_INTEGER){
+      DEBUGP("write to engineTime not ASN_INTEGER\n");
+      return SNMP_ERR_WRONGTYPE;
+  }
+  if (var_val_len > sizeof(long_ret)){
+      DEBUGP("write to engineTime: bad length\n");
+      return SNMP_ERR_WRONGLENGTH;
+  }
+  size = sizeof(long_ret);
+  asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
+  if (action == COMMIT) {
+    engineIDBufLen = snmpv3_get_engineID(engineIDBuf, SNMP_MAXBUF_MEDIUM);
+    /* set our local engineTime in the LCD timing cache */
+    snmpv3_set_engineBootsAndTime(snmpv3_local_snmpEngineBoots(), long_ret);
+    set_enginetime(engineIDBuf, engineIDBufLen, 
+                   snmpv3_local_snmpEngineBoots(), 
+                   snmpv3_local_snmpEngineTime(),
+                   TRUE);
+  }
+  return SNMP_ERR_NOERROR;
+}

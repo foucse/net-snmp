@@ -37,8 +37,8 @@ extern unsigned char *var_snmpEngine __P((struct variable *, oid *, int *, int, 
 
 struct variable2 snmpEngine_variables[] = {
   { SNMPENGINEID        , ASN_OCTET_STR , RONLY , var_snmpEngine, 1, { 1 } },
-  { SNMPENGINEBOOTS     , ASN_INTEGER   , RONLY , var_snmpEngine, 1, { 2 } },
-  { SNMPENGINETIME      , ASN_INTEGER   , RONLY , var_snmpEngine, 1, { 3 } },
+  { SNMPENGINEBOOTS     , ASN_INTEGER   , RWRITE , var_snmpEngine, 1, { 2 } },
+  { SNMPENGINETIME      , ASN_INTEGER   , RWRITE , var_snmpEngine, 1, { 3 } },
   { SNMPENGINEMAXMESSAGESIZE, ASN_INTEGER   , RONLY , var_snmpEngine, 1, { 4 } },
 
 };
