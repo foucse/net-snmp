@@ -519,7 +519,7 @@ update_indexes_from_variable_list(table_request_info * tri)
                              &tri->index_oid_len, NULL, 0, tri->indexes);
 }
 
-/*
+/**
  * checks the original request against the current data being passed in if 
  * its greater than the request oid but less than the current valid
  * return, set the current valid return to the new value.
@@ -544,8 +544,9 @@ check_getnext_reply(request_info * request,
      */
     if ((!(*outvar) || snmp_oid_compare(myname + prefix_len,
                                         myname_len - prefix_len,
-                                        (*outvar)->name,
-                                        (*outvar)->name_length) < 0)) {
+                                        (*outvar)->name + prefix_len,
+                                        (*outvar)->name_length - prefix_len) <
+         0)) {
         /*
          * and greater than the requested oid 
          */
