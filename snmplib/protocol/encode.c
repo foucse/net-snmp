@@ -753,7 +753,7 @@ snmp_pdu_realloc_rbuild(u_char **pkt, size_t *pkt_len, size_t *offset,
     }
     memset( *pkt, 0, *pkt_len );	/* clear the buffer! */
     buf = buffer_new( *pkt, *pkt_len,
-			NETSNMP_BUFFER_RESIZE|NETSNMP_BUFFER_REVERSE );
+			NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_RESIZE|NETSNMP_BUFFER_REVERSE );
 
 
     if (0 > encode_basic_pdu( buf, p )) {

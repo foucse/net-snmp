@@ -26,6 +26,10 @@
 #include <net-snmp/snmpv3.h>
 #include <net-snmp/utils.h>
 
+#include "protocol/decode.h"
+#include "community/community.h"
+#include "snmpv3/snmpv3.h"
+#include "ucd/ucd_convert.h"
 
 
 
@@ -241,7 +245,7 @@ pdu_sprint(char *str_buf, int len, netsnmp_pdu *pdu)
     netsnmp_buf    *buf;
     char           *cp = NULL;
 
-    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOFREE);
+    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     if (NULL == buf) {
         return NULL;
     }
@@ -365,7 +369,7 @@ _snmp_parse(void *sess, struct snmp_session *session, struct snmp_pdu *pdu, u_ch
 
     pdu->transid = snmp_get_next_transid();
 
-    buf = buffer_new(data, length, NETSNMP_BUFFER_NOFREE);
+    buf = buffer_new(data, length, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     buf->cur_len = buf->max_len;
 
     p = pdu_parse(buf);

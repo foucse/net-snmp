@@ -225,7 +225,7 @@ engine_sprint(char *str_buf, int len, netsnmp_engine *engine)
     netsnmp_buf    *buf;
     char           *cp = NULL;
 
-    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOFREE);
+    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     if (NULL == buf) {
         return NULL;
     }
@@ -317,6 +317,7 @@ netsnmp_engine*
 engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e)
 {
     netsnmp_engine *engine;
+    netsnmp_buf    *id;
 
     if ((NULL == buf)          ||
         (NULL == buf->string)  ||
@@ -324,6 +325,13 @@ engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e)
         return NULL;
     }
 
+    id = decode_string(buf, NULL);
+    if (NULL == id) {
+        return NULL;
+    }
+    engine = engine_new(id->string, id->cur_len);
+
+/*
     if (NULL == e) {
         engine = (netsnmp_engine *)calloc(1, sizeof(netsnmp_engine));
     } else {
@@ -331,6 +339,8 @@ engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e)
     }
 
     engine->ID = decode_string(buf, NULL);
+ */
+
     return engine;
 }
 

@@ -8,6 +8,8 @@
  *
  *******************************/
 
+#include <config.h>
+
 #if HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
@@ -30,6 +32,7 @@
 
 #include "snmpv3.h"
 #include "tools.h"
+#include "lcd_time.h"
 
 
 
@@ -570,7 +573,7 @@ ucd_revert_userinfo(struct snmp_pdu *pdu, netsnmp_user *info)
         pdu->securityEngineID    = buffer_string(info->sec_engine->ID);
         set_enginetime(pdu->securityEngineID, pdu->securityEngineIDLen,
                        info->sec_engine->boots, 
-                       info->sec_engine->time );
+                       info->sec_engine->time, TRUE );
     }
     if ( info->sec_name ) {
         pdu->securityNameLen = info->sec_name->cur_len;
@@ -601,6 +604,7 @@ ucd_revert_pdu(netsnmp_pdu *p)
 	return NULL;
     }
 
+    pdu->version  = p->version;
     pdu->command  = p->command;
     pdu->errstat  = p->errstatus;
     pdu->errindex = p->errindex;

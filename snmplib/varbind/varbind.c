@@ -208,11 +208,12 @@ var_sprint_varbind(char *str_buf, int len, netsnmp_varbind *varbind)
     netsnmp_buf    *buf;
     char           *cp = NULL;
 
-    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOFREE);
+    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     if (NULL == buf) {
         return NULL;
     }
     if (0 == var_bprint_varbind(buf, varbind)) {
+        (void)buffer_append_char(buf, '\0');
         cp = buffer_string(buf);
     }
     buffer_free(buf);

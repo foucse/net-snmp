@@ -8,6 +8,8 @@
  *	
  *******************************/
 
+#include <config.h>
+
 #if HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
@@ -186,7 +188,7 @@ void sprint_hexstring(char *str_buf, const u_char *cp, size_t len)
 {
     netsnmp_buf *buf;
 
-    buf = buffer_new( str_buf, len, NETSNMP_BUFFER_NOFREE );
+    buf = buffer_new( str_buf, len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE );
     if ( buf == NULL ) {
 	return;
     }
@@ -199,7 +201,7 @@ void sprint_asciistring(char *str_buf, const u_char *cp, size_t len)
 {
     netsnmp_buf *buf;
 
-    buf = buffer_new( str_buf, len, NETSNMP_BUFFER_NOFREE );
+    buf = buffer_new( str_buf, len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE );
     if ( buf == NULL ) {
 	return;
     }

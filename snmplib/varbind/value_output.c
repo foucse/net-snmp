@@ -145,7 +145,7 @@ var_sprint_value(char *str_buf, int len, netsnmp_value *value, netsnmp_mib *mib)
     if (NULL == value) {
         return NULL;
     }
-    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOFREE);
+    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     if (NULL == buf) {
         return NULL;
     }

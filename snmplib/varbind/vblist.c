@@ -181,7 +181,7 @@ vblist_sprint(char *str_buf, int len, netsnmp_varbind *vblist)
     netsnmp_buf    *buf;
     char           *cp = NULL;
 
-    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOFREE);
+    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     if (NULL == buf) {
         return NULL;
     }

@@ -96,15 +96,15 @@ decode_value(netsnmp_buf *buf)
     case ASN_BIT_STR:
     case ASN_IPADDRESS:
     case ASN_NSAP:
-        str = buffer_new(val->valbuf, NETSNMP_VALBUF_LEN,
-                         NETSNMP_BUFFER_NOFREE|NETSNMP_BUFFER_RESIZE);
-        if (NULL == decode_string(buf, str)) {
+        str = decode_string(buf, NULL);
+        if (NULL == str) {
             buffer_free(str);
             var_free_value(val);
             return NULL;
         }
 	val->val.string = str->string;
         val->len        = str->cur_len;
+        free(str);
         break;
     case ASN_OBJECT_ID:
         val->val.oid = decode_oid(buf, NULL);
@@ -352,12 +352,8 @@ decode_asn1_header(netsnmp_buf *buf, u_char *header_val)
      *
      * Note that the string data is shared with the input
      *   buffer, so shouldn't be freed when the structure is.
-     * We don't actually want to resize the buffer, but
-     *   pretending we do keeps 'buffer_new' happy about
-     *   not knowing the size to use :-)
      */
-    seq_buf = buffer_new(NULL, 0,
-        NETSNMP_BUFFER_NOFREE|NETSNMP_BUFFER_RESIZE);
+    seq_buf = buffer_new(NULL, 0, NETSNMP_BUFFER_NOFREE);
     if (NULL == seq_buf) {
         return NULL;
     }
@@ -775,16 +771,12 @@ decode_string(netsnmp_buf *buf, netsnmp_buf *str_val)
      * Otherwise we need to allocate memory ourselves.
      */
     if (NULL != str_val) {
-        buffer_set_string(str_val, buf->string, length);
-        str_val->flags |= NETSNMP_BUFFER_NOFREE;
         string = str_val;
     } else {
-        if (0 == length) {
-            string = buffer_new(NULL, length, NETSNMP_BUFFER_NOFREE|NETSNMP_BUFFER_RESIZE);
-        } else {
-            string = buffer_new(buf->string, length, NETSNMP_BUFFER_NOFREE);
-        }
+        string = buffer_new(NULL, length, 0);
     }
+
+    buffer_set_string(string, buf->string, length);
     buf->cur_len -= length;
     buf->string  += length;
     return string;

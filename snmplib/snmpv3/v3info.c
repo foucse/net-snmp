@@ -197,7 +197,7 @@ v3info_sprint(char *str_buf, int len, netsnmp_v3info *info)
     netsnmp_buf    *buf;
     char           *cp = NULL;
 
-    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOFREE);
+    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     if (NULL == buf) {
         return NULL;
     }
@@ -315,6 +315,11 @@ v3info_decode(netsnmp_buf *buf, netsnmp_v3info *info)
         goto fail;
     }
     v3info->v3_flags = flags.string[0];
+    v3info->sec_level = ((AUTH_FLAG & v3info->v3_flags) ?
+                        ((PRIV_FLAG & v3info->v3_flags) ?
+                                                  NETSNMP_SEC_LEVEL_AUTHPRIV   :
+                                                  NETSNMP_SEC_LEVEL_AUTHONLY ) :
+                                                  NETSNMP_SEC_LEVEL_NOAUTH   );
     if (NULL == decode_integer(seq, &(v3info->sec_model))) {
         goto fail;
     }
@@ -356,7 +361,7 @@ v3info_session_defaults(struct snmp_session *session, netsnmp_v3info *info)
 
     if (NULL == info->context_name) {
         info->context_name = buffer_new(session->contextName,
-                                   session->contextNameLen, 0);
+                                        session->contextNameLen, 0);
     }
 
     if (NETSNMP_SEC_MODEL_DEFAULT == info->sec_model) {

@@ -54,13 +54,16 @@ netsnmp_buf*
 buffer_new(char *string, unsigned int len, unsigned int flags)
 {
     netsnmp_buf    *buf;
+    int max_len;
 
     buf = (netsnmp_buf *)calloc(1, sizeof(netsnmp_buf));
     if (NULL == buf) {
         return NULL;
     }
         /*
-         * If we've been given a string, use that.
+         * If we've been given a string, take a copy of that
+         *   (or use it directly if so indicated)
+         *
          * This is assumed to be of the length specified,
          *    and either empty or completely full
          *   (depending on the value of the first character).
@@ -69,8 +72,18 @@ buffer_new(char *string, unsigned int len, unsigned int flags)
          *   C-style string, and calculate the length accordingly.
          */
     if (string) {
-        buf->string = string;
         buf->max_len = (len ? len : strlen(string));
+        
+	if (NETSNMP_BUFFER_NOCOPY & flags) {
+            buf->string = string;
+        } else {
+            buf->string = calloc(1, buf->max_len);
+            if (NULL == buf->string) {
+                free(buf);
+                return NULL;
+            }
+            memcpy(buf->string, string, buf->max_len);
+        }
         buf->cur_len = (string[0] == '\0' ? 0 : buf->max_len);
     }
         /*
@@ -85,20 +98,19 @@ buffer_new(char *string, unsigned int len, unsigned int flags)
         buf->max_len = len;
         buf->cur_len = 0;
     }
+
         /*
          * If neither an initial string nor a length have been specified,
-         *    then we have a new zero-length buffer, ready for extending
-         *    as strings are added to it.
-         * If the flag settings forbid re-sizing, then this is pretty
-         *    pointless, so don't bother.
+         *    then we have a new zero-length buffer.
+         * Typically, this will be extended as strings are added to it,
+         *    but in some circumstances, a NULL string is what is wanted.
+         * This seems moderately pointless, but who are we to argue?
          */
     else {
-        if (!(flags & NETSNMP_BUFFER_RESIZE)) {
-            free(buf);
-            return NULL;
-        }
+        buf->string = NULL;
+        buf->max_len = 0;
+        buf->cur_len = 0;
     }
-
 
     buf->flags = flags;
     return buf;
@@ -325,7 +337,7 @@ buffer_set_string(netsnmp_buf *buf, char *string, int len)
     }
  
     buf->string = string;	/* XXX - or make a copy? */
-    if ((NULL == len) && ('\0' != *string)) {
+    if ((0 == len) && ('\0' != *string)) {
         buf->max_len = strlen(string);
     } else {
         buf->max_len = len;
@@ -370,6 +382,7 @@ buffer_copy(netsnmp_buf *buf)
 void 
 buffer_free(netsnmp_buf *buf)
 {
+return;			/* XXX - Temp.... */
     if (NULL == buf) {
         return;
     }
