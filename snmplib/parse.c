@@ -1578,10 +1578,28 @@ int parse_mib_header(fp, name)
        that I needed to hack to get to parse because they didn't have
        an IMPORTS or and EXPORTS clause.
        */
-    while(type != BEGIN){
-	type = get_token(fp, token, MAXQUOTESTR);
+    while(type != BEGIN) {
+      type = get_token(fp, token, MAXQUOTESTR);
     }
 
+    if (type == IMPORTS) {
+      while(1) {
+        type = get_token(fp, token, MAXQUOTESTR);
+        if (type == SEMI)
+          break;
+      }
+      type = get_token(fp, token, MAXQUOTESTR);
+    }
+
+
+    if (type == EXPORTS) {
+      while(1) {
+        type = get_token(fp, token, MAXQUOTESTR);
+        if (type == SEMI)
+          break;
+      }
+      type = get_token(fp, token, MAXQUOTESTR);
+    }
     return 1;
 }
 
