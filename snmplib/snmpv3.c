@@ -458,7 +458,6 @@ init_snmpv3_post_config(void) {
 
   int engineIDLen;
   u_char *engineID;
-  u_char line[SNMP_MAXBUF_SMALL];
 
   engineID = snmpv3_generate_engineID(&engineIDLen);
 
@@ -488,7 +487,6 @@ void
 shutdown_snmpv3(char *type)
 {
   char line[SNMP_MAXBUF_SMALL];
-  char buf[SNMP_MAXBUF_SMALL];
   char engineID[SNMP_MAXBUF_SMALL];
   int  engineIDLen;
 
@@ -627,14 +625,14 @@ snmpv3_local_snmpEngineTime(void)
   return calculate_time_diff(&now, &snmpv3starttime)/100;
 }
 
+#ifdef SNMP_TESTING_CODE
 /* snmpv3_set_engineBootsAndTime(): this function does not exist.  Go away. */
 /*   It certainly should never be used, unless in a testing scenero,
      which is why it was created */
-int
+void
 snmpv3_set_engineBootsAndTime(int boots, int ttime) {
-  static struct timeval	 oldsnmpv3starttime;
- 
   engineBoots = boots;
   gettimeofday(&snmpv3starttime, NULL);
   snmpv3starttime.tv_sec -= ttime;
 }
+#endif
