@@ -883,7 +883,7 @@ create_user_from_session(struct snmp_session *session) {
     if (session->securityPrivKey != NULL && session->securityPrivKeyLen != 0) {
       user->privKey = malloc (USM_LENGTH_KU_HASHBLOCK);
       user->privKeyLen = USM_LENGTH_KU_HASHBLOCK;
-      if (generate_kul( user->privProtocol, user->privProtocolLen,
+      if (generate_kul( user->authProtocol, user->authProtocolLen,
                         session->contextEngineID, session->contextEngineIDLen,
                         session->securityPrivKey, session->securityPrivKeyLen,
                         user->privKey, &user->privKeyLen ) != SNMPERR_SUCCESS) {
