@@ -626,6 +626,7 @@ char *copy_word(from, to)
     }
   }
   *to = 0;
+  from = skip_white(from);
   return(from);
 }  /* copy_word */
 
