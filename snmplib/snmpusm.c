@@ -547,7 +547,7 @@ EM(-1);
 
 	if ( iv_length == NULL || *iv_length != propersize_salt
 		|| iv == NULL
-			|| priv_key_length != propersize_keyhash
+			|| priv_key_length < propersize_keyhash
 				|| priv_key == NULL) return -1;
 
 	memcpy (iv, &boots, sizeof(int));
