@@ -42,7 +42,6 @@
 #include "snmpd.h"
 #include "agentx/protocol.h"
 #include "agentx/master_admin.h"
-#include "agentx/master_request.h"
 #include "snmp_transport.h"
 #include "snmp_debug.h"
 #include "default_store.h"
@@ -369,11 +368,6 @@ agentx_master_handler(
 
         /* loop through all the requests and create agentx ones out of them */
 
-        /* XXXWWW: add exclude range for getnext/bulk requests */
-        /*         snmp_pdu_add_variable(request->pdu,
-			      vbp->name, vbp->name_length, ASN_PRIV_EXCL_RANGE,
-			      (u_char*)sub->end, sub->end_len*sizeof(oid));
-        */
         if (reqinfo->mode == MODE_GETNEXT ||
             reqinfo->mode == MODE_GETBULK) {
             snmp_pdu_add_variable(pdu, request->requestvb->name,
