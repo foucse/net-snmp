@@ -207,7 +207,7 @@ table_iterator_helper_handler(
                            results->name_length);
         
         reqinfo->mode = MODE_GET;
-        handler_add_parent_data(requests, handler_create_parent_data(TABLE_ITERATOR_NAME, callback_data_keep, NULL));
+        request_add_list_data(requests, create_data_list(TABLE_ITERATOR_NAME, callback_data_keep, NULL));
         ret = call_next_handler(handler, reginfo, reqinfo, requests);
         reqinfo->mode = MODE_GETNEXT;
 
@@ -226,5 +226,5 @@ table_iterator_helper_handler(
 inline void *
 extract_iterator_context(request_info *request) 
 {
-    return handler_get_parent_data(request, TABLE_ITERATOR_NAME);
+    return request_get_list_data(request, TABLE_ITERATOR_NAME);
 }

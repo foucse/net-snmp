@@ -13,6 +13,7 @@ extern "C" {
 
 #include "snmp_impl.h"
 #include "tools.h"
+#include "data_list.h"
 
 #define SNMP_MAX_PDU_SIZE 64000 /* local constraint on PDU size sent by agent
                                   (see also SNMP_MAX_MSG_SIZE in snmp_api.h) */
@@ -26,26 +27,13 @@ extern int	log_addresses;
 
 extern int	lastAddrAge;
 
-typedef void (Free_Parent_Data)(void *);
-
-typedef struct request_parent_data_s {
-   struct request_parent_data_s *next;
-   char *parent_name;
-   void *data;                     /* The pointer to the data passed on. */
-   Free_Parent_Data *free_func;     /* must know how to free parent_data */
-} request_parent_data;
-    
 typedef struct request_info_s {
    struct variable_list *requestvb; /* will certainly change */
 
    /* can be used to pass information on a per-request basis from a
       helper to the later handlers */
-   request_parent_data *parent_data;
+   data_list *parent_data;
 
-   void *state_reference;           /* if multiple calls to you are
-                                       needed for a request (SETs
-                                       namely), this can be used to
-                                       store data between calls */
    int delegated;
    int processed;
    int status;
@@ -91,7 +79,9 @@ typedef struct agent_request_info_s {
    int    mode;
    struct snmp_pdu *pdu;                 /* pdu contains authinfo, eg */
    struct agent_snmp_session *asp;       /* may not be needed */
-   void *state_reference; /* store state info common to this request */
+   /* can be used to pass information on a per-pdu basis from a
+      helper to the later handlers */
+   data_list *agent_data;
    /* ... */
 } agent_request_info;
 
@@ -153,6 +143,19 @@ struct _snmp_transport;
  
 int	register_agent_nsap	(struct _snmp_transport *t);
 void	deregister_agent_nsap	(int handle);
+
+
+inline void
+agent_add_list_data(agent_request_info *agent, data_list *node);
+
+inline void *
+agent_get_list_data(agent_request_info *agent, const char *name);
+
+inline void
+free_agent_data_set(agent_request_info *agent);
+
+inline void
+free_agent_data_sets(agent_request_info *agent);
 
 #ifdef __cplusplus
 }

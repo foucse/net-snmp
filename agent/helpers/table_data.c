@@ -241,7 +241,7 @@ table_data_helper_handler(
                 }
                 if (row) {
                     valid_request = 1;
-                    handler_add_parent_data(request, handler_create_parent_data(TABLE_DATA_NAME, row, NULL));
+                    request_add_list_data(request, create_data_list(TABLE_DATA_NAME, row, NULL));
                 } else { /* no decent result found.  Give up. It's beyond us. */
                         request->processed = 1;
                 }
@@ -269,7 +269,7 @@ table_data_helper_handler(
                     break;
                 } else {
                     valid_request = 1;
-                    handler_add_parent_data(request, handler_create_parent_data(TABLE_DATA_NAME, row, NULL));
+                    request_add_list_data(request, create_data_list(TABLE_DATA_NAME, row, NULL));
                 }
                 break;
 
@@ -283,7 +283,7 @@ table_data_helper_handler(
                                              request->requestvb->name_length -
                                              reginfo->rootoid_len -
                                              2))) {
-                    handler_add_parent_data(request, handler_create_parent_data(TABLE_DATA_NAME, row, NULL));
+                    request_add_list_data(request, create_data_list(TABLE_DATA_NAME, row, NULL));
                 }
                 break;
 
@@ -324,7 +324,7 @@ create_table_data_row(void)
 /** extracts the row being accessed passed from the table_data helper */
 table_row *extract_table_row(request_info *request) 
 {
-    return (table_row *) handler_get_parent_data(request, TABLE_DATA_NAME);
+    return (table_row *) request_get_list_data(request, TABLE_DATA_NAME);
 }
 
 /** extracts the data from the row being accessed passed from the

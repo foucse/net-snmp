@@ -2262,3 +2262,38 @@ get_agent_uptime( void ) {
 
 	return timeval_uptime( &now );
 }
+
+
+
+inline void
+agent_add_list_data(agent_request_info *ari, data_list *node) 
+{
+  if (ari) {
+    if (ari->agent_data)
+      add_list_data(ari->agent_data, node);
+    else
+      ari->agent_data = node;
+  }
+}
+
+inline void *
+agent_get_list_data(agent_request_info *ari, const char *name)
+{
+  if (ari)
+    return get_list_data(ari->agent_data,name);
+  return NULL;
+}
+
+inline void
+free_agent_data_set(agent_request_info *ari)
+{
+  if (ari)
+    free_list_data(ari->agent_data);
+}
+
+inline void
+free_agent_data_sets(agent_request_info *ari) 
+{
+  if (ari)
+    free_all_list_data(ari->agent_data);
+}

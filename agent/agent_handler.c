@@ -7,6 +7,7 @@
 #endif
 
 #include <mibincl.h>
+#include <data_list.h>
 #include <snmp_agent.h>
 #include <agent_registry.h>
 #include <agent_handler.h>
@@ -174,59 +175,37 @@ create_delegated_cache(mib_handler               *handler,
     return ret;
 }
 
-inline request_parent_data *
-handler_create_parent_data(const char *parent_name, void *parent_data,
-    Free_Parent_Data *beer)
-{
-    request_parent_data *data = SNMP_MALLOC_TYPEDEF(request_parent_data);
-    if (!data)
-        return NULL;
-    data->parent_name = strdup(parent_name);
-    data->data = parent_data;
-    data->free_func = beer;
-    return data;
-}
-   
-    
 inline void
-handler_add_parent_data(request_info *request, request_parent_data *data) 
+request_add_list_data(request_info *request, data_list *node) 
 {
-    
-    data->next = request->parent_data;
-    request->parent_data = data;
+  if (request) {
+    if (request->parent_data)
+      add_list_data(request->parent_data, node);
+    else
+      request->parent_data = node;
+  }
 }
 
 inline void *
-handler_get_parent_data(request_info *request, const char *parent_name)
+request_get_list_data(request_info *request, const char *name)
 {
-    request_parent_data *ptr;
-    for(ptr = request->parent_data;
-        ptr && strcmp(ptr->parent_name, parent_name) != 0; ptr = ptr->next);
-    if (ptr)
-        return ptr->data;
-    return NULL;
+  if (request)
+    return get_list_data(request->parent_data,name);
+  return NULL;
 }
 
 inline void
-free_parent_data_set(request_info *request)
+free_request_data_set(request_info *request)
 {
-    Free_Parent_Data *beer;
-    request_parent_data *data;
-
-    for(data = request->parent_data; data; data = data->next) {
-        beer = data->free_func;
-        if (beer)
-            (beer)(data->data);
-        SNMP_FREE(data->parent_name);
-    }
+  if (request)
+    free_list_data(request->parent_data);
 }
 
 inline void
-free_parent_data_sets(request_info *request) 
+free_request_data_sets(request_info *request) 
 {
-    for(; request; request = request->next) {
-        free_parent_data_set(request);
-    }
+  if (request)
+    free_all_list_data(request->parent_data);
 }
 
 /** Returns a handler from a chain based on the name */

@@ -86,12 +86,18 @@ create_delegated_cache(mib_handler               *,
                        request_info              *,
                        void                      *);
 
-inline request_parent_data *handler_create_parent_data(const char *, void *,
-                                                       Free_Parent_Data *);
-void handler_add_parent_data(request_info *, request_parent_data *);
-void *handler_get_parent_data(request_info *, const char *);
-void free_parent_data_set(request_info *);  /* single */
-void free_parent_data_sets(request_info *); /* multiple */
+inline void
+request_add_list_data(request_info *request, data_list *node);
+
+inline void *
+request_get_list_data(request_info *request, const char *name);
+
+inline void
+free_request_data_set(request_info *request);
+
+inline void
+free_request_data_sets(request_info *request);
+
 
 #ifdef __cplusplus
 };
