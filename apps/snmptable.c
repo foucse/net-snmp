@@ -283,7 +283,9 @@ void print_table (void)
     column[field].fmt = strdup (string_buf);
   }
   if (show_index) {
-    sprintf(string_buf, "%%%ds", index_width);
+    if (field_separator == NULL)
+      sprintf(string_buf, "%%%ds", index_width);
+    else sprintf(buf, "%%s");
     index_fmt = strdup(string_buf);
   }
 
@@ -293,7 +295,7 @@ void print_table (void)
       printf("\nSNMP table %s, part %d\n\n", table_name, part);
     first_field = last_field;
     dp = data;
-    if (show_index) {
+    if (show_index && !no_headers) {
       width = index_width;
       printf(index_fmt, "index");
     }
