@@ -258,7 +258,7 @@ table_data_helper_handler(
                 if (request->requestvb->name_length <
                     (reginfo->rootoid_len + 3)) {  /* table.entry.column... */
                     /* request too short */
-                    request->processed = 1;
+                    set_request_error(reqinfo, request, SNMP_ERR_NOSUCHNAME);
                     break;
                 } else if (NULL ==
                            (row =
@@ -269,7 +269,7 @@ table_data_helper_handler(
                                                     reginfo->rootoid_len -
                                                     2))) {
                     /* no such row */
-                    request->processed = 1;
+                    set_request_error(reqinfo, request, SNMP_ERR_NOSUCHNAME);
                     break;
                 } else {
                     valid_request = 1;
