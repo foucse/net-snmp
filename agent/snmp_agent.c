@@ -71,7 +71,7 @@ SOFTWARE.
 #include "mibgroup/mibII/vacm_vars.h"
 #endif
 
-static int create_identical __P((u_char *, u_char *, int, long, long, struct packet_info *));
+static int create_identical __P((u_char *, u_char *, int, long, long, struct packet_info *, struct snmp_pdu *));
 static int parse_var_op_list __P((u_char *, int, u_char *, int, long *, struct packet_info *, int));
 static int snmp_vars_inc;
 static int bulk_var_op_list __P((u_char *, int, u_char *, int, int, int, long *, struct packet_info *));
@@ -286,7 +286,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	}
 	errindex = 0;
 	if (create_identical(startData, out_auth, startLength, errstat,
-			     errindex, pi)){
+			     errindex, pi, pdu)){
 	    *out_length = pi->packet_end - out_auth;
 	    return 1;
 	}
@@ -395,7 +395,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 				&dummyindex, pi,
                                 (errstat == SNMP_ERR_NOERROR) ? ACTION : FREE);
               if (errstat == SNMP_ERR_NOERROR) {
-                if (create_identical(startData, out_auth, startLength, 0L, 0L, pi)){
+                if (create_identical(startData, out_auth, startLength, 0L, 0L,
+                                     pi, pdu)){
 		  *out_length = pi->packet_end - out_auth;
 #ifdef USING_MIBII_SNMP_MIB_MODULE       
 		  snmp_outgetresponses++;
@@ -438,7 +439,6 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	    }
 
             pi->packet_end = out_auth + *out_length;
-            snmp_free_pdu(pdu);
           } else {
 	    /* re-encode the headers with the real lengths */
 	    *out_length = pi->packet_end - out_header;
@@ -524,7 +524,7 @@ reterr:
               errstat = SNMP_ERR_GENERR; /* translate newer errors into
                                             a generic error */
 	    if (create_identical(startData, out_auth, startLength, errstat,
-				 errindex, pi)){
+				 errindex, pi, pdu)){
 		*out_length = pi->packet_end - out_auth;
 		return 1;
 	    }
@@ -532,6 +532,8 @@ reterr:
 	default:
 	    return 0;
     }
+    if (version == SNMP_VERSION_3)
+      snmp_free_pdu(pdu);
     *out_length = pi->packet_end - out_auth;
     return 1;
 }
@@ -952,12 +954,13 @@ bulk_var_op_list(data, length, out_data, out_length, non_repeaters,
  * Returns 1 upon success and 0 upon failure.
  */
 static int
-create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi)
+create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi, pdu)
     u_char	    	*snmp_in;
     u_char	    	*snmp_out;
     int		    	snmp_length;
     long	    	errstat, errindex;
     struct packet_info 	*pi;
+    struct snmp_pdu     *pdu;
 {
     register u_char *data;
     u_char	    type;
@@ -968,23 +971,35 @@ create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi)
     *errindexPtr, *varListPtr;
     int		    packet_len;
     struct partyEntry *tmp;
-    struct snmp_pdu pdu;
-
+    int ret;
+    
     length = snmp_length;
+    
+    /* for snmpv3, we already have an entire breakdown of the incoming
+       message in the pdu so simple change the error codes and send it
+       back */
+    if (pi->version == SNMP_VERSION_3) {
+      pdu->errstat = errstat;
+      pdu->errindex = errindex;
+      pdu->command = SNMP_MSG_RESPONSE;
+      ret = snmpv3_packet_build(pdu, snmp_out, &length, NULL, 0);
+      pi->packet_end = snmp_out + length;
+      if (ret == 0)
+        return 1;
+      else
+        return 0;
+    }
+      
     data = asn_parse_header(snmp_in, &length, &type);
 
     length = snmp_length;
     if (type == (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
         asn_parse_int(data, &length, &type, &version, sizeof(version));
-        if (version == SNMP_VERSION_3) {
-          snmpv3_parse(&pdu, snmp_in, &snmp_length, NULL);
-        } else {
-          /* authenticates message and returns length if valid */
-          pi->community_len = COMMUNITY_MAX_LEN;
-          headerPtr = snmp_comstr_parse(snmp_in, &length,
-                                        pi->community, &pi->community_len,
-                                        &pi->version);
-        }
+        /* authenticates message and returns length if valid */
+        pi->community_len = COMMUNITY_MAX_LEN;
+        headerPtr = snmp_comstr_parse(snmp_in, &length,
+                                      pi->community, &pi->community_len,
+                                      &pi->version);
     } else if (type == (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)){
         pi->srcPartyLength = sizeof(pi->srcParty)/sizeof(oid);
         pi->dstPartyLength = sizeof(pi->dstParty)/sizeof(oid);
