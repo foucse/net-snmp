@@ -179,13 +179,17 @@ old_api_helper(mib_handler               *handler,
                                              SNMP_ERR_RESOURCEUNAVAILABLE);
                 cacheptr->data = access;
                 cacheptr->write_method = write_method;
-                requests->state_reference = (void *) cacheptr;
+                request_add_list_data(requests,
+                                      create_data_list(OLD_API_NAME, cacheptr,
+                                                       free));
                 /* BBB: fall through for everything that is a set (see AAA) */
                 
             default:
                 /* WWW: explicitly list the SET conditions */
                 /* (the rest of the) SET contions */
-                cacheptr = (old_api_cache *) requests->state_reference;
+                cacheptr =
+                    (old_api_cache *) request_get_list_data(requests,
+                                                            OLD_API_NAME);
 
                 if (cacheptr == NULL || cacheptr->write_method == NULL) {
                     /* WWW: try to set ourselves if possible? */
@@ -207,12 +211,8 @@ old_api_helper(mib_handler               *handler,
                 if (requests->status == SNMP_ERR_NOERROR)
                     set_request_error(reqinfo, requests, status);
 
-                /* clean up */
-                if (reqinfo->mode == MODE_SET_FREE ||
-                    reqinfo->mode == MODE_SET_UNDO) {
-                    free(cacheptr);
-                    requests->state_reference = NULL;
-                }
+                /* clean up is done by the automatic freeing of the
+                   cache stored in the request. */
 
                 break;
         }

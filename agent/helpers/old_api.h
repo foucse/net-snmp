@@ -1,3 +1,7 @@
+#ifndef OLD_API_H
+#define OLD_API_H
+
+#define OLD_API_NAME "old_api"
 
 typedef struct old_api_info_s {
    struct variable *var;
@@ -29,3 +33,6 @@ int register_old_api(const char *moduleName,
                      int flags);
 NodeHandler old_api_helper;
 
+
+
+#endif /* OLD_API_H */

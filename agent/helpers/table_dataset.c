@@ -159,7 +159,7 @@ table_data_set_helper_handler(
     agent_request_info        *reqinfo,
     request_info              *requests) {
 
-    table_data_set_storage *data;
+    table_data_set_storage *data = NULL;
     table_row *row;
     table_request_info *table_info;
     data_set_cache *cache;
@@ -213,9 +213,9 @@ table_data_set_helper_handler(
                         set_request_error(reqinfo, requests,
                                           SNMP_ERR_RESOURCEUNAVAILABLE);
                     } else {
-                        requests->state_reference = cache;
                         cache->data = data->data;
                         cache->data_len = data->data_len;
+                        request_add_list_data(requests, create_data_list(TABLE_DATA_SET_NAME, cache, free));
                     }
                 } else {
                     /* XXXWWW */
@@ -234,18 +234,23 @@ table_data_set_helper_handler(
                 
             case MODE_SET_UNDO:
                 SNMP_FREE(data->data);
-                cache = (data_set_cache *) requests->state_reference;
+                
+                cache = (data_set_cache *)
+                    request_get_list_data(requests, TABLE_DATA_SET_NAME);
                 data->data = cache->data;
                 data->data_len = cache->data_len;
-                SNMP_FREE(cache);
+                /* the cache itself is automatically freed by the
+                   data_list routines */
                 break;
 
             case MODE_SET_COMMIT:
-                cache = (data_set_cache *) requests->state_reference;
+                cache = (data_set_cache *)
+                    request_get_list_data(requests, TABLE_DATA_SET_NAME);
                 SNMP_FREE(cache->data);
-                /* fall through */
+                break;
+
             case MODE_SET_FREE:
-                SNMP_FREE(requests->state_reference);
+                /* nothing to do */
                 break;
         }
     }
