@@ -534,11 +534,6 @@ checkmib(vp,name,length,exact,var_len,write_method,max)
   return(1);
 }
 
-#define MATCH_FAILED	1
-#define MATCH_SUCCEEDED	0
-
-
-
 /*******************************************************************-o-******
  * generic_header
  *

@@ -4,6 +4,9 @@
 #ifndef _MIBGROUP_UTIL_FUNCS_H
 #define _MIBGROUP_UTIL_FUNCS_H
 
+#define MATCH_FAILED	1
+#define MATCH_SUCCEEDED	0
+
 #include "struct.h"
 
 void Exit __P((int));
