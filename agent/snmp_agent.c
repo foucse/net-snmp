@@ -871,9 +871,9 @@ parse_var_op_list(data, length, out_data, out_length, index, pi, action)
 				    statP, statLen);
 		} else {
 		    if (pi->version != SNMP_VERSION_1)
-			return SNMP_ERR_NOSUCHNAME;
-		    else
 			return SNMP_ERR_NOCREATION;
+		    else
+			return SNMP_ERR_NOSUCHNAME;
 		}
 	    } else {
 		err = (*write_method)(action, var_val, var_val_type,
