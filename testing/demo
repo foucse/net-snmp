@@ -298,11 +298,11 @@ TITLE "Send crypted packets." \
 SETDEBUGGING 1
 TITLE "Perform a get with shark."
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l noAuthNoPriv -v 3 $host $sysUpTime
-OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l authPriv -a MD5 -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 TITLE "Perform a get with shark2."
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark2 -l noAuthNoPriv -v 3 $host $sysUpTime
-OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark2 -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark2 -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
 
 TITLE "Perform a get with stingray."
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l noAuthNoPriv -v 3 $host $sysUpTime
@@ -345,8 +345,8 @@ keychange=`ktest -k -N $newkey -O $oldkey | egrep 'MD5.*KeyChange string' | awk 
 TITLE "changing stingray's auth and priv key"\
       "(from $oldkey to $newkey using $keychange)"
 
-OKORFAIL "usmUserAuthKeyChange.$stingrayoid = +Hex: " $snmpset usmUserAuthKeyChange.$stingrayoid x $keychange
-OKORFAIL "usmUserPrivKeyChange.$stingrayoid = +Hex: " $snmpset usmUserPrivKeyChange.$stingrayoid x $keychange
+OKORFAIL "usmUserPrivKeyChange.$stingrayoid.=.+Hex:" $snmpset usmUserPrivKeyChange.$stingrayoid x $keychange
+OKORFAIL "usmUserAuthKeyChange.$stingrayoid.=.+Hex:" $snmpset usmUserAuthKeyChange.$stingrayoid x $keychange
 
 TITLE "Perform a get using stingray to demonstrate it fails."\
       "(using old key)"
@@ -355,7 +355,7 @@ TITLE "Perform a get using stingray to demonstrate it fails."\
 OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authPriv -a MD5 -A "$defpass" -x DES -X "$defpass"  -v 3 $host $sysUpTime
 
 TITLE "Perform a get using stingray to demonstrate it succeeds." "(using new key)"
-OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
 
 #
 # Cloning an account
