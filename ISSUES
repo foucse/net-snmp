@@ -113,3 +113,10 @@
 - dreeder/Oct 12 1998
 	Add time stamps to log files.
 	(This will require creation of a logging API, FYI -- Wes)
+
++ hardaker/Oct 12 1998
+	memory leak in the agent due to non-freed PDU (my fault).
+
++ hardaker/Oct 12 1998
+	in variable_list, only string is ever malloced?
+	(snmp_free_var only frees a string, but everything is a pointer?)
