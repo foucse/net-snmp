@@ -104,7 +104,7 @@ DOIT() {
     GETRET
   fi
   if test $runcommands = 1; then
-    $* | tee $tmpfile | sed 's/^/     /'
+    $* 2>&1 | tee $tmpfile | sed 's/^/     /'
   fi
 }
 
@@ -339,10 +339,16 @@ OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNo
 # Malformed packets (wrong key)
 #
 
-## FIX: Change "FIXME" below to the proper error message to look for
+TITLE "Send authenticated packets hashed with the wrong key"\
+      "and examine the result for proper information."\
+      "(We're using SHA authentication for a MD5 user to produce the error)"
 
-TITLE "Send malformed crypted packets and examine the result for proper information."
-OKORFAIL "Authentication.Failure" snmpget -p 1600 -n default -u stingray -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "Authentication.failure" snmpget -p 1600 -n default -u stingray -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
+
+TITLE "Send malformed crypted packets and examine the result for proper information."\
+      "(We're using SHA authentication for a MD5 user to produce the error)"
+
+OKORFAIL "Authentication.failure" snmpget -p 1600 -n default -u stingray -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
 
 #
 # Key Change
@@ -362,8 +368,7 @@ OKORFAIL "usmUserAuthKeyChange.$stingrayoid.=.+Hex:" $snmpset usmUserAuthKeyChan
 TITLE "Perform a get using stingray to demonstrate it fails."\
       "(using old key)"
 
-## FIX: change FIXME to proper error message
-OKORFAIL "Authentication.Failure" snmpget -p 1600 -n default -u stingray -l authPriv -a MD5 -A "$defpass" -x DES -X "$defpass"  -v 3 $host $sysUpTime
+OKORFAIL "Authentication.failure" snmpget -p 1600 -n default -u stingray -l authPriv -a MD5 -A "$defpass" -x DES -X "$defpass"  -v 3 $host $sysUpTime
 
 TITLE "Perform a get using stingray to demonstrate it succeeds." "(using new key)"
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
@@ -420,7 +425,6 @@ STOPAGENT
 
 STARTAGENT
 
-## FIX: reboot the agent, keep same boots/time
 OKORFAIL "sysUpTime.*Timeticks" snmpget -d -e $engineidstr -T $boots `expr $time + 200 ` -s -R $AuthArgs $host $sysUpTime
 
 #
