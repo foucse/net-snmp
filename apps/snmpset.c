@@ -139,6 +139,7 @@ int main(int argc, char *argv[])
         case 's':
         case 'x':
         case 'd':
+	case 'b':
 #ifdef OPAQUE_SPECIAL_TYPES
         case 'I':
         case 'U':
@@ -205,7 +206,7 @@ int main(int argc, char *argv[])
         } else {
           fprintf(stderr, "Error in packet.\nReason: %s\n",
                  snmp_errstring(response->errstat));
-          if (response->errstat == SNMP_ERR_NOSUCHNAME){
+          if (response->errindex != 0){
             fprintf(stderr, "Failed object: ");
             for(count = 1, vars = response->variables;
                   vars && (count != response->errindex);
