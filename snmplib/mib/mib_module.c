@@ -8,7 +8,9 @@
  *
  *******************************/
 
+#ifndef linux
 #define HAVE_SYS_LIMITS_H  1	/* XXX - until we tweak configure to check for this */
+#endif
 
 #include <config.h>
 
