@@ -35,7 +35,7 @@ get_enginetime(	u_char	*engineID,
 EM0(1, "UNIMPLEMENTED");	/* EM(1); /* */
 
 get_enginetime_quit:
-	return NULL;
+	return 0;
 
 }  /* end get_enginetime() */
 
@@ -68,7 +68,7 @@ get_enginetime_byIP(	struct in_addr	 engineIP,
 EM0(1, "UNIMPLEMENTED");	/* EM(1); /* */
 
 get_enginetime_byIP_quit:
-	return NULL;
+	return 0;
 
 }  /* end get_enginetime_byIP() */
 
