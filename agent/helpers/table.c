@@ -231,14 +231,11 @@ table_helper_handler(
 		tbl_req_info = SNMP_MALLOC_TYPEDEF(table_request_info);
 		tbl_req_info->indexes = snmp_clone_varbind(tbl_info->indexes);
 		tbl_req_info->number_indexes = 0; /* none yet */
-		if (var->name_length <= oid_column_pos) { /* none available */
-			tbl_req_info->colnum = tbl_info->min_column;
-			tbl_req_info->index_oid_len = 0;
-		} else {
+		if (var->name_length > oid_column_pos) {
 			if( var->name[oid_column_pos] < tbl_info->min_column ) {
 				/* fix column, truncate useless index info */
-				var->name[oid_column_pos] = tbl_info->min_column;
 				var->name_length = oid_column_pos;
+				tbl_req_info->colnum = tbl_info->min_column;
 			}
 			else if( var->name[oid_column_pos] > tbl_info->max_column ) {
 				/* this is out of range...  remove from requests, free memory */
@@ -256,17 +253,20 @@ table_helper_handler(
 					continue;
 				if (tbl_req_info->colnum != var->name[oid_column_pos] ) {
 					/* different column! truncate useless index info */
-					var->name[oid_column_pos] = tbl_req_info->colnum;
 					var->name_length = oid_column_pos;
 				}
 			}
-	
-			tbl_req_info->colnum = var->name[oid_column_pos];
-			tbl_req_info->index_oid_len = var->name_length - oid_index_pos;
-			assert(tbl_req_info->index_oid_len < MAX_OID_LEN);
-			memcpy(tbl_req_info->index_oid,&var->name[oid_index_pos],
-						 tbl_req_info->index_oid_len*sizeof(oid) );
-			tmp_name = tbl_req_info->index_oid;
+			/* var->name_length may have changed - check again */
+			if (var->name_length <= oid_column_pos) { /* none available */
+				tbl_req_info->index_oid_len = 0;
+			} else {
+				tbl_req_info->colnum = var->name[oid_column_pos];
+				tbl_req_info->index_oid_len = var->name_length - oid_index_pos;
+				assert(tbl_req_info->index_oid_len < MAX_OID_LEN);
+				memcpy(tbl_req_info->index_oid,&var->name[oid_index_pos],
+							 tbl_req_info->index_oid_len*sizeof(oid) );
+				tmp_name = tbl_req_info->index_oid;
+			}
 		}
 		if (tbl_req_info->index_oid_len==0) {
 			incomplete = 1;
