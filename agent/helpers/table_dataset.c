@@ -10,6 +10,15 @@
 #include "table.h"
 #include "table_data.h"
 #include "table_dataset.h"
+#include "parse.h"
+#include "data_list.h"
+
+static data_list *auto_tables;
+
+typedef struct data_set_tables_s {
+   table_data_set *table_set;
+   table_data *table;
+} data_set_tables;
 
 typedef struct data_set_cache_s {
    void *data;
@@ -153,7 +162,7 @@ table_set_add_default_row(table_data_set *table_set, unsigned int column,
                           int type, int writable) 
 {
     
-    table_data_set_storage *new_col;
+    table_data_set_storage *new_col, *ptr;
 
     /* double check */
     new_col = table_data_set_find_column(table_set->default_row, column);
@@ -168,8 +177,13 @@ table_set_add_default_row(table_data_set *table_set, unsigned int column,
     new_col->type = type;
     new_col->writable = writable;
     new_col->column = column;
-    new_col->next = table_set->default_row;
-    table_set->default_row = new_col;
+    if (table_set->default_row == NULL)
+        table_set->default_row = new_col;
+    else {
+        for(ptr = table_set->default_row; ptr->next; ptr = ptr->next) {
+        }
+        ptr->next = new_col;
+    }
     return SNMPERR_SUCCESS;
 }
 
@@ -185,6 +199,7 @@ table_data_set_helper_handler(
     table_request_info *table_info;
     data_set_cache *cache;
 
+    DEBUGMSGTL(("table_data_set", "handler starting"));
     for(; requests; requests = requests->next) {
         if (requests->processed)
             continue;
@@ -281,3 +296,161 @@ table_data_set_helper_handler(
     return SNMP_ERR_NOERROR;
 }
     
+void
+config_parse_table_set(const char *token, char *line) 
+{
+    oid name[MAX_OID_LEN], table_name[MAX_OID_LEN];
+    size_t name_length = MAX_OID_LEN, table_name_length = MAX_OID_LEN;
+    struct tree *tp, *indexnode;
+    table_data_set *table_set;
+    struct index_list *index;
+    unsigned int mincol = 0xffffff, maxcol = 0;
+    table_registration_info *table_info;
+    table_data *table;
+    data_set_tables *tables;
+    int type;
+    
+    /* instatiate a fake table based on MIB information */
+    if (!snmp_parse_oid(line, table_name, &table_name_length) ||
+        (NULL == (tp = get_tree(table_name, table_name_length,
+                                get_tree_head())))) {
+        config_pwarn("can't instatiate table %s since I can't find mib information about it\n");
+        return;
+    }
+
+    if (NULL == (tp = tp->child_list) ||
+        NULL == tp->child_list) {
+        config_pwarn("can't instatiate table since it doesn't appear to be a proper table\n");
+        return;
+    }
+
+    table = create_table_data(line);
+
+    /* about the table */
+    table_info = SNMP_MALLOC_TYPEDEF(table_registration_info);
+
+    /* loop through indexes and add types */
+    for(index = tp->indexes; index; index = index->next) {
+        if (!snmp_parse_oid(index->ilabel, name, &name_length) ||
+            (NULL == (indexnode = get_tree(name, name_length, get_tree_head())))) {
+            config_pwarn("can't instatiate table %s since I don't know anything about one index\n");
+            return; /* xxx mem leak */
+        }
+
+        type = mib_to_asn_type(indexnode->type);
+        if (type == -1) {
+            config_pwarn("unknown index type");
+            return; /* xxx mem leak */
+        }
+        if (index->isimplied) /* if implied, mark it as such */
+            type |= ASN_PRIVATE;
+            
+        DEBUGMSGTL(("table_set_add_row","adding default index of type %d\n",
+                    type));
+        table_data_add_index(table, type);
+        table_helper_add_index(table_info, type); /* xxx, huh? */
+    }
+
+    table_set = create_table_data_set(table);
+
+    /* loop through children and add each column info */
+    for(tp = tp->child_list; tp; tp = tp->next_peer) {
+        int canwrite = 0;
+        type = mib_to_asn_type(tp->type);
+        if (type == -1) {
+            config_pwarn("unknown column type");
+            return; /* xxx mem leak */
+        }
+        
+        DEBUGMSGTL(("table_set_add_row","adding column %d of type %d\n",
+                    tp->subid, type));
+
+        switch (tp->access) {
+            case MIB_ACCESS_CREATE:
+            case MIB_ACCESS_READWRITE:
+            case MIB_ACCESS_WRITEONLY:
+                canwrite = 1;
+            case MIB_ACCESS_READONLY:
+                DEBUGMSGTL(("table_set_add_row","adding column %d of type %d\n",
+                            tp->subid, type));
+                table_set_add_default_row(table_set, tp->subid, type, canwrite);
+                mincol = SNMP_MIN(mincol, tp->subid);
+                maxcol = SNMP_MAX(maxcol, tp->subid);
+                break;
+
+            case MIB_ACCESS_NOACCESS:
+            case MIB_ACCESS_NOTIFY:
+                break;
+
+            default:
+                config_pwarn("unknown column access type");
+                break;
+        }
+    }
+
+    table_info->min_column = mincol;
+    table_info->max_column = maxcol;
+                
+    /* register the table */
+    register_table_data_set(
+        create_handler_registration(line, NULL, table_name, table_name_length,
+                                    HANDLER_CAN_RWRITE),
+        table_set, table_info);
+
+    tables = SNMP_MALLOC_TYPEDEF(data_set_tables);
+    tables->table_set = table_set;
+    tables->table = table;
+    add_list_data(&auto_tables, create_data_list(line, tables, NULL));
+}
+
+void
+config_parse_add_row(const char *token, char *line) 
+{
+    char buf[SNMP_MAXBUF_MEDIUM];
+    char tname[SNMP_MAXBUF_MEDIUM];
+    size_t buf_size;
+
+    data_set_tables *tables;
+    struct variable_list *vb; /* containing only types */
+    table_row *row;
+    table_data_set_storage *dr;
+    
+    line = copy_nword(line, tname, SNMP_MAXBUF_MEDIUM);
+
+    tables = (data_set_tables *) get_list_data(auto_tables, tname);
+    if (!tables) {
+        config_pwarn("Unknown table trying to add a row");
+        return;
+    }
+
+    /* do the indexes first */
+    row = create_table_data_row();
+
+    for(vb = tables->table->indexes_template; vb; vb = vb->next_variable) {
+        if (!line) {
+            config_pwarn("missing an index value");
+            return;
+        }
+        
+        DEBUGMSGTL(("table_set_add_row","adding index of type %d\n", vb->type));
+        buf_size = SNMP_MAXBUF_MEDIUM;
+        line = read_config_read_memory(vb->type, line, buf, &buf_size);
+        table_row_add_index(row, vb->type, buf, buf_size);
+    }
+
+    /* then do the data */
+    for(dr = tables->table_set->default_row; dr; dr = dr->next) {
+        if (!line) {
+            config_pwarn("missing an data value\n");
+            return;
+        }
+        
+        buf_size = SNMP_MAXBUF_MEDIUM;
+        line = read_config_read_memory(dr->type, line, buf, &buf_size);
+        DEBUGMSGTL(("table_set_add_row","adding data at column %d of type %d\n", dr->column, dr->type));
+        set_row_column(row, dr->column, dr->type, buf, buf_size);
+        if (dr->writable)
+            mark_row_column_writable(row, dr->column, 1); /* make writable */
+    }
+    table_data_add_row(tables->table, row);
+}
