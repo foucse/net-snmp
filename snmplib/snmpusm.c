@@ -1440,7 +1440,7 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 		if ((value_ptr = asn_parse_header (data_ptr, &remaining,
 			&type_value)) == NULL)
 		{
-			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
 				__FILE__,__LINE__,
 				"Failed parseing encrypted sPDU");
 
@@ -1448,7 +1448,7 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 
 			if (snmp_increment_statistic (STAT_SNMPINASNPARSEERRS)==0)
 			{
-				DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+				DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
 					__FILE__,__LINE__,
 					"Failed increment statistic");
 				return USM_ERR_GENERIC_ERROR;
@@ -1459,14 +1459,14 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 	
 		if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR))
 		{
-			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
 				__FILE__,__LINE__,
 				"Failed parseing encrypted sPDU, wrong type");
 
 			/* INCREMENT snmpInASNParseErrs */
 			if (snmp_increment_statistic (STAT_SNMPINASNPARSEERRS)==0)
 			{
-				DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+				DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
 					__FILE__,__LINE__,
 					"Failed increment statistic");
 
@@ -1482,13 +1482,13 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 			user->privKey, user->privKeyLen, salt, salt_length,
 			value_ptr, remaining, *scopedPdu, scopedPduLen) != SNMP_ERR_NOERROR)
 		{
-			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
 				__FILE__,__LINE__, "Failed decryption");
 
 			/* INCREMENT usmStatsDecryptionErrors */
 			if (snmp_increment_statistic (STAT_USMSTATSDECRYPTIONERRORS)==0)
 			{
-				DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+				DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
 					__FILE__,__LINE__, "Failed increment statistic");
 
 				return USM_ERR_GENERIC_ERROR;
