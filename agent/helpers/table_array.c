@@ -23,6 +23,24 @@
 #include <dmalloc.h>
 #endif
 
+/* snmp.h:#define SNMP_MSG_INTERNAL_SET_BEGIN        -1 */
+/* snmp.h:#define SNMP_MSG_INTERNAL_SET_RESERVE1     0 */
+/* snmp.h:#define SNMP_MSG_INTERNAL_SET_RESERVE2     1 */
+/* snmp.h:#define SNMP_MSG_INTERNAL_SET_ACTION       2 */
+/* snmp.h:#define SNMP_MSG_INTERNAL_SET_COMMIT       3 */
+/* snmp.h:#define SNMP_MSG_INTERNAL_SET_FREE         4 */
+/* snmp.h:#define SNMP_MSG_INTERNAL_SET_UNDO         5 */
+
+                            
+static const char *mode_name[] = {
+    "Reserve 1",
+    "Reserve 2",
+    "Action",
+    "Commit",
+    "Free",
+    "Undo"
+};
+
 /*
  * structure for holding important info for each table.
  */
@@ -32,14 +50,7 @@ typedef struct table_array_data_s {
     
     int                       group_rows;
 
-    UserGetProcessor          *get_value;
-
-    UserSetProcessor          *set_reserve1;
-    UserSetProcessor          *set_reserve2;
-    UserSetProcessor          *set_action;
-    UserSetProcessor          *set_commit;
-    UserSetProcessor          *set_free;
-    UserSetProcessor          *set_undo;
+    table_array_callbacks     *cb;
 
 } table_array_data;
 
@@ -52,59 +63,19 @@ typedef struct table_array_data_s {
  *                                                                    *
  **********************************************************************
  **********************************************************************/
-mib_handler *
-get_table_array_handler(table_registration_info *tabreg,
-                        UserGetProcessor        *get_value,
-                        UserSetProcessor        *set_reserve1,
-                        UserSetProcessor        *set_reserve2,
-                        UserSetProcessor        *set_action,
-                        UserSetProcessor        *set_commit,
-                        UserSetProcessor        *set_free,
-                        UserSetProcessor        *set_undo,
-                        int                     group_rows)
-{
-    /*
-     * create a handler
-     */
-    mib_handler *me=
-        create_handler(TABLE_ARRAY_NAME, table_array_helper_handler);
-
-    /*
-     * keep track of table registration info; create an oid_array
-     * for this table.
-     */
-    table_array_data * tad = SNMP_MALLOC_TYPEDEF(table_array_data);
-    tad->tblreg_info = tabreg; /* we need it too, but it really is not ours */
-    tad->array = Initialise_oid_array( sizeof(void*) );
-    tad->get_value = get_value;
-    tad->set_reserve1 = set_reserve1;
-    tad->set_reserve2 = set_reserve2;
-    tad->set_action = set_action;
-    tad->set_commit = set_commit;
-    tad->set_free = set_free;
-    tad->set_undo = set_undo;
-    me->myvoid = tad;
-
-    return me;
-}
-
 int
 register_table_array(handler_registration *reginfo,
                      table_registration_info *tabreg,
-                     UserGetProcessor        *get_value,
-                     UserSetProcessor        *set_reserve1,
-                     UserSetProcessor        *set_reserve2,
-                     UserSetProcessor        *set_action,
-                     UserSetProcessor        *set_commit,
-                     UserSetProcessor        *set_free,
-                     UserSetProcessor        *set_undo,
+                     table_array_callbacks   *cb,
                      int                     group_rows)
 {
-    inject_handler(reginfo,
-                   get_table_array_handler(tabreg, get_value, set_reserve1,
-                                           set_reserve2, set_action,
-                                           set_commit, set_free,
-                                           set_undo, group_rows));
+    table_array_data * tad = SNMP_MALLOC_TYPEDEF(table_array_data);
+    tad->tblreg_info = tabreg; /* we need it too, but it really is not ours */
+    tad->array = Initialise_oid_array( sizeof(void*) );
+    tad->cb = cb;
+
+    reginfo->handler->myvoid = tad;
+
     return register_table(reginfo, tabreg);
 }
 
@@ -237,7 +208,7 @@ build_new_oid( handler_registration *reginfo,
            row->idx_len * sizeof(oid));
 
     snmp_set_var_objid(current->requestvb, coloid,
-                       reginfo->rootoid_len + 1 + row->idx_len);
+                       reginfo->rootoid_len + 2 + row->idx_len);
 }
 
 /**********************************************************************
@@ -331,7 +302,7 @@ process_get_requests(handler_registration  *reginfo,
         /*
          * get the data
          */
-        tad->get_value( current, row, tblreq_info );
+        rc = tad->cb->get_value( current, row, tblreq_info );
 
     } /** for ( ... requests ... ) */
 
@@ -389,8 +360,12 @@ group_requests( agent_request_info *agtreq_info, request_info * requests,
          */
         index.idx = tblreq_info->index_oid;
         index.idx_len = tblreq_info->index_oid_len;
+        DEBUGMSGTL(("helper:table_array:group", "    index "));
+        DEBUGMSGOID(("helper:table_array:group", index.idx,index.idx_len));
+        DEBUGMSG(("helper:table_array:group", "\n"));
         tmp = Get_oid_data( array_group_tbl, &index, 1);
         if(tmp) {
+            DEBUGMSGTL(("helper:table_array:group", "    existing group\n"));
             g = (array_group*)tmp;
             i = SNMP_MALLOC_TYPEDEF(array_group_item);
             i->ri = current;
@@ -400,22 +375,39 @@ group_requests( agent_request_info *agtreq_info, request_info * requests,
             continue;
         }
 
+        DEBUGMSGTL(("helper:table_array:group", "    new group\n"));
+        g = SNMP_MALLOC_TYPEDEF(array_group);
+        i = SNMP_MALLOC_TYPEDEF(array_group_item);
+        g->list = i;
+        g->table = tad->array;
+        i->ri = current;
+        i->tri = tblreq_info;
+
         /*
          * search for row
          */
-        row = Get_oid_data( tad->array, &index, 1 );
-        if(!row){
-            set_request_error(agtreq_info, current, SNMP_ERR_NOSUCHNAME);
-            continue;
+        row = g->old_row = Get_oid_data( tad->array, &index, 1 );
+        if(!g->old_row){
+            if(! tad->cb->create_row) {
+                set_request_error(agtreq_info, current, SNMP_ERR_NOSUCHNAME);
+                free(g);
+                free(i);
+                continue;
+            }
+
+            row = g->new_row = tad->cb->create_row( &index );
+            if( !row ) {
+                set_request_error(agtreq_info, current, SNMP_ERR_GENERR);
+                free(g);
+                free(i);
+                continue;
+            }
         }
 
-        g = SNMP_MALLOC_TYPEDEF(array_group);
-        i = SNMP_MALLOC_TYPEDEF(array_group_item);
-        g->row = row;
-        g->list = i;
-        i->ri = current;
-        i->tri = tblreq_info;
-        Add_oid_data( tad->array, g );
+        g->index.idx = row->idx;
+        g->index.idx_len = row->idx_len;
+
+        Add_oid_data( array_group_tbl, g );
 
     } /** for( current ... ) */
 }
@@ -433,34 +425,84 @@ process_set_group( oid_array_header* o, void *c )
     switch(context->agtreq_info->mode) {
 
     case MODE_SET_RESERVE1:
-        context->status = context->tad->set_reserve1( ag );
+        if(context->tad->cb->set_reserve1)
+            /**context->status =*/ context->tad->cb->set_reserve1( ag );
         break;
         
     case MODE_SET_RESERVE2:
-        context->status = context->tad->set_reserve2( ag );
+        if(context->tad->cb->set_reserve2)
+            /**context->status =*/ context->tad->cb->set_reserve2( ag );
         break;
         
     case MODE_SET_ACTION:
-        context->status = context->tad->set_action( ag );
+        if(context->tad->cb->set_action)
+            /**context->status =*/ context->tad->cb->set_action( ag );
         break;
         
     case MODE_SET_COMMIT:
-        context->status = context->tad->set_commit( ag );
+        if(ag->old_row) {
+            /** remove or replace */
+            if(ag->new_row) {
+                Replace_oid_data(ag->table,ag->new_row);
+            }
+            else {
+                Remove_oid_data(ag->table,ag->old_row,NULL);
+            }
+        }
+        else {
+            /** insert new row */
+            Add_oid_data(ag->table,ag->new_row);
+        }
+        ag->new_row = NULL;
+        
+        if(context->tad->cb->set_commit)
+            /**context->status =*/ context->tad->cb->set_commit( ag );
         break;
         
     case MODE_SET_FREE:
-        context->status = context->tad->set_free( ag );
+        if(context->tad->cb->set_free)
+            /**context->status =*/ context->tad->cb->set_free( ag );
+
+        if(ag->new_row && context->tad->cb->delete_row) {
+            context->tad->cb->delete_row(ag->new_row);
+            ag->new_row = NULL;
+        }
+
+        if(ag->old_row && context->tad->cb->delete_row) {
+            context->tad->cb->delete_row(ag->old_row);
+            ag->old_row = NULL;
+        }
+
         break;
         
     case MODE_SET_UNDO:
+        ag->new_row = Get_oid_data(ag->table, ag, 1 );
+        if(ag->new_row) {
+            /** remove or replace */
+            if(ag->old_row) {
+                Replace_oid_data(ag->table,ag->old_row);
+            }
+            else {
+                Remove_oid_data(ag->table,ag->new_row,NULL);
+            }
+        }
+        else {
+            /** there better be an old row! */
+            assert(ag->old_row != NULL);
+            /** insert old row */
+            Add_oid_data(ag->table,ag->old_row);
+        }
+        ag->old_row = NULL;
+        
         /** status already set - don't change it now */
-        context->tad->set_undo( ag );
+        if(context->tad->cb->set_undo)
+            context->tad->cb->set_undo( ag );
         break;
         
     default:
         snmp_log(LOG_ERR, "unknown mode processing SET for "
                  "table_array_helper_handler\n");
-        context->status = SNMP_ERR_GENERR;
+        /**context->status = SNMP_ERR_GENERR*/;
         break;
     }
 
@@ -475,8 +517,6 @@ process_set_requests( agent_request_info *agtreq_info,
     set_context context;
     oid_array array_group_tbl;
 
-    DEBUGMSGTL(("helper:table_array", "Grouping requests by oid\n"));
-
     /*
      * create and save structure for set info
      */
@@ -485,6 +525,9 @@ process_set_requests( agent_request_info *agtreq_info,
     if(array_group_tbl == NULL) {
         data_list *tmp;
         array_group_tbl = Initialise_oid_array( sizeof(void*) );
+
+        DEBUGMSGTL(("helper:table_array", "Grouping requests by oid\n"));
+
         tmp = create_data_list(handler_name,
                                array_group_tbl,
                                release_array_groups);
@@ -532,8 +575,14 @@ table_array_helper_handler(
     int rc = SNMP_ERR_NOERROR;
     table_array_data * tad = (table_array_data*)handler->myvoid;
 
-    DEBUGMSGTL(("helper:table_array", "Mode %d, Got request:\n",
-                agtreq_info->mode));
+    if( agtreq_info->mode < 0 || agtreq_info->mode > 5 ) {
+        DEBUGMSGTL(("helper:table_array", "Mode %d, Got request:\n",
+                    agtreq_info->mode));
+    }
+    else {
+        DEBUGMSGTL(("helper:table_array", "Mode %s, Got request:\n",
+                    mode_name[agtreq_info->mode]));
+    }
 
     /*
      * 3.1.1

@@ -30,7 +30,7 @@ typedef struct oid_array_table_s {
     void           *data;       /* The table itself */
 } oid_array_table;
 
-#define TABLE_ADD( x, y )	((oid_array_header*)((char*)(x) + y))
+#define TABLE_ADD( x, y )	((oid_array_header**)((char*)(x) + y))
 #define TABLE_INDEX(t, i)	(TABLE_ADD(t->data, i * t->data_size))
 #define TABLE_START(t)		(TABLE_INDEX(t, 0))
 #define TABLE_NEXT(t)		(TABLE_INDEX(t, t->count))
@@ -38,10 +38,11 @@ typedef struct oid_array_table_s {
 int
 array_compare(const void *lhs, const void *rhs)
 {
-    return snmp_oid_compare(((const oid_array_header *) lhs)->idx,
-                            ((const oid_array_header *) lhs)->idx_len,
-                            ((const oid_array_header *) rhs)->idx,
-                            ((const oid_array_header *) rhs)->idx_len);
+    
+    return snmp_oid_compare((*(const oid_array_header **) lhs)->idx,
+                            (*(const oid_array_header **) lhs)->idx_len,
+                            (*(const oid_array_header **) rhs)->idx,
+                            (*(const oid_array_header **) rhs)->idx_len);
 }
 
 static int
@@ -51,8 +52,9 @@ Sort_Array(oid_array_table * table)
         /*
          * Sort the table 
          */
-        qsort(TABLE_START(table), table->count, table->data_size,
-              array_compare);
+        if(table->count>1)
+            qsort(TABLE_START(table), table->count, table->data_size,
+                  array_compare);
         table->dirty = 0;
     }
 
@@ -78,7 +80,7 @@ binary_search(oid_array_header * val, oid_array_table * t, int exact)
         half = len >> 1;
         middle = first;
         middle += half;
-        if ((result = array_compare(TABLE_INDEX(t, middle), val)) < 0) {
+        if ((result = array_compare(TABLE_INDEX(t, middle), &val)) < 0) {
             first = middle;
             ++first;
             len = len - half - 1;
@@ -96,7 +98,7 @@ binary_search(oid_array_header * val, oid_array_table * t, int exact)
     /*
      * GETNEXT search - if result == 0, we want the next item
      */
-    if (result)
+    if (result <= 0)
         ++first;
 
     if (first >= t->count)
@@ -155,11 +157,89 @@ Get_oid_data(oid_array a, void *key, int exact)
             return 0;
     }
 
-    return TABLE_INDEX(t, index);
+    return *TABLE_INDEX(t, index);
+}
+
+int
+Replace_oid_data(oid_array a, void *entry )
+{
+    oid_array_table *t = (oid_array_table *) a;
+    void            *new_data;
+    int             index = 0;
+
+    /*
+     * if there is no data, return NULL;
+     */
+    if (!t->count)
+        return 0;
+
+    /*
+     * if the table is dirty, sort it.
+     */
+    if (t->dirty)
+        Sort_Array(t);
+
+    /*
+     * search
+     */
+    if ((index = binary_search(entry, t, 1)) == -1)
+        return 0;
+
+    new_data = TABLE_INDEX(t, index);
+    memcpy(new_data, &entry, t->data_size);
+
+    return 0;
+}
+
+int
+Remove_oid_data(oid_array a, void *key, void *save )
+{
+    oid_array_table *t = (oid_array_table *) a;
+    void            *new_data, *old_data;
+    int             index = 0;
+
+    /*
+     * if there is no data, return NULL;
+     */
+    if (!t->count)
+        return 0;
+
+    /*
+     * if the table is dirty, sort it.
+     */
+    if (t->dirty)
+        Sort_Array(t);
+
+    /*
+     * search
+     */
+    if ((index = binary_search(key, t, 1)) == -1)
+        return -1;
+
+    /*
+     * find old data and save it, if ptr provided
+     */
+    old_data = TABLE_INDEX(t, index);
+    if(save)
+        memcpy(save, old_data, t->data_size);
+
+    /*
+     * if entry was last item, just decrement count
+     */
+    --t->count;
+    if(index != t->count) {
+        /*
+         * otherwise, shift array down
+         */
+        new_data = TABLE_INDEX(t, index+1);
+        memcpy(old_data, new_data, t->data_size * (t->count - index) );
+    }
+
+    return 0;
 }
 
 void
-For_each_oid_data(oid_array a, ForEach fe, int sort)
+For_each_oid_data(oid_array a, ForEach fe, void * context, int sort)
 {
     int             i;
     oid_array_table *t = (oid_array_table *) a;
@@ -168,13 +248,13 @@ For_each_oid_data(oid_array a, ForEach fe, int sort)
         Sort_Array(t);
 
     for (i = 0; i < t->count; ++i)
-        (*fe) (TABLE_INDEX(t, i));
+        (*fe) (*TABLE_INDEX(t, i), context);
 }
 
 int
-Add_oid_data(oid_array t, void *entry)
+Add_oid_data(oid_array a, void *entry)
 {
-    oid_array_table *table = (oid_array_table *) t;
+    oid_array_table *table = (oid_array_table *) a;
     int             new_max;
     void           *new_data;   /* Used for * a) extending the data table
                                  * * b) the next entry to use */
@@ -187,7 +267,7 @@ Add_oid_data(oid_array t, void *entry)
         if (new_max == 0)
             new_max = 10;       /* Start with 10 entries */
 
-        new_data = (void *) malloc(new_max * table->data_size);
+        new_data = (void *) calloc(new_max, table->data_size);
         if (new_data == NULL)
             return -1;
 
@@ -204,7 +284,7 @@ Add_oid_data(oid_array t, void *entry)
      * Insert the new entry into the data array
      */
     new_data = TABLE_NEXT(table);
-    memcpy(new_data, entry, table->data_size);
+    memcpy(new_data, &entry, table->data_size);
     table->count++;
     table->dirty = 1;
     return 0;

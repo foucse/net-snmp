@@ -22,6 +22,8 @@ extern "C" {
    and SET related modes instead.
  */
 
+#include "table.h"
+
 #define TABLE_ARRAY_NAME "table_array"
 
 /*
@@ -38,36 +40,50 @@ typedef struct array_group_item_s {
  * structure to keep a list of requests for each unique index
  */
 typedef struct array_group_s {
-    oid_array_header   *row;
+    oid_array_header   index;
+
+    oid_array          table;
+
+    oid_array_header   *old_row;
+    oid_array_header   *new_row;
+
     array_group_item   *list;
+
+    int                status;
+
 } array_group;
 
-
+typedef int (UserOidCompare)(void *lhs, void *rhs);
 typedef int (UserGetProcessor)(request_info *, oid_array_header *,
                                table_request_info *);
-typedef int (UserSetProcessor)( array_group * );
+typedef oid_array_header * (UserRowMethod)(oid_array_header *);
+typedef void (UserGroupMethod)( array_group * );
 
+/*
+ * structure for array callbacks
+ */
+typedef struct table_array_callbacks_s {
+    /*
+     * XXX-rks: UserOidCompare         *compare;
+     */
+    UserGetProcessor       *get_value;
 
-mib_handler *
-get_table_array_handler(table_registration_info *tabreq,
-                        UserGetProcessor        *get_value,
-                        UserSetProcessor        *set_reserve1,
-                        UserSetProcessor        *set_reserve2,
-                        UserSetProcessor        *set_action,
-                        UserSetProcessor        *set_commit,
-                        UserSetProcessor        *set_free,
-                        UserSetProcessor        *set_undo,
-                        int                     group_rows);
+    UserRowMethod          *create_row;
+    UserRowMethod          *delete_row;
+
+    UserGroupMethod        *set_reserve1;
+    UserGroupMethod        *set_reserve2;
+    UserGroupMethod        *set_action;
+    UserGroupMethod        *set_commit;
+    UserGroupMethod        *set_free;
+    UserGroupMethod        *set_undo;
+
+} table_array_callbacks;
+
 
 int register_table_array(handler_registration *reginfo,
                          table_registration_info *tabreq,
-                         UserGetProcessor        *get_value,
-                         UserSetProcessor        *set_reserve1,
-                         UserSetProcessor        *set_reserve2,
-                         UserSetProcessor        *set_action,
-                         UserSetProcessor        *set_commit,
-                         UserSetProcessor        *set_free,
-                         UserSetProcessor        *set_undo,
+                         table_array_callbacks   *cb,
                          int                     group_rows);
 
 oid_array *extract_array_context(request_info *);

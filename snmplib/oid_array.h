@@ -96,6 +96,13 @@ extern          "C" {
     int             Add_oid_data(oid_array a, void *);
 
     /*
+     * replace an entry to an array.
+     *
+     * returns 0 on success, -1 on failure
+     */
+    int             Replace_oid_data(oid_array a, void *key);
+
+    /*
      * find the entry in the array with the same index
      *
      * Note: do not change the index!  If you need to
@@ -106,8 +113,11 @@ extern          "C" {
 
     /*
      * remove an entry
+     *
+     * if save is not null, the entry will be copied to the address
+     * save points at.
      */
-    void           *Remove_oid_data(oid_array a, void *);
+    int             Remove_oid_data(oid_array a, void *key, void *save);
 
     /*
      * release memory used by a table.
