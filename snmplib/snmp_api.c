@@ -1160,7 +1160,7 @@ snmpv3_build_probe_pdu (pdu)
   if (!pdu) return -1;
   *pdu = snmp_pdu_create(SNMP_MSG_GET);
   (*pdu)->version = SNMP_VERSION_3;
-  (*pdu)->securityName = strdup("initial");
+  (*pdu)->securityName = strdup("");
   (*pdu)->securityNameLen = strlen((*pdu)->securityName);
   (*pdu)->securityLevel = SNMP_SEC_LEVEL_NOAUTH;
   (*pdu)->securityModel = SNMP_SEC_MODEL_USM;
