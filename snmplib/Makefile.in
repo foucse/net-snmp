@@ -28,6 +28,7 @@ INSTALLHEADERS=\
 	snmp_impl.h \
 	snmp_logging.h \
 	snmp_parse_args.h \
+	snmp-tc.h \
 	snmpv3.h \
 	system.h \
 	tools.h \

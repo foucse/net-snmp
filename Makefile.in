@@ -19,7 +19,7 @@ CPP		= @CPP@ 						\
 
 CPP = @CPP@ -I$(srcdir)/agent/mibgroup -I. -I$(srcdir) -DDONT_INC_STRUCTS -DBINDIR=$(bindir) $(EXTRACPPFLAGS)
 
-INSTALLHEADERS=ucd-snmp-config.h $(srcdir)/version.h
+INSTALLHEADERS=mib_module_config.h ucd-snmp-config.h $(srcdir)/version.h
 
 all:	sedscript EXAMPLE.conf ucd-snmp-config.h subdirs
 
