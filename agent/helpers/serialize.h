@@ -3,8 +3,15 @@
  * themselves.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 mib_handler *get_serialize_handler(void);
 int register_serialize(handler_registration *reginfo);
 
 NodeHandler serialize_helper_handler;
 
+#ifdef __cplusplus
+};
+#endif
