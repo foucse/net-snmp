@@ -9,7 +9,7 @@
  *******************************/
 
 #ifndef linux
-#define HAVE_SYS_LIMITS_H  1	/* XXX - until we tweak configure to check for this */
+#define HAVE_SYS_SYSLIMITS_H  1	/* XXX - until we tweak configure to check for this */
 #endif
 
 #include <config.h>
@@ -23,8 +23,8 @@
 #include <strings.h>
 #endif
 #include <sys/types.h>
-#ifdef HAVE_SYS_LIMITS_H
-#include <sys/limits.h>
+#ifdef HAVE_SYS_SYSLIMITS_H
+#include <sys/syslimits.h>
 #endif
 
 /* Wow.  This is still ugly.  -- Wes  */
