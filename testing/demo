@@ -35,6 +35,7 @@ engineID="9 800007E501D0D6A623"         # example for comments, never used.
 createUsers=1
 autoread=1
 autodoit=1
+autotest=1
 runcommands=1
 host=localhost
 handleagent=1
@@ -53,11 +54,14 @@ do
     runcommands=0
   elif test $arg = "-a"; then
     handleagent=0
+  elif test $arg = "-T"; then
+    autotest=0
   elif test $arg = "-s"; then
     dosleep=1
   elif test $arg = "-h"; then
     echo "$0 [-t] [-c] [-u] [host]"
     echo "    -t:    pause at section titles"
+    echo "    -T:    pause at section titles"
     echo "    -c:    pause before running commands"
     echo "    -u:    do not create the users, assume they are already created."
     echo "    -n:    don't actually run any commands."
@@ -129,6 +133,10 @@ OKORFAIL() {
   else
     echo "****** Test #$testcounter PASSED"
     succeeds=`expr $succeeds + 1`
+  fi
+  echo ""
+  if test "x$autotest" != "x1"; then
+    GETRET
   fi
 }
 
@@ -269,9 +277,10 @@ TITLE "Demonstrate that users, user passphrases -or- Ku,"\
 ## FIX: these may not be there, they could be somewhere else.
 DOIT "egrep userSet|engineID $HOME/.snmp/snmpd.conf /usr/local/share/snmp/snmpd.conf"
 
-TITLE "+++++++ NOT Demonstrating syntax for user creation at the agent"
+TITLE "+++++++ NOT Demontrate that initial user data from USM RFC can be specified." "(Its included in the agent automatically, you only need to set the keys)"
 
-TITLE "+++++++ NOT Demontrate that initial user data from USM RFC can be specified."
+TITLE "+++++++ NOT Demonstrating syntax for user creation at the agent"\
+      "Look in /var/snmp/snmpd.conf to see how this could be accopmlished."
 
 #
 # Creating users
@@ -351,10 +360,10 @@ TITLE "Send malformed crypted packets and examine the result for proper informat
 OKORFAIL "Authentication.failure" snmpget -p 1600 -n default -u stingray -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
 
 #
-# Key Change
+# Key Change: MD5
 #
 
-TITLE "Demonstrate KeyChange."\
+TITLE "Demonstrate KeyChange (MD5)."\
       "Change kul for a user at the remote node:"
 
 keychange=`encode_keychange -t md5 -N "new_$defpass" -O "$defpass" -E 0x$engineidstr`
@@ -372,6 +381,29 @@ OKORFAIL "Authentication.failure" snmpget -p 1600 -n default -u stingray -l auth
 
 TITLE "Perform a get using stingray to demonstrate it succeeds." "(using new key)"
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
+
+#
+# Key Change: SHA
+# 
+
+TITLE "Demonstrate KeyChange (MD5)."\
+      "Change kul for a user at the remote node:"
+
+keychange=`encode_keychange -t sha1 -N "new_$defpass" -O "$defpass" -E 0x$engineidstr`
+
+TITLE "changing stingray2's auth and priv key"\
+      "(using $keychange)"
+
+OKORFAIL "usmUserPrivKeyChange.$stingray2oid.=.+Hex:" $snmpset usmUserPrivKeyChange.$stingray2oid x $keychange
+OKORFAIL "usmUserAuthKeyChange.$stingray2oid.=.+Hex:" $snmpset usmUserAuthKeyChange.$stingray2oid x $keychange
+
+TITLE "Perform a get using stingray2 to demonstrate it fails."\
+      "(using old key)"
+
+OKORFAIL "Authentication.failure" snmpget -p 1600 -n default -u stingray2 -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass"  -v 3 $host $sysUpTime
+
+TITLE "Perform a get using stingray2 to demonstrate it succeeds." "(using new key)"
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray2 -l authNoPriv -a SHA -A "new_$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
 
 #
 # Cloning an account
