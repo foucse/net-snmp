@@ -563,6 +563,10 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 			/* RETURN: unknownSecurityName */
 			DEBUGP ("usm_generate_out_msg():%s,%d: Unknown User\n",
 				__FILE__,__LINE__);
+
+			if (secStateRef)
+				usm_free_usmStateReference (secStateRef);
+
 			return USM_ERR_UNKNOWN_SECURITY_NAME;
 		}
 
@@ -595,6 +599,10 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		/* RETURN: unsupportedSecurityLevel */
 		DEBUGP ("usm_generate_out_msg():%s,%d: Unsupported Security Level\n",
 			__FILE__,__LINE__);
+
+		if (secStateRef)
+			usm_free_usmStateReference (secStateRef);
+
 		return USM_ERR_UNSUPPORTED_SECURITY_LEVEL;
 	}
 
@@ -608,6 +616,10 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		{
 			DEBUGP ("usm_generate_out_msg():%s,%d: %s\n",
 				__FILE__,__LINE__, "Failed to find engine data");
+
+			if (secStateRef)
+				usm_free_usmStateReference (secStateRef);
+
 			return USM_ERR_GENERIC_ERROR;
 		}
 	}
@@ -631,6 +643,10 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	{
 		DEBUGP ("usm_generate_out_msg():%s,%d: Failed calculating offsets\n",
 			__FILE__,__LINE__);
+
+		if (secStateRef)
+			usm_free_usmStateReference (secStateRef);
+
 		return USM_ERR_GENERIC_ERROR;
 	}
 
@@ -647,6 +663,10 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	{
 		DEBUGP ("usm_generate_out_msg():%s,%d: Message won't fit in buffer\n",
 			__FILE__,__LINE__);
+
+		if (secStateRef)
+			usm_free_usmStateReference (secStateRef);
+
 		return USM_ERR_GENERIC_ERROR;
 	}
 
@@ -668,6 +688,10 @@ memset (&ptr[globalDataLen], 0xFF, theTotalLength-globalDataLen);
 		{
 			DEBUGP ("usm_generate_out_msg():%s,%d: Can't set CBC-DES salt\n",
 				__FILE__,__LINE__);
+
+			if (secStateRef)
+				usm_free_usmStateReference (secStateRef);
+
 			return USM_ERR_GENERIC_ERROR;
 		}
 
@@ -680,6 +704,10 @@ memset (&ptr[globalDataLen], 0xFF, theTotalLength-globalDataLen);
 			/* RETURN: encryptionError */
 			DEBUGP ("usm_generate_out_msg():%s,%d: CBC-DES error\n",
 				__FILE__,__LINE__);
+
+			if (secStateRef)
+				usm_free_usmStateReference (secStateRef);
+
 			return USM_ERR_ENCRYPTION_ERROR;
 		}
 
@@ -688,6 +716,10 @@ memset (&ptr[globalDataLen], 0xFF, theTotalLength-globalDataLen);
 			/* RETURN: encryptionError */
 			DEBUGP ("usm_generate_out_msg():%s,%d: CBC-DES length error\n",
 				__FILE__,__LINE__);
+
+			if (secStateRef)
+				usm_free_usmStateReference (secStateRef);
+
 			return USM_ERR_ENCRYPTION_ERROR;
 		}
 
@@ -797,6 +829,10 @@ memset (&ptr[globalDataLen], 0xFF, theTotalLength-globalDataLen);
 		{
 			DEBUGP ("usm_generate_out_msg():%s,%d: out of memory\n",
 				__FILE__,__LINE__);
+
+			if (secStateRef)
+				usm_free_usmStateReference (secStateRef);
+
 			return USM_ERR_GENERIC_ERROR;
 		}
 
@@ -809,6 +845,10 @@ memset (&ptr[globalDataLen], 0xFF, theTotalLength-globalDataLen);
 			/* RETURN: authenticationFailure */
 			DEBUGP ("usm_generate_out_msg():%s,%d: signing failed\n",
 				__FILE__,__LINE__);
+
+			if (secStateRef)
+				usm_free_usmStateReference (secStateRef);
+
 			return USM_ERR_AUTHENTICATION_FAILURE;
 		}
 
@@ -819,6 +859,10 @@ memset (&ptr[globalDataLen], 0xFF, theTotalLength-globalDataLen);
 			/* RETURN: authenticationFailure */
 			DEBUGP ("usm_generate_out_msg():%s,%d: signing lengths failed\n",
 				__FILE__,__LINE__);
+
+			if (secStateRef)
+				usm_free_usmStateReference (secStateRef);
+
 			return USM_ERR_AUTHENTICATION_FAILURE;
 		}
 
@@ -829,7 +873,7 @@ memset (&ptr[globalDataLen], 0xFF, theTotalLength-globalDataLen);
 
 	if (secStateRef != NULL)
 	{
-		free (secStateRef);
+		usm_free_usmStateReference (secStateRef);
 	}
 
 	DEBUGP ("usm_generate_out_msg():%s,%d: USM processing completed\n",
