@@ -133,7 +133,7 @@ typedef struct _agent_nsap {
 
 static	agent_nsap		*agent_nsap_list = NULL;
 static struct agent_snmp_session *agent_session_list = NULL;
-static struct agent_snmp_session *agent_delegated_list = NULL;
+struct agent_snmp_session *agent_delegated_list = NULL;
 
 
 static void dump_var(oid *, size_t, int, void *, size_t);
@@ -1848,7 +1848,7 @@ int set_request_error(agent_request_info *reqinfo, request_info *request,
     if (!request || !reqinfo)
         return error_value;
 
-    return set_request_error(reqinfo->mode, request, error_value);
+    return set_mode_request_error(reqinfo->mode, request, error_value);
 }
 
 int set_mode_request_error(int mode, request_info *request,
