@@ -1595,10 +1595,11 @@ usm_get_user_from_list(char *engineID, int engineIDLen,
   if (name == NULL)
     name = noName;
   for (ptr = userList; ptr != NULL; ptr = ptr->next) {
-    if (ptr->engineIDLen == engineIDLen &&
-        !strcmp(ptr->name, name) &&
-        ((ptr->engineID == NULL && engineID == NULL) ||
+    if (!strcmp(ptr->name, name) &&
+        ((ptr->engineIDLen == engineIDLen) ||
+         (ptr->engineID == NULL && engineID == NULL) ||
          (ptr->engineID != NULL && engineID != NULL &&
+          ptr->engineIDLen == engineIDLen &&
           memcmp(ptr->engineID, engineID, engineIDLen) == 0)))
       return ptr;
   }
