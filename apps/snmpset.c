@@ -199,14 +199,14 @@ int main(int argc, char *argv[])
     /* do the request */
     status = snmp_synch_response(ss, pdu, &response);
     if (status == STAT_SUCCESS){
-      if (response->errstat == SNMP_ERR_NOERROR){
+      if (response->errindex != 0){
         for(vars = response->variables; vars; vars = vars->next_variable)
           print_variable(vars->name, vars->name_length, vars);
         } else {
           fprintf(stderr, "Error in packet.\nReason: %s\n",
                  snmp_errstring(response->errstat));
           if (response->errstat == SNMP_ERR_NOSUCHNAME){
-            fprintf(stderr, "This name doesn't exist: ");
+            fprintf(stderr, "Failed object: ");
             for(count = 1, vars = response->variables;
                   vars && (count != response->errindex);
                   vars = vars->next_variable, count++)
