@@ -11,6 +11,13 @@
 extern "C" {
 #endif
 
+#define VACM_SUCCESS   0
+#define VACM_NOSECNAME 1
+#define VACM_NOGROUP   2
+#define VACM_NOACCESS  3
+#define VACM_NOVIEW    4
+#define VACM_NOTINVIEW 5
+
 #define SECURITYMODEL	1
 #define SECURITYNAME	2
 #define SECURITYGROUP	3
