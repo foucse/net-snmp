@@ -177,7 +177,7 @@ engine_bprint(netsnmp_buf *buf, netsnmp_engine *engine)
     }
 
     __B(buffer_append_string(buf, " EngineID = "))
-    __B(buffer_append_bufstr(buf, engine->ID))
+    __B(buffer_append_hexstr(buf, engine->ID->string, engine->ID->cur_len))
     __B(buffer_append_string(buf, "\n EngineBoots = "))
     __B(buffer_append_int(   buf, engine->boots))
     __B(buffer_append_string(buf, "\n EngineTime = "))

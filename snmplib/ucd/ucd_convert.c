@@ -219,6 +219,8 @@ ucd_convert_v3info( struct snmp_pdu *p )
 /*  info->v3_flags   = p->XXX;       */
     info->sec_level  = p->securityLevel;
     info->sec_model  = p->securityModel;
+    info->sec_name   = ((0 < p->securityNameLen) ?
+                 buffer_new(p->securityName, p->securityNameLen, 0) : NULL);
 
     info->context_engine = engine_new(p->contextEngineID, p->contextEngineIDLen);
     info->context_name   = ((0 < p->contextNameLen) ?
@@ -404,9 +406,9 @@ ucd_convert_pdu( struct snmp_pdu *p )
 
     if ( SNMP_VERSION_3 == p->version ) {
         pdu->v3info   = ucd_convert_v3info(p);
-        pdu->userinfo = ucd_convert_userinfo(p);
+        pdu->sm_info  = (void*)ucd_convert_userinfo(p);
 	if ((NULL == pdu->v3info) ||
-	    (NULL == pdu->userinfo)) {
+	    (NULL == pdu->sm_info)) {
 	    pdu_free(pdu);
 	    return NULL;
 	}
@@ -616,6 +618,10 @@ ucd_revert_v3info(struct snmp_pdu *pdu, netsnmp_v3info *info)
 /*  pdu->XXX             = info->v3_flags;       */
     pdu->securityLevel   = info->sec_level;
     pdu->securityModel   = info->sec_model;
+    if ( info->sec_name ) {
+        pdu->securityNameLen = info->sec_name->cur_len;
+        pdu->securityName    = buffer_string(info->sec_name);
+    }
 
     pdu->contextEngineIDLen = info->context_engine->ID->cur_len;
     pdu->contextEngineID    = buffer_string(info->context_engine->ID);
@@ -641,10 +647,6 @@ ucd_revert_userinfo(struct snmp_pdu *pdu, netsnmp_user *info)
         set_enginetime(pdu->securityEngineID, pdu->securityEngineIDLen,
                        info->sec_engine->boots, 
                        info->sec_engine->time, TRUE );
-    }
-    if ( info->sec_name ) {
-        pdu->securityNameLen = info->sec_name->cur_len;
-        pdu->securityName    = buffer_string(info->sec_name);
     }
 
     return 0;
@@ -684,8 +686,8 @@ ucd_revert_pdu(netsnmp_pdu *p)
     if (p->v3info) {
         ucd_revert_v3info(pdu, p->v3info);
     }
-    if (p->userinfo) {
-        ucd_revert_userinfo(pdu, p->userinfo);
+    if (p->sm_info) {
+        ucd_revert_userinfo(pdu, (netsnmp_user*)p->sm_info);
     }
 
     if (p->varbind_list) {

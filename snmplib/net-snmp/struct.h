@@ -140,7 +140,7 @@ struct netsnmp_pdu_s {
     netsnmp_varbind     *varbind_list;
     netsnmp_comminfo    *community;
     netsnmp_v3info      *v3info;
-    netsnmp_user        *userinfo;
+    void                *sm_info;
 
     void *transport_data;
     int   transport_data_length;
@@ -188,7 +188,7 @@ struct netsnmp_session_s {
     netsnmp_comminfo    *write_community;
 
     netsnmp_v3info      *v3info;
-    netsnmp_user        *userinfo;
+    void                *sm_info;
 
     netsnmp_transport   *transport;
     netsnmp_buf         *rxbuf;

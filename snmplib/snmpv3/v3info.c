@@ -87,6 +87,7 @@ v3info_copy(netsnmp_v3info *info)
 
     copy->context_engine = engine_copy(info->context_engine);
     copy->context_name   = buffer_copy(info->context_name);
+    copy->sec_name       = buffer_copy(info->sec_name);
 
     return copy;
 }
@@ -146,6 +147,7 @@ v3info_free(netsnmp_v3info *info)
     }
     engine_free(info->context_engine);
     buffer_free(info->context_name);
+    buffer_free(info->sec_name);
     free( info );
     return;
 }
@@ -178,8 +180,11 @@ v3info_bprint(netsnmp_buf *buf, netsnmp_v3info *info)
     __B(buffer_append_int(   buf, info->sec_level))
     __B(buffer_append_string(buf, "\n security Model = "))
     __B(buffer_append_int(   buf, info->sec_model))
+    __B(buffer_append_string(buf, "\n security Name = "))
+    __B(buffer_append_bufstr(   buf, info->sec_name))
     __B(buffer_append_string(buf, "\n contextEngineID = "))
-    __B(buffer_append_bufstr(buf, info->context_engine->ID))
+    __B(buffer_append_hexstr(buf, info->context_engine->ID->string,
+                                  info->context_engine->ID->cur_len))
     __B(buffer_append_string(buf, "\n contextName = "))
     __B(buffer_append_bufstr(   buf, info->context_name))
     __B(buffer_append_string(buf, "\n"))
@@ -360,6 +365,11 @@ v3info_session_defaults(struct snmp_session *session, netsnmp_v3info *info)
         }
     }
 
+
+    if (NULL == info->sec_name) {
+        info->sec_name = buffer_new(session->securityName,
+                                    session->securityNameLen, 0);
+    }
 
     if (NULL == info->context_name) {
         info->context_name = buffer_new(session->contextName,

@@ -28,6 +28,7 @@
 #include <net-snmp/community_api.h>
 
 #include "session/session.h"
+#include "sec_model/secmod.h"
 
 #include "snmp_debug.h"
 #include "snmp_logging.h"
@@ -125,6 +126,8 @@ session_open(int version, char *peername, int local)
 void
 session_free(netsnmp_session *sess)
 {
+    netsnmp_secmod *secmod;
+
     if (NULL == sess) {
         return;
     }
@@ -140,18 +143,18 @@ session_free(netsnmp_session *sess)
 
     if (sess->v3info) {
 	v3info_free(sess->v3info);
+        secmod = secmod_find(sess->v3info->sec_model);
+        if (secmod && secmod->sm_free) {
+            secmod->sm_free(sess->sm_info);
+            sess->sm_info = NULL;
+        }
 	sess->v3info = NULL;
-    }
-    if (sess->userinfo) {
-	user_free(sess->userinfo);
-	sess->userinfo = NULL;
     }
 
 	/*
 	 * XXX
 	 * ToDo:
 	 *	 Free:	transport
-	 *		hook structures
 	 *		outstanding requests
 	 */
 
@@ -312,6 +315,8 @@ session_list_select(netsnmp_session *sess,
 int
 session_bprint(netsnmp_buf *buf, netsnmp_session *sess)
 {
+    netsnmp_secmod  *secmod;
+
     if (NULL == buf ) {
 	return -1;
     }
@@ -348,9 +353,12 @@ session_bprint(netsnmp_buf *buf, netsnmp_session *sess)
 
     if (sess->v3info) {
         __B(v3info_bprint(buf, sess->v3info))
-    }
-    if (sess->userinfo) {
-        __B(user_bprint(buf, sess->userinfo))
+        if (sess->sm_info) {
+            secmod = secmod_find(sess->v3info->sec_model);
+            if (secmod && secmod->sm_print) {
+                __B(secmod->sm_print(buf, sess->sm_info))
+            }
+        }
     }
  
     return 0;

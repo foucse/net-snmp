@@ -30,6 +30,7 @@
 #include "protocol/decode.h"
 #include "community/community.h"
 #include "snmpv3/snmpv3.h"
+#include "sec_model/secmod.h"
 #include "ucd/ucd_convert.h"
 
 
@@ -71,6 +72,7 @@ pdu_copy(netsnmp_pdu *pdu)
 {
     netsnmp_varbind *vb;
     netsnmp_pdu     *copy;
+    netsnmp_secmod  *secmod;
 
     if (NULL == pdu) {
         return NULL;
@@ -88,9 +90,10 @@ pdu_copy(netsnmp_pdu *pdu)
     }
     if (pdu->v3info) {
 	copy->v3info = v3info_copy(pdu->v3info);
-    }
-    if (pdu->userinfo) {
-	copy->userinfo = user_copy(pdu->userinfo);
+        secmod = secmod_find(pdu->v3info->sec_model);
+        if (secmod && secmod->sm_clone) {
+            copy->sm_info = secmod->sm_clone(pdu->sm_info);
+        }
     }
 
     copy->varbind_list = NULL;
@@ -111,6 +114,8 @@ pdu_copy(netsnmp_pdu *pdu)
 void
 pdu_free(netsnmp_pdu *pdu)
 {
+    netsnmp_secmod *secmod;
+
     if (pdu->community) {
 	comminfo_free(pdu->community);
 	pdu->community = NULL;
@@ -118,11 +123,12 @@ pdu_free(netsnmp_pdu *pdu)
 
     if (pdu->v3info) {
 	v3info_free(pdu->v3info);
+        secmod = secmod_find(pdu->v3info->sec_model);
+        if (secmod && secmod->sm_free) {
+            secmod->sm_free(pdu->sm_info);
+            pdu->sm_info = NULL;
+        }
 	pdu->v3info = NULL;
-    }
-    if (pdu->userinfo) {
-	user_free(pdu->userinfo);
-	pdu->userinfo = NULL;
     }
 
     vblist_free(pdu->varbind_list);
@@ -230,6 +236,8 @@ pdu_extract_varbind(netsnmp_pdu *pdu, int idx)
 int
 pdu_bprint(netsnmp_buf *buf, netsnmp_pdu *pdu)
 {
+    netsnmp_secmod  *secmod;
+
     if (NULL == buf ) {
 	return -1;
     }
@@ -262,10 +270,14 @@ pdu_bprint(netsnmp_buf *buf, netsnmp_pdu *pdu)
     }
     if (pdu->v3info) {
         __B(v3info_bprint(buf, pdu->v3info))
+        if (pdu->sm_info) {
+            secmod = secmod_find(pdu->v3info->sec_model);
+            if (secmod && secmod->sm_print) {
+                __B(secmod->sm_print(buf, pdu->sm_info))
+            }
+        }
     }
-    if (pdu->userinfo) {
-        __B(user_bprint(buf, pdu->userinfo))
-    }
+
     /*
      *  ... and the list of Variable Bindings
      */
