@@ -45,6 +45,8 @@ SOFTWARE.
  */
 #ifdef	USE_V2PARTY_PROTOCOL
 
+#include "transform_oids.h"
+
 #	ifdef			USE_INTERNAL_MD5
 static void md5Digest __P((u_char *, int, u_char *));
 
@@ -362,6 +364,7 @@ snmp_party_parse(	u_char	*data,		 	int	*length,
     u_char   		 type;
     u_char		 authDigest[MD5_HASHSIZE_BYTES],
 			 digest[MD5_HASHSIZE_BYTES];
+    int                  digest_len = MD5_HASHSIZE_BYTES;
     u_char		*authMsg,
 			*digestStart = NULL,
 			*digestEnd   = NULL;
@@ -570,31 +573,9 @@ snmp_party_parse(	u_char	*data,		 	int	*length,
 	/*
 	 * Create a hash of the message.
 	 */
-#ifdef							USE_INTERNAL_MD5
-	md5Digest(authMsg, authMsgLen, digest);
-
-#else
-{
-	void		*context	= NULL;
-	int		 digest_len	= MD5_HASHSIZE_BYTES,
-			 rval		= SNMPERR_SUCCESS;
-	u_int8_t	*bufp		= (u_int8_t *) digest;
-
-	SET_HASH_TRANSFORM(kmt_s_md5);		/* FIX -- Broken KMT API. */
-
-        rval = kmt_hash(KMT_CRYPT_MODE_ALL, &context,
-                        authMsg, authMsgLen,
-                        &bufp, &digest_len);
-
-	SNMP_FREE(context);
-	if (rval != SNMPERR_SUCCESS) {
-	    	ERROR_MSG(	"snmp_party_parse(): "
-				"kmt_hash() did not return SNMPERR_SUCCESS.");
-		return NULL;
-	}
-}
-#endif							/* USE_INTERNAL_MD5 */
-
+        sc_hash(usmHMACMD5AuthProtocol,
+                sizeof(usmHMACMD5AuthProtocol)/sizeof(oid),
+                authMsg, authMsgLen, digest, &digest_len);
 
 	/* RFC1446, Pg 19, 3.2.6
 	 */
@@ -698,6 +679,7 @@ snmp_party_build(	u_char	*data,			int	*length,
 			*digestEnd   = NULL,
 			*authMsgStart;
     u_char		 authDigest[MD5_HASHSIZE_BYTES];
+    int			 authDigestLen = MD5_HASHSIZE_BYTES;
     u_char		*h1, *h2,
 			*h3 = NULL,
 			*h5;
@@ -919,35 +901,11 @@ snmp_party_build(	u_char	*data,			int	*length,
     /* xdump(srcp->partyAuthPrivate, MD5_HASHSIZE_BYTES, "authPrivate: "); /* */
 
 
-	/*
-	 * Create a hash of the message.
-	 */
-#ifdef							USE_INTERNAL_MD5
-    md5Digest(	authMsgStart,
-		(endOfPacket - authMsgStart) + messagelen,
-	      	authDigest );
-#else
-{
-	void		*context	= NULL;
-	int		 digest_len	= MD5_HASHSIZE_BYTES,
-			 rval		= SNMPERR_SUCCESS;
-	u_int8_t	*bufp		= (u_int8_t *) authDigest;
-
-	SET_HASH_TRANSFORM(kmt_s_md5);		/* FIX -- Broken KMT API. */
-
-        rval = kmt_hash(KMT_CRYPT_MODE_ALL, &context,
-                        authMsgStart, (endOfPacket-authMsgStart)+messagelen,
-                        &bufp, &digest_len);
-
-	SNMP_FREE(context);
-	if (rval != SNMPERR_SUCCESS) {
-	    	ERROR_MSG(	"snmp_party_build(): "
-				"kmt_hash() did not return SNMPERR_SUCCESS.");
-		return NULL;
-	}
-}
-#endif							/* USE_INTERNAL_MD5 */
-
+    /* Create a hash of the message. */
+    sc_hash(usmHMACMD5AuthProtocol,
+            sizeof(usmHMACMD5AuthProtocol)/sizeof(oid),
+            authMsgStart, (endOfPacket - authMsgStart) + messagelen,
+            authDigest, &authDigestLen);
 
     dummyLength = SNMP_MAXBUF;
     data = asn_build_string(digestStart, &dummyLength,

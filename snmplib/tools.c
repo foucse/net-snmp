@@ -48,9 +48,9 @@ malloc_random(int *size)
 	int	 rval	= SNMPERR_SUCCESS;
 	char	*buf	= (char *) malloc_zero(*size);
 
-#ifdef							HAVE_LIBKMT
+#if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 	if (buf) {
-		rval = kmt_random(buf, *size);
+		rval = sc_random(buf, size);
 
 		if (rval < 0) {
 			free_zero(buf, *size);
@@ -59,7 +59,7 @@ malloc_random(int *size)
 			*size = rval;
 		}
 	}
-#endif							/* HAVE_LIBKMT */
+#endif	/* HAVE_LIBKMT || USE_INTERNAL_MD5 */
 
 	return buf;
 

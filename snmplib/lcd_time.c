@@ -7,7 +7,7 @@
 
 #include "all_system.h"
 #include "all_general_local.h"
-
+#include "transform_oids.h"
 
 
 /*
@@ -292,7 +292,7 @@ hash_engineID(u_char *engineID, u_int engineID_len)
 	int		 rval		= SNMPERR_GENERR,
 			 buf_len	= SNMP_MAXBUF;
 	u_int		 additive	= 0;
-	u_int8_t	*bufp,
+	u_char		*bufp,
 			 buf[SNMP_MAXBUF];
 	void		*context = NULL;
 
@@ -310,23 +310,15 @@ EM(-1); /* */
 	/*
 	 * Hash engineID into a list index.
 	 */
-#ifdef								HAVE_LIBKMT
-	SET_HASH_TRANSFORM(kmt_s_md5);
-
-	bufp = (u_int8_t *) buf;
-	rval = kmt_hash(KMT_CRYPT_MODE_ALL, &context,
-			engineID, engineID_len,
-			&bufp, &buf_len);
+        rval = sc_hash(usmHMACMD5AuthProtocol,
+                       sizeof(usmHMACMD5AuthProtocol)/sizeof(oid),
+                       engineID, engineID_len,
+                       buf, &buf_len);
 	QUITFUN(rval, hash_engineID_quit);
-
+        
 	for ( bufp = buf; (bufp-buf) < buf_len; bufp += 4 ) {
 		additive += (u_int) *bufp;
 	}
-
-#else
-	rval = 0;
-#endif							/* HAVE_LIBKMT */
-
 
 hash_engineID_quit:
 	SNMP_FREE(context);

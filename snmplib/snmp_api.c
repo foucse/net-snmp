@@ -77,13 +77,6 @@ SOFTWARE.
 #include <varargs.h>
 #endif
 
-#ifdef HAVE_KMT_H
-#	include <kmt.h>
-#endif
-#ifdef HAVE_KMT_ALGS_H
-#	include <kmt_algs.h>
-#endif
-
 #include "asn1.h"
 #include "snmp.h"
 #include "snmp_api.h"

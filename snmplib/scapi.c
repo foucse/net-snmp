@@ -19,6 +19,10 @@
 #include "all_system.h"
 #include "all_general_local.h" /* */
 
+#ifdef USE_INTERNAL_MD5
+#include "md5.h"
+#endif
+
 #include "transform_oids.h"
 
 
@@ -32,6 +36,73 @@
 #endif
 
 
+/*
+  sc_get_properlength(oid *hashtype, u_int hashtype_len):
+
+  Given a hashing type ("hashtype" and its length hashtype_len), return
+  the length of the hash result.
+
+  Returns either the length or SNMPERR_GENERR for an unknown hashing type.
+*/
+int
+sc_get_properlength(oid *hashtype, u_int hashtype_len) {
+  /*
+   * Determine transform type hash length.
+   */
+  if ( ISTRANSFORM(hashtype, HMACMD5Auth)) {
+    return BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
+  }
+#ifdef HAVE_LIBKMT 
+  else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
+    return BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
+  }
+#endif
+  return SNMPERR_GENERR;
+}
+
+/*
+  sc_get_transform_type(oid *hashtype, u_int hashtype_len):
+
+  Given a hashing type ("hashtype" and its length hashtype_len), return
+  the transform type (hash library dependent).
+
+  If KMT is being used, it sets up the appropriate hashing function pointer
+  as well.
+
+  Returns either the transform type or SNMERR_GENERR for an unknown hashing
+  type.
+*/
+int
+sc_get_transform_type(oid *hashtype, u_int hashtype_len,
+                      int (**hash_fn)(
+                        const int	  mode,		void  	 **context,
+                        const u_int8_t	 *data,		const int  data_len,
+                        u_int8_t	**digest,	int	  *digest_len))
+{
+  /*
+   * Determine transform type.
+   */
+#ifdef HAVE_LIBKMT
+  if ( ISTRANSFORM(hashtype, HMACMD5Auth)) {
+    if (hash_fn)
+      *hash_fn  = kmt_s_md5;
+    return KMT_ALG_HMAC_MD5;	
+
+  } else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
+    if (hash_fn)
+      *hash_fn  = kmt_s_sha1;
+    return  KMT_ALG_HMAC_SHA1;
+  }
+#else
+  if ( ISTRANSFORM(hashtype, HMACMD5Auth)) {
+    return INTERNAL_MD5;
+  }
+#endif                
+
+  if (hash_fn)
+    *hash_fn = NULL;
+  return SNMPERR_GENERR;
+}
 
 
 /*******************************************************************-o-******
@@ -49,7 +120,15 @@ sc_init(void)
 #ifdef HAVE_LIBKMT
 	kmt_init();
 #else
+#ifdef USE_INTERNAL_MD5
+        struct timeval tv;
+
+        gettimeofday(&tv,(struct timezone *)0);
+
+        srandom(tv.tv_sec ^ tv.tv_usec);
+#else
 	rval = SNMPERR_SC_NOT_CONFIGURED;
+#endif
 #endif
 
 	return rval;
@@ -78,7 +157,10 @@ sc_shutdown(void)
 #ifdef HAVE_LIBKMT
 	kmt_close();
 #else
+#ifdef USE_INTERNAL_MD5
+#else
 	rval = SNMPERR_SC_NOT_CONFIGURED;
+#endif
 #endif
 
 	return rval;
@@ -101,12 +183,18 @@ sc_shutdown(void)
  */
 int
 sc_random(u_char *buf, u_int *buflen)
-#ifdef								HAVE_LIBKMT
+#if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		rval = SNMPERR_SUCCESS;
+#ifdef USE_INTERNAL_MD5
+        int i;
+        int rndval;
+        u_char *ucp = buf;
+#endif
 
 EM(-1); /* */
 
+#ifdef HAVE_LIBKMT
 	rval = kmt_random(buf, *buflen);
 	if (rval < 0) {
 		rval = SNMPERR_SC_GENERAL_FAILURE;
@@ -114,7 +202,22 @@ EM(-1); /* */
 		*buflen = rval;
 		rval = SNMPERR_SUCCESS;
 	}
+#else /* USE_INTERNAL_MD5 */
+        
+        /* fill the buffer with random integers.  Note that random()
+           is defined in config.h and may not be truly the random()
+           system call if something better existed */
+        for(i = 0; i < *buflen - *buflen%sizeof(rndval); i += sizeof(rndval)) {
+          rndval = random();
+          memcpy(ucp, &rndval, sizeof(rndval));
+          ucp += sizeof(rndval);
+        }
 
+        rndval = random();
+        memcpy(ucp, &rndval, *buflen%sizeof(rndval));
+
+        rval = SNMPERR_SUCCESS;
+#endif /* !HAVE_LIBKMT == USE_INTERNAL_MD5 */
 
 	return rval;
 
@@ -158,17 +261,20 @@ sc_generate_keyed_hash(	oid	*authtype,	int    authtypelen,
 			u_char	*key,		u_int  keylen,
 			u_char	*message,	u_int  msglen,
 			u_char	*MAC,		u_int *maclen)
-#ifdef								HAVE_LIBKMT
+#if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		 rval	 = SNMPERR_SUCCESS,
 			 buf_len = SNMP_MAXBUF_SMALL;
-	u_int		 transform,
+	int		 transform,
 			 properlength;
 
 	u_int8_t	 buf[SNMP_MAXBUF_SMALL],
 			*bufp = buf;
 
+#ifdef HAVE_LIBKMT
 	KMT_KEY_LIST	*kmtkeylist	= NULL;
+#endif
+
 #ifdef SNMP_TESTING_CODE
         int i;
 #endif /* SNMP_TESTING_CODE */
@@ -196,23 +302,20 @@ EM(-1); /* */
 	/*
 	 * Determine transform type.
 	 */
-	if ( ISTRANSFORM(authtype, HMACMD5Auth) ) {
-		transform    = KMT_ALG_HMAC_MD5;	
-		properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
+        transform = sc_get_transform_type(authtype, authtypelen, &kmt_hash);
+        if (transform == SNMPERR_GENERR)
+          return transform;
 
-	} else if ( ISTRANSFORM(authtype, HMACSHA1Auth) ) {
-		transform    = KMT_ALG_HMAC_SHA1;	
-		properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
-
-	} else {
-		QUITFUN(SNMPERR_GENERR, sc_generate_keyed_hash_quit);
-	}
+        properlength = sc_get_properlength(authtype, authtypelen);
+        if (properlength == SNMPERR_GENERR)
+          return properlength;
 
 	if ( (keylen < properlength) ) {
 		QUITFUN(SNMPERR_GENERR, sc_generate_keyed_hash_quit);
 	}
 
 
+#ifdef HAVE_LIBKMT
 	/*
 	 * Lookup key in KMT.
 	 * Perform the keyed hash over message.
@@ -234,11 +337,24 @@ EM(-1); /* */
 	}
 	memcpy(MAC, buf, *maclen);
 
+#else /* ! HAVE_LIBKMT */
 
+        if (*maclen > properlength)
+          *maclen = properlength;
+        MDsign(message, msglen, MAC, *maclen, key, keylen);
+
+#endif /* ! HAVE_LIBKMT */
+
+#ifdef SNMP_TESTING_CODE
+	sprint_hexstring(buf, MAC, *maclen);
+        DEBUGP("hash: %s\n", buf);
+#endif
+        
 sc_generate_keyed_hash_quit:
+#ifdef HAVE_LIBKMT
 	kmt_release_keylist(&kmtkeylist);
+#endif
 	SNMP_ZERO(buf, SNMP_MAXBUF_SMALL);
-
 	return rval;
 
 }  /* end sc_generate_keyed_hash() */
@@ -247,7 +363,66 @@ sc_generate_keyed_hash_quit:
 _SCAPI_NOT_CONFIGURED
 #endif							/* HAVE_LIBKMT */
 
+/* sc_hash(): a generic wrapper around whatever hashing package we are using.
 
+   IN:
+     hashtype    - oid pointer to a hash type
+     hashtypelen - length of oid pointer
+     buf         - u_char buffer to be hashed
+     buf_len     - integer length of buf data
+     MAC_len     - length of the passed MAC buffer size.
+    
+   OUT:    
+     MAC         - pre-malloced space to store hash output.
+     MAC_len     - length of MAC output to the MAC buffer.
+
+   Returns:
+     SNMPERR_SUCCESS		Success.
+     SNMP_SC_GENERAL_FAILURE	Any error.
+*/
+
+#if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
+int
+sc_hash(oid *hashtype, int hashtypelen, u_char *buf, int buf_len,
+        u_char *MAC, u_int *MAC_len) {
+
+  int   rval       = SNMPERR_SUCCESS;
+
+#ifdef HAVE_LIBKMT
+  void *context    = NULL;
+#endif
+
+  /*
+   * Determine transform type.
+   */
+
+  int transform = sc_get_transform_type(hashtype, hashtypelen, &kmt_hash);
+  if (transform == SNMPERR_GENERR)
+    return transform;
+
+#if defined(HAVE_LIBKMT)
+
+  rval = kmt_hash(KMT_CRYPT_MODE_ALL, &context, buf, buf_len, &MAC, MAC_len);
+
+  if (rval != SNMPERR_SUCCESS) {
+    ERROR_MSG("sc_hash(): kmt_hash() did not return SNMPERR_SUCCESS.");
+    return SNMPERR_SC_GENERAL_FAILURE;
+  }
+
+  return rval;
+
+#else /* USE_INTERNAL_MD5 */
+
+  MDchecksum(buf, buf_len, MAC, *MAC_len);
+  if (*MAC_len > 16)
+    *MAC_len = 16;
+  return SNMPERR_SUCCESS;
+
+#endif
+}
+#else /* !defined(HAVE_LIBKMT) && !defined(USE_INTERNAL_MD5) */
+_SCAPI_NOT_CONFIGURED
+#endif /* !defined(HAVE_LIBKMT) && !defined(USE_INTERNAL_MD5) */
 
 /*******************************************************************-o-******
  * sc_check_keyed_hash
@@ -277,14 +452,12 @@ sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
 			u_char	*key,		u_int keylen,
 			u_char	*message,	u_int msglen,
 			u_char	*MAC,		u_int maclen)
-#ifdef								HAVE_LIBKMT
+#if defined(USE_INTERNAL_MD5) || defined(HAVE_LIBKMT)
 {
 	int		 rval	 = SNMPERR_SUCCESS,
 			 buf_len = SNMP_MAXBUF_SMALL;
 
 	u_int8_t	 buf[SNMP_MAXBUF_SMALL];
-
-	KMT_KEY_LIST	*kmtkeylist = NULL;
 
 #ifdef SNMP_TESTING_CODE
  int i;
@@ -330,7 +503,6 @@ EM(-1); /* */
 
 
 sc_check_keyed_hash_quit:
-	kmt_release_keylist(&kmtkeylist);
 	SNMP_ZERO(buf, SNMP_MAXBUF_SMALL);
 
 	return rval;
@@ -339,7 +511,7 @@ sc_check_keyed_hash_quit:
 
 #else
 _SCAPI_NOT_CONFIGURED
-#endif							/* HAVE_LIBKMT */
+#endif	/* HAVE_LIBKMT || USE_INTERNAL_MD5 */
 
 
 
@@ -374,7 +546,13 @@ sc_encrypt(	oid    *privtype,	int    privtypelen,
 		u_char *iv,		u_int  ivlen,
 		u_char *plaintext,	u_int  ptlen,
 		u_char *ciphertext,	u_int *ctlen)
-#ifdef								HAVE_LIBKMT
+#if defined(USE_INTERNAL_MD5)
+{
+  DEBUGPL(("Asked to encrypt something and I don't know how to\n"));
+  return SNMPERR_SC_NOT_CONFIGURED;
+}
+#else
+#ifdef HAVE_LIBKMT
 {
 	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
@@ -456,7 +634,8 @@ sc_encrypt_quit:
 
 #else
 _SCAPI_NOT_CONFIGURED
-#endif							/* HAVE_LIBKMT */
+#endif /* HAVE_LIBKMT */
+#endif /* USE_INTERNAL_MD5 */
 
 
 
@@ -491,7 +670,13 @@ sc_decrypt(	oid    *privtype,	int    privtypelen,
 		u_char *iv,		u_int  ivlen,
 		u_char *ciphertext,	u_int  ctlen,
 		u_char *plaintext,	u_int *ptlen)
-#ifdef								HAVE_LIBKMT
+#if defined(USE_INTERNAL_MD5)
+{
+  DEBUGPL(("Asked to decrypt something and I don't know how to\n"));
+  return SNMPERR_SC_NOT_CONFIGURED;
+}
+#else
+#ifdef HAVE_LIBKMT
 {
 	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
@@ -569,9 +754,11 @@ sc_decrypt_quit:
 
 }  /* end sc_decrypt() */
 
+
 #else
 _SCAPI_NOT_CONFIGURED
-#endif							/* HAVE_LIBKMT */
+#endif /* HAVE_LIBKMT */
+#endif							/* USE_INTERNAL_MD5 */
 
 	
 

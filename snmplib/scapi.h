@@ -28,6 +28,8 @@
 /*
  * Prototypes.
  */
+int sc_get_properlength(oid *hashtype, u_int hashtype_len);
+
 int	sc_init __P((void));
 int	sc_shutdown __P((void));
 
@@ -57,6 +59,8 @@ int	sc_decrypt __P((	oid    *privtype,	int   privtypelen,
 				u_char *ciphertext,	u_int ctlen,
 				u_char *plaintext,	u_int *ptlen));
 
+int     sc_hash(oid *hashtype, int hashtypelen, u_char *buf, int buf_len,
+                u_char *MAC, u_int *MAC_len);
 
 /*
  * SCAPI functions specific to KMT.
@@ -77,8 +81,14 @@ int	sc_internal_kmtlookup __P((
  */
 #define	_SCAPI_NOT_CONFIGURED			\
 {						\
+        DEBUGPL(("SCAPI not configured"));      \
 	return SNMPERR_SC_NOT_CONFIGURED;	\
 }
+
+/* define a transform type if we're using the internal md5 support */
+#ifdef USE_INTERNAL_MD5
+#define INTERNAL_MD5 1
+#endif
 
 #endif	/* _SCAPI_H */
 

@@ -11,8 +11,11 @@
 #include "all_system.h"
 #include "all_general_local.h"
 
-#include "transform_oids.h"
+#ifdef USE_INTERNAL_MD5
+#include "md5.h"
+#endif
 
+#include "transform_oids.h"
 
 /*******************************************************************-o-******
  * generate_Ku
@@ -54,18 +57,22 @@ int
 generate_Ku(	oid	*hashtype,	u_int  hashtype_len,
 		u_char	*P,		u_int  pplen,
 		u_char	*Ku,		u_int *kulen)
-#ifdef								HAVE_LIBKMT
+#if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		 rval   = SNMPERR_SUCCESS,
 			 nbytes = USM_LENGTH_EXPANDED_PASSPHRASE;
 
-	u_int		 transform,
-			 i, pindex = 0;
+        u_int            i, pindex = 0;
+        int		 transform;
 
 	char		 buf[USM_LENGTH_KU_HASHBLOCK],
 			*bufp;
 
+#ifdef HAVE_LIBKMT
 	void		*context = NULL;
+#else
+        MDstruct         MD;
+#endif
         
 EM(-1); /* */
 
@@ -82,44 +89,50 @@ EM(-1); /* */
 
 
 	/*
-	 * Determine transform type.
+	 * Setup for the transform type.
 	 */
-	if ( ISTRANSFORM(hashtype, HMACMD5Auth)) {
-		transform = KMT_ALG_HMAC_MD5;	
-		kmt_hash  = kmt_s_md5;
-
-	} else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
-		transform = KMT_ALG_HMAC_SHA1;	
-		kmt_hash  = kmt_s_sha1;
-
-	} else {
-		kmt_hash  = NULL;
-		QUITFUN(SNMPERR_GENERR, generate_Ku_quit);
-	}
-
+        transform = sc_get_transform_type(hashtype, hashtype_len, &kmt_hash);
+        if (transform == SNMPERR_GENERR)
+          QUITFUN(SNMPERR_GENERR, generate_Ku_quit);
 
 	/*
 	 * Expand passphrase and reduce it to a hash.
 	 */
-	rval = kmt_hash(KMT_CRYPT_MODE_INIT, &context, NULL, 0, NULL, NULL);
+#ifdef HAVE_LIBKMT
+        rval = kmt_hash(KMT_CRYPT_MODE_INIT, &context, NULL, 0, NULL, NULL);
+        QUITFUN(rval, generate_Ku_quit);
+#else
+        MDbegin(&MD);
+#endif
+
+        while (nbytes > 0) {
+                bufp = buf;
+                for (i = 0; i < USM_LENGTH_KU_HASHBLOCK; i++) {
+                        *bufp++ = P[pindex++ % pplen];
+                }
+
+#ifdef HAVE_LIBKMT
+                rval = kmt_hash(KMT_CRYPT_MODE_UPDATE,
+                                &context,
+                                buf,    USM_LENGTH_KU_HASHBLOCK,
+                                NULL,   NULL);
+                QUITFUN(rval, generate_Ku_quit);
+#else
+                MDupdate(&MD, buf, USM_LENGTH_KU_HASHBLOCK*8);
+#endif
+
+                nbytes -= USM_LENGTH_KU_HASHBLOCK;
+        }
+
+#ifdef HAVE_LIBKMT
+        rval = kmt_hash(KMT_CRYPT_MODE_FINAL, &context, NULL, 0, &Ku, kulen);
 	QUITFUN(rval, generate_Ku_quit);
+#else
+        MDupdate(&MD, buf, 0);
+        *kulen = sc_get_properlength(hashtype, hashtype_len);
+        MDget(&MD, Ku, *kulen);
+#endif
 
-	while (nbytes > 0) {
-		bufp = buf;
-		for (i = 0; i < USM_LENGTH_KU_HASHBLOCK; i++) {
-			*bufp++ = P[pindex++ % pplen];
-		}
-
-		rval = kmt_hash(KMT_CRYPT_MODE_UPDATE,
-				&context,
-				buf,	USM_LENGTH_KU_HASHBLOCK,
-				NULL,	NULL);
-		QUITFUN(rval, generate_Ku_quit);
-
-		nbytes -= USM_LENGTH_KU_HASHBLOCK;
-	}
-
-	rval = kmt_hash(KMT_CRYPT_MODE_FINAL, &context, NULL, 0, &Ku, kulen);
 
 #ifdef SNMP_TESTING_CODE
         DEBUGP("generating Ku (from %s): ", P);
@@ -128,13 +141,12 @@ EM(-1); /* */
         DEBUGP("\n");
 #endif /* SNMP_TESTING_CODE */
 
-	QUITFUN(rval, generate_Ku_quit);
-
 
 generate_Ku_quit:
 	memset(buf, 0, USM_LENGTH_KU_HASHBLOCK);
-	SNMP_FREE(context);
-
+#ifdef HAVE_LIBKMT
+        SNMP_FREE(context);
+#endif
 	return rval;
 
 }  /* end generate_Ku() */
@@ -190,12 +202,12 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 		u_char	*engineID,	u_int  engineID_len,
 		u_char	*Ku,		u_int  ku_len,
 		u_char	*Kul,		u_int *kul_len)
-#ifdef								HAVE_LIBKMT
+#if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		 rval    = SNMPERR_SUCCESS;
 	u_int		 transform,
-			 properlength,
 			 nbytes  = 0;
+        int              properlength;
 
 	char		 buf[SNMP_MAXBUF];
 	void		*context = NULL;
@@ -215,30 +227,14 @@ EM(-1); /* */
 	}
 
 
-	/*
-	 * Determine transform type.
-	 */
-	if ( ISTRANSFORM(hashtype, HMACMD5Auth)) {
-		transform	= KMT_ALG_HMAC_MD5;	
-		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
-		kmt_hash	= kmt_s_md5;
-
-	} else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
-		transform	= KMT_ALG_HMAC_SHA1;	
-		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
-		kmt_hash	= kmt_s_sha1;
-
-	} else {
-		kmt_hash = NULL;
-		QUITFUN(SNMPERR_GENERR, generate_kul_quit);
-	}
-
+        properlength = sc_get_properlength(hashtype, hashtype_len);
+        if (properlength == SNMPERR_GENERR)
+          QUITFUN(SNMPERR_GENERR, generate_kul_quit);
+       
 
 	if ((*kul_len < properlength) || (ku_len < properlength) ) {
 		QUITFUN(SNMPERR_GENERR, generate_kul_quit);
 	}
-
-
 
 	/*
 	 * Concatenate Ku and engineID properly, then hash the result.
@@ -249,10 +245,7 @@ EM(-1); /* */
 	memcpy(buf+nbytes, engineID,	engineID_len); nbytes += engineID_len;
 	memcpy(buf+nbytes, Ku,		properlength); nbytes += properlength;
 
-	rval = kmt_hash(KMT_CRYPT_MODE_ALL,
-			&context,
-			buf,	nbytes,
-			&Kul,	kul_len);
+	rval = sc_hash(hashtype, hashtype_len, buf, nbytes, Kul, kul_len);
 
 #ifdef SNMP_TESTING_CODE
         DEBUGP("generating Kul (from Ku): ");
@@ -321,14 +314,15 @@ encode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 			u_char	*oldkey,	u_int  oldkey_len,
 			u_char	*newkey,	u_int  newkey_len,
 			u_char	*kcstring,	u_int *kcstring_len)
-#ifdef								HAVE_LIBKMT
+#if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		 rval    = SNMPERR_SUCCESS;
-	u_int		 transform,
-			 properlength,
-			 nbytes  = 0;
+	int		 transform,
+			 properlength;
+        u_int            nbytes  = 0;
 
 	u_int8_t	*bufp;
+        u_char          *tmpbuf = NULL;
 	void		*context = NULL;
 
 EM(-1); /* */
@@ -344,25 +338,12 @@ EM(-1); /* */
 		QUITFUN(SNMPERR_GENERR, encode_keychange_quit);
 	}
 
-
 	/*
-	 * Determine transform type.
+	 * Setup for the transform type.
 	 */
-	if ( ISTRANSFORM(hashtype, HMACMD5Auth) ) {
-		transform	= KMT_ALG_HMAC_MD5;	
-		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
-		kmt_hash	= kmt_s_md5;
-
-	} else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
-		transform	= KMT_ALG_HMAC_SHA1;	
-		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
-		kmt_hash	= kmt_s_sha1;
-
-	} else {
-		kmt_hash  = NULL;
-		QUITFUN(SNMPERR_GENERR, encode_keychange_quit);
-	}
-
+        properlength = sc_get_properlength(hashtype, hashtype_len);
+        if (properlength == SNMPERR_GENERR)
+          QUITFUN(SNMPERR_GENERR, encode_keychange_quit);
 
 	if ( (oldkey_len != newkey_len) || (*kcstring_len < (2*oldkey_len)) )
 	{
@@ -370,8 +351,6 @@ EM(-1); /* */
 	}
 
 	properlength = MIN(oldkey_len, properlength);
-
-
 
 	/*
 	 * Use the old key and some random bytes to encode the new key
@@ -401,23 +380,17 @@ EM(-1); /* */
 	}
 #endif /* SNMP_TESTING_CODE */
 
+        tmpbuf = malloc(properlength*2);
+        memcpy(tmpbuf, oldkey, properlength);
+        memcpy(tmpbuf+properlength, kcstring, properlength);
 
-	rval = kmt_hash(KMT_CRYPT_MODE_INIT|KMT_CRYPT_MODE_UPDATE,
-			&context,
-			oldkey, properlength,
-			NULL, NULL);
+        *kcstring_len -= properlength;
+        rval = sc_hash(hashtype, hashtype_len, tmpbuf, properlength*2,
+                       kcstring+properlength, kcstring_len);
+        
 	QUITFUN(rval, encode_keychange_quit);
-
-	bufp = (u_int8_t *) kcstring+properlength;
-	rval = kmt_hash(KMT_CRYPT_MODE_UPDATE|KMT_CRYPT_MODE_FINAL,
-			&context,
-			kcstring, properlength,
-			&bufp, kcstring_len);
 
 	*kcstring_len = (properlength*2);
-
-	QUITFUN(rval, encode_keychange_quit);
-
 
 	kcstring += properlength;
 	nbytes    = 0;
@@ -425,10 +398,9 @@ EM(-1); /* */
 		*kcstring++ = *kcstring ^ *newkey++;
 	}
 
-
-
 encode_keychange_quit:
 	if (rval != SNMPERR_SUCCESS) memset(kcstring, 0, *kcstring_len);
+        if (tmpbuf != NULL) SNMP_FREE(tmpbuf);
 	SNMP_FREE(context);
 
 	return rval;
@@ -480,16 +452,18 @@ decode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 			u_char	*oldkey,	u_int  oldkey_len,
 			u_char	*kcstring,	u_int  kcstring_len,
 			u_char	*newkey,	u_int *newkey_len)
-#ifdef								HAVE_LIBKMT
+#if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		 rval    = SNMPERR_SUCCESS;
-	u_int		 transform,
-			 properlength,
-			 nbytes  = 0;
+	int		 transform,
+			 properlength;
+	u_int		 nbytes  = 0;
 
 	u_int8_t	*bufp,
 			 tmp_buf[SNMP_MAXBUF];
+        int              tmp_buf_len = SNMP_MAXBUF;
 	void		*context = NULL;
+        u_char          *tmpbuf = NULL;
 
 EM(-1); /* */
 
@@ -506,22 +480,11 @@ EM(-1); /* */
 
 
 	/*
-	 * Determine transform type.
+	 * Setup for the transform type.
 	 */
-	if ( ISTRANSFORM(hashtype, HMACMD5Auth) ) {
-		transform	= KMT_ALG_HMAC_MD5;	
-		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
-		kmt_hash	= kmt_s_md5;
-
-	} else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
-		transform	= KMT_ALG_HMAC_SHA1;	
-		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
-		kmt_hash	= kmt_s_sha1;
-
-	} else {
-		kmt_hash  = NULL;
-		QUITFUN(SNMPERR_GENERR, decode_keychange_quit);
-	}
+        properlength = sc_get_properlength(hashtype, hashtype_len);
+        if (properlength == SNMPERR_GENERR)
+          QUITFUN(SNMPERR_GENERR, decode_keychange_quit);
 
 
 	if ( ((oldkey_len*2) != kcstring_len) || (*newkey_len < oldkey_len) )
@@ -539,26 +502,15 @@ EM(-1); /* */
 	 *	. Hash (oldkey | random_bytes) (into newkey),
 	 *	. XOR hash and encoded (second) half of kcstring (into newkey).
 	 */
-	rval = kmt_hash(KMT_CRYPT_MODE_INIT|KMT_CRYPT_MODE_UPDATE,
-			&context,
-			oldkey, properlength,
-			NULL, NULL);
+        tmpbuf = malloc(properlength*2);
+        memcpy(tmpbuf, oldkey, properlength);
+        memcpy(tmpbuf+properlength, kcstring, properlength);
+
+        rval = sc_hash(hashtype, hashtype_len, tmpbuf, properlength*2,
+                       tmp_buf, &tmp_buf_len);
 	QUITFUN(rval, decode_keychange_quit);
 
-	bufp	    = (u_int8_t *) tmp_buf;
-	*newkey_len = SNMP_MAXBUF;
-
-	rval = kmt_hash(KMT_CRYPT_MODE_UPDATE|KMT_CRYPT_MODE_FINAL,
-			&context,
-			kcstring, properlength,
-			&bufp, newkey_len);
-
-	*newkey_len = properlength;
-	memcpy(newkey, tmp_buf, *newkey_len);
-
-	QUITFUN(rval, decode_keychange_quit);
-
-
+        memcpy(newkey, tmp_buf, properlength);
 	bufp   = kcstring+properlength;
 	nbytes = 0;
 	while (nbytes++ < properlength) {
@@ -573,6 +525,7 @@ decode_keychange_quit:
 	}
 	memset(tmp_buf, 0, SNMP_MAXBUF);
 	SNMP_FREE(context);
+        if (tmpbuf != NULL) SNMP_FREE(tmpbuf);
 
 	return rval;
 

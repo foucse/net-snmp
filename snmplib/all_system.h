@@ -11,7 +11,7 @@
 #define _ALL_INCLUDES_H
 
 
-#include "../config.h"
+#include <config.h>
 #include <ctype.h>
 #include <errno.h>
 #include <signal.h>
