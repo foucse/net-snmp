@@ -6,12 +6,11 @@
 #ifndef _MIBGROUP_USMUSER_H
 #define _MIBGROUP_USMUSER_H
 
-
 #include "snmpusm.h"
 
-
-#define USM_LENGTH_OID_MAX	30	/* XXX  Why 30? */
-
+/* <...prefix>.<engineID_length>.<engineID>.<user_name_length>.<user_name>
+   = 1 + 32 + 1 + 32 */
+#define USM_LENGTH_OID_MAX	66
 
 /* we use header_generic and checkmib from the util_funcs module */
 

@@ -1,4 +1,3 @@
-
 /* snmpEngine.c: implement's the SNMP-FRAMEWORK-MIB. */
 
 #include <config.h>
@@ -19,7 +18,6 @@
 #include "util_funcs.h"
 #include "../mibII/sysORTable.h"
 #include "snmpEngine.h"
-
 
 void init_snmpEngine __P((void)) {
 /* place any initialization routines needed here */
@@ -44,7 +42,6 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
   /* variables we may use later */
   static long long_ret;
   static unsigned char engineID[SNMP_MAXBUF];
-
 
   *write_method = 0;           /* assume it isnt writable for the time being */
   *var_len = sizeof(long_ret); /* assume an integer and change later if not */
