@@ -7368,9 +7368,9 @@ fi
 
 
 if test -d /var; then
-  defaultstore="/var/snmp/snmpd.persistent.conf"
+  defaultstore="/var/snmp"
 else
-  defaultstore="/etc/snmp/snmpd.persistent.conf"
+  defaultstore="/etc/snmp"
 fi
   
 
@@ -7378,13 +7378,13 @@ MSG_CHECK=`echo "
 
 *** snmpd persistent storage location:
 
-	Enter the location for the snmpd agent to store persistent
+	Enter a directory for the snmp library to store persistent
 data in the form of a configuration file.
 
 Location to write persistent information" | tail -1`
 echo $ac_n "checking $MSG_CHECK""... $ac_c" 1>&6
 echo "configure:7387: checking $MSG_CHECK" >&5
-if eval "test \"`echo '$''{'ac_cv_user_prompt_PERSISTENTFILE'+set}'`\" = set"; then
+if eval "test \"`echo '$''{'ac_cv_user_prompt_PERSISTENTDIR'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   echo ""
@@ -7394,7 +7394,7 @@ echo $ac_n "
 
 *** snmpd persistent storage location:
 
-	Enter the location for the snmpd agent to store persistent
+	Enter a directory for the snmp library to store persistent
 data in the form of a configuration file.
 
 Location to write persistent information ($defaultstore): $ac_c"
@@ -7402,28 +7402,28 @@ read tmpinput
 if test "$tmpinput" = "" -a "$defaultstore" != ""; then
   tmpinput="$defaultstore"
 fi
-eval PERSISTENTFILE=\"$tmpinput\"
+eval PERSISTENTDIR=\"$tmpinput\"
 else
 tmpinput="$defaultstore"
-eval PERSISTENTFILE=\"$tmpinput\"
+eval PERSISTENTDIR=\"$tmpinput\"
 fi
 
 
-eval ac_cv_user_prompt_PERSISTENTFILE=\$PERSISTENTFILE
+eval ac_cv_user_prompt_PERSISTENTDIR=\$PERSISTENTDIR
 echo $ac_n "setting $MSG_CHECK to...  $ac_c"
 
 fi
 
-echo "$ac_t""$ac_cv_user_prompt_PERSISTENTFILE" 1>&6
-if test "$ac_cv_user_prompt_PERSISTENTFILE" != "none"; then
+echo "$ac_t""$ac_cv_user_prompt_PERSISTENTDIR" 1>&6
+if test "$ac_cv_user_prompt_PERSISTENTDIR" != "none"; then
   if test "1" != ""; then
     cat >> confdefs.h <<EOF
-#define PERSISTENTFILE "$ac_cv_user_prompt_PERSISTENTFILE"
+#define PERSISTENTDIR "$ac_cv_user_prompt_PERSISTENTDIR"
 EOF
 
   else
     cat >> confdefs.h <<EOF
-#define PERSISTENTFILE $ac_cv_user_prompt_PERSISTENTFILE
+#define PERSISTENTDIR $ac_cv_user_prompt_PERSISTENTDIR
 EOF
 
   fi
