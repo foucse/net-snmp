@@ -63,14 +63,9 @@ static void
 table_helper_cleanup(agent_request_info * reqinfo, request_info * request,
                      int status)
 {
-
     set_request_error(reqinfo, request, status);
-    if (request->parent_data) {
-        snmp_free_varbind(((table_request_info *) request->parent_data)->
-                          indexes);
-        free(request->parent_data);
-        request->parent_data = NULL;
-    }
+    free_request_data_sets(request);
+    request->parent_data = NULL;
 }
 
 
@@ -160,8 +155,10 @@ table_helper_handler(mib_handler * handler,
         return SNMP_ERR_GENERR;
     }
 
-    DEBUGMSGTL(("helper:table", "Got request for handler %s:\n",
+    DEBUGMSGTL(("helper:table", "Got request for handler %s: base oid:",
                 handler->handler_name));
+    DEBUGMSGOID(("helper:table", reginfo->rootoid, reginfo->rootoid_len));
+    DEBUGMSG(("helper:table", "\n"));
 
     /*
      * if the agent request info has a state reference, then this is a 
@@ -188,13 +185,11 @@ table_helper_handler(mib_handler * handler,
     for (request = requests; request; request = request->next) {
         struct variable_list *var = request->requestvb;
 
-        DEBUGMSGTL(("helper:table", "  oid:"));
-        DEBUGMSGOID(("helper:table", var->name, var->name_length));
-        DEBUGMSG(("helper:table", "\n"));
-
-        if (request->status)
+        if (request->processed) {
+            DEBUGMSG(("helper:table", "already processed\n"));
             continue;
-        ++need_processing;
+        }
+        assert(request->status == SNMP_ERR_NOERROR);
 
         /*
          * this should probably be handled further up 
@@ -255,7 +250,10 @@ table_helper_handler(mib_handler * handler,
          * trying to process it.  
          */
         if (out_of_range) {
-            DEBUGMSGTL(("helper:table", "  Not processed.\n"));
+            DEBUGMSGTL(("helper:table", "  Not processed: "));
+            DEBUGMSGOID(("helper:table", var->name, var->name_length));
+            DEBUGMSG(("helper:table", "\n"));
+
             if (reqinfo->mode != MODE_GETNEXT) {
                 table_helper_cleanup(reqinfo, request,
                                      SNMP_ERR_NOSUCHNAME);
@@ -272,6 +270,11 @@ table_helper_handler(mib_handler * handler,
         tbl_req_info = SNMP_MALLOC_TYPEDEF(table_request_info);
         tbl_req_info->indexes = snmp_clone_varbind(tbl_info->indexes);
         tbl_req_info->number_indexes = 0;       /* none yet */
+        request_add_list_data(request,
+                              create_data_list(TABLE_HANDLER_NAME,
+                                               (void *) tbl_req_info,
+                                               table_data_free_func));
+
         if (var->name_length > oid_column_pos) {
             if (var->name[oid_column_pos] < tbl_info->min_column) {
                 /*
@@ -285,7 +288,10 @@ table_helper_handler(mib_handler * handler,
                  * memory 
                  */
                 DEBUGMSGTL(("helper:table",
-                            "  oid is out of range. Not processed.\n"));
+                            "  oid is out of range. Not processed: "));
+                DEBUGMSGOID(("helper:table", var->name, var->name_length));
+                DEBUGMSG(("helper:table", "\n"));
+
                 if (reqinfo->mode != MODE_GETNEXT) {
                     table_helper_cleanup(reqinfo, request,
                                          SNMP_ERR_NOSUCHNAME);
@@ -349,7 +355,10 @@ table_helper_handler(mib_handler * handler,
                  * incomplete/illegal OID, set up dummy 0 to parse 
                  */
                 DEBUGMSGTL(("helper:table",
-                            "  oid indexes not complete.\n"));
+                            "  oid indexes not complete: "));
+                DEBUGMSGOID(("helper:table", var->name, var->name_length));
+                DEBUGMSG(("helper:table", "\n"));
+
                 /*
                  * no sense in trying anymore if this is a GET/SET. 
                  */
@@ -359,6 +368,7 @@ table_helper_handler(mib_handler * handler,
                 }
                 tmp_len = 0;
                 tmp_name = (oid *) & tmp_len;
+                break;
             }
             /*
              * try and parse current index 
@@ -397,26 +407,21 @@ table_helper_handler(mib_handler * handler,
         DEBUGIF("helper:table") {
             int             count;
             char            buf[SPRINT_MAX_LEN];
-            DEBUGMSGTL(("helper:table", "  column: %d, indexes: %d\n",
+            DEBUGMSGTL(("helper:table", "  column: %d, indexes: %d",
                         tbl_req_info->colnum,
                         tbl_req_info->number_indexes));
             for (vb = tbl_req_info->indexes, count = 0;
                  vb && count < tbl_info->number_indexes;
                  count++, vb = vb->next_variable) {
                 sprint_by_type(buf, vb, 0, 0, 0);
-                DEBUGMSGTL(("helper:table",
-                            "    index: type=%d, value=%s\n", vb->type,
+                DEBUGMSG(("helper:table",
+                            "    index: type=%d, value=%s", vb->type,
                             buf));
             }
+            DEBUGMSG(("helper:table","\n"));
         }
 
-        /*
-         * save table_req_info 
-         */
-        request_add_list_data(request,
-                              create_data_list(TABLE_HANDLER_NAME,
-                                               (void *) tbl_req_info,
-                                               table_data_free_func));
+        ++need_processing;
 
     }                           /* for each request */
 
