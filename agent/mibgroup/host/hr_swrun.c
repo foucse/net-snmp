@@ -412,8 +412,22 @@ var_hrswrun(struct variable *vp,
 #elif defined(linux)
 	    sprintf( string, "/proc/%d/cmdline", pid );
 	    if ((fp = fopen( string, "r")) == NULL) return NULL;
-	    fgets( buf, sizeof(buf), fp );	/* argv[0] '\0' argv[1] '\0' .... */
-	    strcpy( string, buf );
+	    if (fgets( buf, sizeof(buf), fp )) /* argv[0] '\0' argv[1] '\0' .... */
+		strcpy( string, buf );
+	    else {
+		/* swapped out - no cmdline */
+	        fclose(fp);
+		sprintf( string, "/proc/%d/status", pid );
+		if ((fp = fopen( string, "r")) == NULL) return NULL;
+		fgets( buf, sizeof(buf), fp );	/* Name: process name */
+		cp = strchr(buf, ':');
+		++cp;
+		while ( isspace( *cp ))
+		    ++cp;
+		strcpy( string, cp );
+		cp = strchr(string, '\n');
+		if (cp) *cp = 0;
+	    }
             fclose(fp);
 #else
 #if NO_DUMMY_VALUES
