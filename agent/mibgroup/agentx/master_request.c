@@ -252,7 +252,7 @@ handle_agentx_response( int operation,
 	        /*
 	         *   Retry unfulfilled requests
 	         */
-	        retry_sub = find_subtree_next( vbp->name, vbp->name_length, NULL );
+	        retry_sub = find_subtree_next( vbp->name, vbp->name_length, NULL, pdu->contextName); /* WWW */
 	        if ( retry_sub ) {
 		    (void)snmp_set_var_objid(ax_vlist->variables[i], retry_sub->name, retry_sub->namelen);
 		    asp->index = ax_vlist->variables[i]->index;
@@ -385,7 +385,7 @@ get_agentx_request(struct agent_snmp_session *asp,
     DEBUGMSGOID(("agentx/master", vbp->name, vbp->name_length));
     DEBUGMSG(("agentx/master", "\n"));
 
-    sub = find_subtree_previous(vbp->name, vbp->name_length, NULL);
+    sub = find_subtree_previous(vbp->name, vbp->name_length, NULL, asp->pdu->contextName);
 
     for (req = asp->outstanding_requests; req != NULL; req=req->next_request) {
 	if (req->message_id == transID && req->session == ax_session) {
@@ -541,7 +541,7 @@ agentx_add_request( struct agent_snmp_session *asp,
     if (asp->pdu->command == SNMP_MSG_SET && asp->mode == RESERVE1 )
 	return AGENTX_ERR_NOERROR;
 
-    ax_session = get_session_for_oid( vbp->name, vbp->name_length );
+    ax_session = get_session_for_oid( vbp->name, vbp->name_length, pdu->contextName );
     if ( !ax_session )
 	return SNMP_ERR_GENERR;
     sessid = ax_session->sessid;
@@ -558,10 +558,10 @@ agentx_add_request( struct agent_snmp_session *asp,
     vbp->index = asp->index;	/* Remember the variable index */
     ax_vlist->num_vars++;
     
-    sub = find_subtree_previous(vbp->name, vbp->name_length, NULL);
+    sub = find_subtree_previous(vbp->name, vbp->name_length, NULL, pdu->contextName);
     DEBUGMSGTL(("agentx/master", "%sexact varbind: ", asp->exact?"":"in"));
     if (asp->exact) {
-	DEBUGMSGOID(("agentx/master", vbp->val.string, vbp->val_len));
+	DEBUGMSGOID(("agentx/master", vbp->val.objid, vbp->val_len));
         snmp_pdu_add_variable(request->pdu,
 			      vbp->name, vbp->name_length, vbp->type,
 			      (u_char*)(vbp->val.string), vbp->val_len);

@@ -63,7 +63,62 @@
 #endif
 
 
-struct subtree *subtrees;
+typedef struct subtree_context_cache_s {
+   char *context_name;
+   struct subtree *first_subtree;
+   struct subtree_context_cache_s *next;
+} subtree_context_cache;
+
+subtree_context_cache *context_subtrees = NULL;
+
+struct subtree *
+find_first_subtree(const char *context_name) {
+    subtree_context_cache *ptr;
+    if (!context_name)
+        context_name = "";
+    DEBUGMSGTL(("find_first_subtree","looking for subtree for context: \"%s\"\n", context_name));
+    for(ptr = context_subtrees; ptr; ptr = ptr->next) {
+        if (strcmp(ptr->context_name, context_name) == 0) {
+            DEBUGMSGTL(("find_first_subtree","found one for: \"%s\"\n", context_name));
+            return ptr->first_subtree;
+        }
+    }
+    DEBUGMSGTL(("find_first_subtree","Didn't find a subtree for: \"%s\"\n", context_name));
+    return NULL;
+}
+
+struct subtree *
+add_subtree(struct subtree *new_tree, const char *context_name) {
+    subtree_context_cache *ptr = SNMP_MALLOC_TYPEDEF(subtree_context_cache);
+    if (!context_name)
+        context_name = "";
+
+    if (!ptr)
+        return NULL;
+
+    DEBUGMSGTL(("add_subtree","adding subtree for context: \"%s\"\n", context_name));
+    ptr->next = context_subtrees;
+    ptr->first_subtree = new_tree;
+    ptr->context_name = strdup(context_name);
+    context_subtrees = ptr;
+    return ptr->first_subtree;
+}
+
+struct subtree *
+replace_first_subtree(struct subtree *new_tree, const char *context_name) {
+    subtree_context_cache *ptr;
+    if (!context_name)
+        context_name = "";
+    for(ptr = context_subtrees; ptr; ptr = ptr->next) {
+        if (strcmp(ptr->context_name, context_name) == 0) {
+            ptr->first_subtree = new_tree;
+            return ptr->first_subtree;
+        }
+    }
+    return add_subtree(new_tree, context_name);
+}
+
+
 
 int tree_compare(const struct subtree *ap, const struct subtree *bp)
 {
@@ -146,7 +201,7 @@ split_subtree(struct subtree *current, oid name[], int name_len )
 }
 
 int
-load_subtree( struct subtree *new_sub )
+load_subtree( struct subtree *new_sub, const char *context_name )
 {
     struct subtree *tree1, *tree2, *new2;
     struct subtree *prev, *next;
@@ -159,13 +214,15 @@ load_subtree( struct subtree *new_sub )
 		 * Find the subtree that contains the start of 
 		 *  the new subtree (if any)...
 		 */
-    tree1 = find_subtree( new_sub->start, new_sub->start_len, NULL );
+    tree1 = find_subtree( new_sub->start, new_sub->start_len, NULL,
+                          context_name );
 		/*
 		 * ...and the subtree that follows the new one
 		 *	(NULL implies this is the final region covered)
 		 */  
     if ( tree1 == NULL )
-        tree2 = find_subtree_next( new_sub->start, new_sub->start_len, NULL );
+        tree2 = find_subtree_next( new_sub->start, new_sub->start_len, NULL,
+                                   context_name);
     else
 	tree2 = tree1->next;
 
@@ -188,12 +245,12 @@ load_subtree( struct subtree *new_sub )
 	    tree2->prev       = new_sub;
 	}
 	else
-	    new_sub->prev = find_subtree_previous( new_sub->start, new_sub->start_len, NULL );
+	    new_sub->prev = find_subtree_previous( new_sub->start, new_sub->start_len, NULL, context_name );
 
 	if ( new_sub->prev )
 	    new_sub->prev->next = new_sub;
 	else
-	    subtrees = new_sub;
+	    replace_first_subtree(new_sub, context_name);
 
 	new_sub->next     = tree2;
 
@@ -203,7 +260,7 @@ load_subtree( struct subtree *new_sub )
 		 *  (including anything that may follow the overlap)
 		 */
 	if ( new2 )
-	    return load_subtree( new2 );
+	    return load_subtree( new2, context_name );
     }
 
     else {
@@ -282,12 +339,12 @@ load_subtree( struct subtree *new_sub )
 		case  1:	/* New subtree contains the existing one */
 	    		new2 = split_subtree( new_sub,
 					tree1->end, tree1->end_len);
-			res = load_subtree( new_sub );
+			res = load_subtree( new_sub, context_name );
 			if ( res != MIB_REGISTERED_OK ) {
 			    free_subtree(new2);
 			    return res;
 			}
-			return load_subtree( new2 );
+			return load_subtree( new2, context_name );
 
 	 }
 
@@ -354,7 +411,7 @@ register_mib_context2(const char *moduleName,
   subtree->reginfo = reginfo;
   subtree->flags = (u_char)flags;  /* used to identify instance oids */
   subtree->cacheid = -1;
-  res = load_subtree(subtree);
+  res = load_subtree(subtree, context);
 
 	/*
 	 * If registering a range,
@@ -391,7 +448,7 @@ register_mib_context2(const char *moduleName,
 	sub2->name[range_subid-1] = i;
 	sub2->start[range_subid-1] = i;
 	sub2->end[  range_subid-1] = i;		/* XXX - ???? */
-	res = load_subtree(sub2);
+	res = load_subtree(sub2, context);
 	if (res != MIB_REGISTERED_OK) {
 	    unregister_mib_context( mibloc, mibloclen, priority,
 				  range_subid, range_ubound, context);
@@ -469,7 +526,10 @@ register_mib_reattach_subtree(struct subtree *it) {
 /* call callbacks to reattach ourselves */
 void
 register_mib_reattach(void) {
-    register_mib_reattach_subtree(subtrees);
+    subtree_context_cache *ptr;
+    for(ptr = context_subtrees; ptr; ptr = ptr->next) {
+        register_mib_reattach_subtree(ptr->first_subtree);
+    }
 }
 
 int
@@ -586,7 +646,7 @@ register_mib_table_row(const char *moduleName,
     /*
      * load the subtree
      */
-    rc = load_subtree(subtree);
+    rc = load_subtree(subtree, context);
     if ((rc != MIB_REGISTERED_OK)) {
       unregister_mib_context(mibloc, mibloclen, priority, 
                              var_subid, numvars, context);
@@ -643,7 +703,7 @@ unregister_mib_context( oid *name, size_t len, int priority,
   struct subtree *prev, *child;             /* loop through children */
   struct register_parameters reg_parms;
 
-  list = find_subtree( name, len, subtrees );
+  list = find_subtree( name, len, find_first_subtree(context), context );
   if ( list == NULL )
 	return MIB_NO_SUCH_REGISTRATION;
 
@@ -724,7 +784,8 @@ unregister_mibs_by_session (struct snmp_session *ss)
   struct subtree *list, *list2;
   struct subtree *child, *prev, *next_child;
 
-  for( list = subtrees; list != NULL; list = list2) {
+  for( list = (find_first_subtree(ss->contextName)); list != NULL;
+       list = list2) {
     list2 = list->next;
     for ( child=list, prev=NULL;  child != NULL; child=next_child ) {
 
@@ -865,15 +926,16 @@ compare_tree(const oid *in_name1,
 }
 
 struct subtree *find_subtree_previous(oid *name,
-			     size_t len,
-			     struct subtree *subtree)
+                                      size_t len,
+                                      struct subtree *subtree,
+                                      const char *context_name)
 {
   struct subtree *myptr, *previous = NULL;
 
   if ( subtree )
 	myptr = subtree;
   else
-	myptr = subtrees;	/* look through everything */
+	myptr = find_first_subtree(context_name);  /* look through everything */
 
   for( ; myptr != NULL; previous = myptr, myptr = myptr->next) {
     if (snmp_oid_compare(name, len, myptr->start, myptr->start_len) < 0) {
@@ -885,11 +947,12 @@ struct subtree *find_subtree_previous(oid *name,
 
 struct subtree *find_subtree_next(oid *name, 
 				  size_t len,
-				  struct subtree *subtree)
+				  struct subtree *subtree,
+                                  const char *context_name)
 {
   struct subtree *myptr = NULL;
 
-  myptr = find_subtree_previous(name, len, subtree);
+  myptr = find_subtree_previous(name, len, subtree, context_name);
   if ( myptr != NULL ) {
      myptr = myptr->next;
      while ( myptr && (myptr->variables == NULL || myptr->variables_len == 0) )
@@ -904,22 +967,25 @@ struct subtree *find_subtree_next(oid *name,
 
 struct subtree *find_subtree(oid *name,
 			     size_t len,
-			     struct subtree *subtree)
+			     struct subtree *subtree,
+                             const char *context_name)
 {
   struct subtree *myptr;
 
-  myptr = find_subtree_previous(name, len, subtree);
+  myptr = find_subtree_previous(name, len, subtree, context_name);
   if (myptr && snmp_oid_compare(name, len, myptr->end, myptr->end_len) < 0)
 	return myptr;
 
   return NULL;
 }
 
-struct snmp_session *get_session_for_oid( oid *name, size_t len)
+struct snmp_session *get_session_for_oid( oid *name, size_t len,
+                                          const char *context_name)
 {
    struct subtree *myptr;
 
-   myptr = find_subtree_previous(name, len, subtrees);
+   myptr = find_subtree_previous(name, len, find_first_subtree(context_name),
+                                 context_name);
    while ( myptr && myptr->variables == NULL )
         myptr = myptr->next;
 
@@ -940,8 +1006,6 @@ static struct subtree root_subtrees[] = {
 
 void setup_tree (void)
 {
-    handler_registration *reginfo;
-    
 #ifdef USING_AGENTX_SUBAGENT_MODULE
   int role;
 
@@ -971,18 +1035,22 @@ void dump_registry( void )
     char start_oid[SPRINT_MAX_LEN];
     char end_oid[SPRINT_MAX_LEN];
 
-    for( myptr = subtrees ; myptr != NULL; myptr = myptr->next) {
-	sprint_objid(start_oid, myptr->start, myptr->start_len);
-	sprint_objid(end_oid, myptr->end, myptr->end_len);
-	printf("%s%c %s - %s %c\n",
-	       (myptr->flags & FULLY_QUALIFIED_INSTANCE)?"[FQI] ":"",
-	       ( myptr->variables ? ' ' : '(' ),
-	       start_oid, end_oid,
-	       ( myptr->variables ? ' ' : ')' ));
-	for( myptr2 = myptr ; myptr2 != NULL; myptr2 = myptr2->children) {
-	    if ( myptr2->label && myptr2->label[0] )
-		printf("\t%s\n", myptr2->label);
-	}
+    subtree_context_cache *ptr;
+    for(ptr = context_subtrees; ptr; ptr = ptr->next) {
+        printf("Subtrees for Context: %s\n", ptr->context_name);
+        for( myptr = ptr->first_subtree ; myptr != NULL; myptr = myptr->next) {
+            sprint_objid(start_oid, myptr->start, myptr->start_len);
+            sprint_objid(end_oid, myptr->end, myptr->end_len);
+            printf("%s%c %s - %s %c\n",
+                   (myptr->flags & FULLY_QUALIFIED_INSTANCE)?"[FQI] ":"",
+                   ( myptr->variables ? ' ' : '(' ),
+                   start_oid, end_oid,
+                   ( myptr->variables ? ' ' : ')' ));
+            for( myptr2 = myptr ; myptr2 != NULL; myptr2 = myptr2->children) {
+                if ( myptr2->label && myptr2->label[0] )
+                    printf("\t%s\n", myptr2->label);
+            }
+        }
     }
 
     dump_idx_registry();

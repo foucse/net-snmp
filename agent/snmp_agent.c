@@ -1254,6 +1254,8 @@ handle_snmp_packet(int op, struct snmp_session *session, int reqid,
     
     else {
         /* if we don't have anything outstanding (delegated), wrap up */
+        /* XXX: kill outstanding_requests methodology above and don't
+                need the if portion of the below */
         if (!check_for_delegated(asp))
             return wrap_up_request(asp, status);
     }
@@ -1460,7 +1462,8 @@ create_subtree_cache(struct agent_snmp_session  *asp) {
             continue;
 
         /* find the owning tree */
-        tp = find_subtree(varbind_ptr->name, varbind_ptr->name_length, NULL);
+        tp = find_subtree(varbind_ptr->name, varbind_ptr->name_length, NULL,
+                          asp->pdu->contextName); /* WWW: only v3 pdu's have */
 
         /* check access control */
         switch(asp->pdu->command) {
@@ -1592,7 +1595,8 @@ check_all_requests_status(struct agent_snmp_session  *asp) {
 
 int
 handle_var_requests(struct agent_snmp_session  *asp) {
-    int i, status = SNMP_ERR_NOERROR, final_status = SNMP_ERR_NOERROR;
+    int i, retstatus = SNMP_ERR_NOERROR,
+        status = SNMP_ERR_NOERROR, final_status = SNMP_ERR_NOERROR;
     handler_registration *reginfo;
 
     /* create the agent_request_info data */
@@ -1612,9 +1616,10 @@ handle_var_requests(struct agent_snmp_session  *asp) {
                                asp->treecache[i]->requests_begin);
 
         /* find any errors marked in the requests */
-        i = check_requests_status(asp, asp->treecache[i]->requests_begin);
-        if (i != SNMP_ERR_NOERROR) /* always take lowest varbind if possible */
-            status = i;
+        retstatus =
+            check_requests_status(asp, asp->treecache[i]->requests_begin);
+        if (retstatus != SNMP_ERR_NOERROR) /* always take lowest varbind if possible */
+            status = retstatus;
         
         /* other things we know less about (no index) */
         /* WWW: drop support for this? */

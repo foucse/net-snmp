@@ -127,10 +127,14 @@ struct register_parameters {
 
 
 void setup_tree (void);
-struct subtree *find_subtree (oid *, size_t, struct subtree *);
-struct subtree *find_subtree_next (oid *, size_t, struct subtree *);
-struct subtree *find_subtree_previous (oid *, size_t, struct subtree *);
-struct snmp_session *get_session_for_oid( oid *, size_t);
+struct subtree *find_subtree (oid *, size_t, struct subtree *,
+                              const char *context_name);
+struct subtree *find_subtree_next (oid *, size_t, struct subtree *,
+                                   const char *context_name);
+struct subtree *find_subtree_previous (oid *, size_t, struct subtree *,
+                                       const char *context_name);
+struct snmp_session *get_session_for_oid( oid *, size_t,
+                                          const char *context_name);
 
 int register_mib(const char *, struct variable *, size_t, size_t, oid *, size_t);
 int register_mib_priority(const char *, struct variable *, size_t, size_t, oid *, size_t, int);

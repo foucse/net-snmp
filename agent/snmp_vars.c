@@ -453,14 +453,14 @@ getStatPtr(
     DEBUGMSGOID(("snmp_vars", name, *namelen));
     DEBUGMSG(("snmp_vars"," ...\n"));
 
-    tp = find_subtree(name, *namelen, NULL);
+    tp = find_subtree(name, *namelen, NULL, ""); /* WWW delete this function */ 
 
     if ((tp != NULL) && (tp->flags & FULLY_QUALIFIED_INSTANCE) && (!exact)) {
 	/*  There is no point in trying to do a getNext operation at this
 	    node, because it covers exactly one instance.  Therfore, find the
 	    next node.  This arises in AgentX row registrations (only).  */
 	DEBUGMSGTL(("snmp_vars", "fully-qualified instance && !exact\n"));
-	tp = find_subtree_next(name, *namelen, tp);
+	tp = find_subtree_next(name, *namelen, tp, ""); /* WWW: delete this function */
     }
     
     while (search_return == NULL && tp != NULL) {
