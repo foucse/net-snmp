@@ -355,7 +355,6 @@ int		pass;       /* IN - which pass */
     return data;
 }
 
-#ifdef OLD
 /** snmp_comstr_build - build the header of a community string-based message
 *                       such as that found in SNMPv1 and SNMPv2c.
 *
@@ -368,7 +367,7 @@ snmp_comstr_build(data, length, sid, slen, version, messagelen)
     int         *length;
     u_char      *sid;
     int         *slen;
-    long        *version;
+    int         *version;
     int         messagelen;
 {
   /* version is an 'int' (CMU had it as a long, but was passing in a *int.
@@ -414,7 +413,6 @@ snmp_comstr_build(data, length, sid, slen, version, messagelen)
 
     return data;
 }
-#endif
 
 /** snmp_party_build - build the header for a party-based security message.
 *                      In the first pass allocate and store all the fields.
