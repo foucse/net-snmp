@@ -32,6 +32,8 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 ******************************************************************/
 
+#include <stdio.h> /* for FILE */
+
 #ifdef CMU_COMPATIBLE
 
 struct	mib_system {
@@ -353,6 +355,9 @@ void sprint_double (char *, struct variable_list *, struct enum_list *,
 int parse_one_oid_index(oid **oidStart, size_t *oidLen,
 						struct variable_list *data, int complete);
 int parse_oid_indexes(oid *oidIndex, size_t oidLen, struct variable_list *data);
+int build_oid_noalloc(oid *in, size_t in_len, size_t *out_len,
+											oid *prefix, size_t prefix_len,
+											struct variable_list *indexes);
 int build_oid(oid **out, size_t *out_len, oid *prefix, size_t prefix_len,
               struct variable_list *indexes);
 int build_oid_segment(struct variable_list *var);
