@@ -840,9 +840,10 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
     asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
 
     /* ditch illegal values now */
-    if (long_ret == RS_NOTINSERVICE || long_ret < 1 || long_ret > 6)
+    /* notReady can not be used, but the return error code is not mentioned */
+    if (long_ret == RS_NOTREADY || long_ret < 1 || long_ret > 6)
       return SNMP_ERR_INCONSISTENTVALUE;
-
+    
     /* see if we can parse the oid for engineID/name first */
     if (usm_parse_oid(&(name[USM_MIB_LENGTH]), name_len-USM_MIB_LENGTH,
                       &engineID, &engineIDLen, &newName, &nameLen))
@@ -860,7 +861,12 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
       if (long_ret == RS_CREATEANDGO || long_ret == RS_CREATEANDWAIT) {
         return SNMP_ERR_INCONSISTENTVALUE;
       }
-      uptr->userStatus = long_ret;
+      if (long_ret == RS_DESTROY) {
+        userList = usm_remove_user(uptr, userList);
+        usm_free_user(uptr);
+      } else {
+        uptr->userStatus = long_ret;
+      }
     } else {
       /* check for a valid status column set */
       if (long_ret == RS_ACTIVE || long_ret == RS_NOTINSERVICE) {
@@ -869,6 +875,7 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
         return SNMP_ERR_INCONSISTENTVALUE;
       }
       if (long_ret == RS_DESTROY) {
+        /* destroying a non-existent row is actually legal */
         free(engineID);
         free(newName);
         return SNMP_ERR_NOERROR;
