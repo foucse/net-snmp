@@ -82,7 +82,7 @@ snmp_parse_args_usage(outf)
   FILE *outf;
 {
   fprintf(outf,
-        "[-v 1|2c|2p|3] [-h] [-d] [-q] [-R] [-D] [-m <MIBS>] [-M <MIDDIRS>] [-p <P>] [-t <T>] [-r <R>] [-c <S> <D>] [-e <E>] [-n <N>] [-u <U>] [-l <L>] [-a <A>] [-A <P>] [-x <X>] [-X <P>] hostname> <community>|{<srcParty> <dstParty> <context>}");
+        "[-v 1|2c|2p|3] [-h] [-d] [-q] [-R] [-D] [-m <MIBS>] [-M <MIDDIRS>] [-p <P>] [-t <T>] [-r <R>] [-c <S> <D>] [-T <B> <T>] [-e <E>] [-n <N>] [-u <U>] [-l <L>] [-a <A>] [-A <P>] [-x <X>] [-X <P>] hostname> <community>|{<srcParty> <dstParty> <context>}");
 }
 
 void
@@ -106,6 +106,8 @@ snmp_parse_args_descriptions(outf)
   fprintf(outf, "  -r <R>\tset the number of retries to R.\n");
   fprintf(outf,
           "  -c <S> <D>\tset the source/destination clocks for v2p requests.\n");
+  fprintf(outf,
+          "  -T <B> <T>\tset the destination engine boots/time for v3 requests.\n");
   fprintf(outf, "  -e <E>\tengine ID (e.g., 800000020109840301).\n");
   fprintf(outf, "  -n <N>\tcontext name (e.g., bridge1).\n");
   fprintf(outf, "  -u <U>\tsecurity name (e.g., bert).\n");
@@ -262,6 +264,25 @@ snmp_parse_args(argc, argv, session)
         }
         break;
 #endif /* USE_V2PARTY_PROTOCOL */
+
+      case 'T':
+        if (isdigit(argv[arg][2]))
+          session->engineBoots = (u_long)(atol(&(argv[arg][2])));
+        else if ((++arg<argc) && isdigit(argv[arg][0]))
+          session->engineBoots = (u_long)(atol(argv[arg]));
+        else {
+          fprintf(stderr,"Need engine boots value after -c flag.\n");
+          usage();
+          exit(1);
+        }
+        if ((++arg<argc) && isdigit(argv[arg][0]))
+          session->engineTime = (u_long)(atol(argv[arg]));
+        else {
+          fprintf(stderr,"Need engine time value after -c flag.\n");
+          usage();
+          exit(1);
+        }
+        break;
 
       case 'V':
         fprintf(stderr,"UCD-snmp version: %s\n", VersionInfo);
