@@ -504,6 +504,7 @@ snmp_open(session)
 {
   struct snmp_pdu *pdu, *response;
   int status;
+  int i;
     struct session_list *slp;
     slp = (struct session_list *)snmp_sess_open(session);
     if (!slp) return NULL;
@@ -518,6 +519,7 @@ snmp_open(session)
        handled correctly */
     if (session->version == SNMP_VERSION_3 &&
 	session->contextEngineIDLen == 0) {
+      DEBUGP("probing for engineID...\n");
       snmpv3_build_probe_pdu(&pdu);
       status = snmp_synch_response(slp->session,pdu,&response);
 
@@ -544,6 +546,12 @@ snmp_open(session)
       if (slp->session->contextEngineIDLen == 0) {
 	DEBUGP("unable to determine remote engine ID\n");
 	return NULL;
+      }
+      if (snmp_get_do_debugging()) {
+        DEBUGP("  probe found engineID:  ");
+        for(i = 0; i < slp->session->contextEngineIDLen; i++)
+          DEBUGP("%x", slp->session->contextEngineID[i]);
+        DEBUGP("\n");
       }
     }
 
@@ -1146,7 +1154,7 @@ snmpv3_packet_build(struct snmp_pdu *pdu, u_char *packet, int *out_length,
 
     /* call the security module to possibly encrypt and authenticate the
        message - the entire message to transmitted on the wire is returned */
-    cp = NULL; *out_length = 0;
+    cp = NULL; *out_length = SNMP_MAX_MSG_SIZE;
     usm_generate_out_msg(SNMP_VERSION_3, global_data, global_data_len,
 			 SNMP_MAX_MSG_SIZE, SNMP_SEC_MODEL_USM,
 			 pdu->contextEngineID, pdu->contextEngineIDLen,
@@ -1154,7 +1162,6 @@ snmpv3_packet_build(struct snmp_pdu *pdu, u_char *packet, int *out_length,
 			 pdu->securityLevel, spdu_buf, spdu_len, NULL,
 			 sec_params, &sec_params_len,
 			 &cp, out_length);
-
 
     snmp_errno = 0;
     return 0;
@@ -2158,7 +2165,7 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	}
       }
 
-      if (pdu->contextNameLen == 0) {
+      if (pdu->contextNameLen < 0) {
 	if (session->contextNameLen == 0){
 	  snmp_errno = SNMPERR_BAD_CONTEXT;
 	  session->s_snmp_errno = SNMPERR_BAD_CONTEXT;
