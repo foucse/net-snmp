@@ -33,7 +33,7 @@ CFLAGS="$CFLAGS -D`echo $target_os | sed 's/\..*//'`"
 
 dnl Solaris specialties
 case "$target_os" in
-  solaris2*) CPPFLAGS="$CPPFLAGS -I/usr/ucbinclude -I/usr/include" ; LDFLAGS="-L/usr/ucblib -R/usr/ucblib $LDFLAGS" ;;
+  solaris2*) ;;
 esac
 
 dnl Set SNMPLIBPATH
@@ -107,7 +107,7 @@ dnl AC_CHECK_LIB(Xt, main)
 dnl Replace `main' with a function in -ldes:
 dnl AC_CHECK_LIB(des, main)
 dnl Replace `main' with a function in -lelf:
-AC_CHECK_LIB(elf, main)
+AC_CHECK_LIB(elf, nlist)
 dnl Replace `main' with a function in -lm:
 AC_CHECK_LIB(m, asin)
 dnl Replace `main' with a function in -lnsl:
@@ -119,7 +119,7 @@ dnl AC_CHECK_LIB(snmp, main)
 dnl Replace `main' with a function in -lsocket:
 AC_CHECK_LIB(socket, getservbyname)
 dnl Replace `main' with a function in -lsocket:
-AC_CHECK_LIB(ucb, bzero)
+dnl AC_CHECK_LIB(ucb, bzero)
 
 dnl more solaris specialities
 dnl if libucb does not define bzero and I am solaris, add -DSVR4 to CFLAGS

@@ -114,11 +114,6 @@
                              necessary to finish the snmpset reply
                              before restarting. */
 
-#ifdef DODEBUG
-#define DEBUGP(x) fprintf(stderr,x);
-#define DEBUGP1(x,y) fprintf(stderr,x,y);
-#endif
-
 /* Define if you have the gethostname function.  */
 #undef HAVE_GETHOSTNAME
 
@@ -392,6 +387,17 @@ sure to end it in -1.*/
 #ifdef DODEBUG
 #define DEBUGP(x) fprintf(stderr,x);
 #define DEBUGP1(x,y) fprintf(stderr,x,y);
+#else
+#define DEBUGP(x)
+#define DEBUGP1(x,y)
+#endif
+
+#ifdef SVR4
+#define bzero(p,n)	memset(p,0,n)
+#define bcopy(s,d,n)	memmove(d,s,n)
+#define bcmp(s1,s2,n)	memcmp(s1,s2,n)
+#define index	strchr
+#define rindex	strrchr
 #endif
 
 #ifndef DONT_INC_STRUCTS
