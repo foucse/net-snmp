@@ -2,7 +2,9 @@
  * lcd_time.c
  */
 
-#include "lcd_time.h"
+
+#include "all_system.h"
+#include "all_general_local.h"
 
 
 
@@ -19,6 +21,8 @@
  *      
  * Returns:
  *	SNMPERR_SUCCESS		Success.
+ *
+ * FIX	Check case of NULL or "" engineID (sez Ed).
  */
 int
 get_enginetime(	u_char	*engineID,	

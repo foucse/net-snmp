@@ -5,8 +5,7 @@
 #ifndef _LCD_TIME_H
 #define _LCD_TIME_H
 
-#include "all_system.h"
-#include "all_general_local.h"
+
 
 /*
  * Macros and definitions.

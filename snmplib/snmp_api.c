@@ -250,7 +250,6 @@ static char *api_errors[-SNMPERR_MAX+1] = {
     "Unable to determine contextName",	/* SNMPERR_BAD_SEC_NAME */
     "Unable to determine securityLevel",/* SNMPERR_BAD_SEC_LEVEL */
     "SCAPI general failure",		/* SNMPERR_SC_GENERAL_FAILURE */
-    "Unknown transform.",		/* SNMPERR_SC_UNKNOWN_TRANSFORM */
 };
 
 /*

@@ -23,15 +23,11 @@
 
 #include "usmUser.h"
 
- /* needed for the write_ functions to find the start of the index */
+
+/* needed for the write_ functions to find the start of the index */
 #define USM_MIB_LENGTH 12
 
-/* misc protocol oids */
-static oid usmNoAuthProtocol[]      = { 1,3,6,1,6,3,10,1,1,1 };
-static oid usmNoPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,1 };
-static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
-static oid usmDESPrivProtocol[]     = { 1,3,6,1,6,3,10,1,2,2 };
-  
+
 static unsigned int usmUserSpinLock=0;
 
 
@@ -42,6 +38,7 @@ void init_usmUser(void) {
   snmpd_register_config_handler("usmUser",
                                 usm_parse_config_usmUser, NULL);
 }
+
 
 void shutdown_usmUser(void) {
   /* save the user base */

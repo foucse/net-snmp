@@ -20,6 +20,7 @@
 #include "snmpv3.h"             /* */
 #include "system.h"
 #include "tools.h"                              /* FIX -- Acceptable? */
+#include "snmpusm.h"
 
 #ifndef USE_INTERNAL_MD5
 #       include "scapi.h"

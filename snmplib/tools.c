@@ -2,7 +2,9 @@
  * tools.c
  */
 
-#include "tools.h"
+#include "all_system.h"
+#include "all_general_local.h"
+
 
 
 
@@ -84,4 +86,45 @@ malloc_zero(u_long size)
 	return (char *) malloc_set(size, 0);
 
 }  /* end malloc_zero() */
+
+
+
+
+
+/*******************************************************************-o-******
+ * binary_to_hex
+ *
+ * Parameters:
+ *	*input		Binary data.
+ *	len		Length of binary data.
+ *	**output	NULL terminated string equivalent in hex.
+ *      
+ * Returns:
+ *	olen	Length of output string not including NULL terminator.
+ *
+ * FIX	Is there already one of these in the UCD SNMP codebase?
+ *	The old one should be used, or this one should be moved to
+ *	snmplib/snmp_api.c.
+ */
+u_int
+binary_to_hex(char *input, u_long len, char **output)
+{
+	u_int	olen	= (len * 2) + 1;
+	char	*s	= (char *) MALLOC(olen),
+		*op	= s,
+		*ip	= input;
+
+EM(1); /* */
+
+	while (ip-input < len) {
+		*op++ = VAL2HEX( (*ip >> 4) & 0xf );
+		*op++ = VAL2HEX( *ip & 0xf );
+		ip++;
+	}
+	*op = '\0';
+	
+	*output = s;
+	return olen;
+
+}  /* end binary_to_hex() */
 

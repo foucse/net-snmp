@@ -7,13 +7,20 @@
 #ifndef SNMPUSM_H
 #define SNMPUSM_H
 
-int usm_generate_out_msg __P((int, u_char *, int, int, int, u_char *,int,
-			      u_char *, int, int, u_char *, int, void *,
-			      u_char *, int *, u_char **, int *));
 
-int usm_process_in_msg __P((int, int, u_char *, int, int, u_char *, int,
-			    u_char *, int *, u_char *, int *, u_char **, int *,
-			    int *, void **));
+/*
+ * Numeric MIB names for auth and priv transforms.
+ */
+static oid usmNoAuthProtocol[]       = { 1,3,6,1,6,3,10,1,1,1 };
+static oid usmHMACMD5AuthProtocol[]  = { 1,3,6,1,6,3,10,1,1,2 };
+static oid usmHMACSHA1AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,3 };
+
+static oid usmNoPrivProtocol[]       = { 1,3,6,1,6,3,10,1,2,1 };
+static oid usmDESPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,2 };
+
+#define USM_LENGTH_OID_TRANSFORM	10
+
+
 
 /* struct usmUser: a structure to represent a given user in a list */
 
@@ -40,8 +47,18 @@ struct usmUser {
    struct usmUser *prev;
 };
 
+
+
 /* Note: Any changes made to this structure need to be reflected in
    the following functions: */
+
+int usm_generate_out_msg __P((int, u_char *, int, int, int, u_char *,int,
+			      u_char *, int, int, u_char *, int, void *,
+			      u_char *, int *, u_char **, int *));
+
+int usm_process_in_msg __P((int, int, u_char *, int, int, u_char *, int,
+			    u_char *, int *, u_char *, int *, u_char **, int *,
+			    int *, void **));
 
 int             usm_check_secLevel(int level, struct usmUser *user);
 struct usmUser *usm_get_userList();
@@ -65,6 +82,8 @@ void            usm_save_users_from_list(struct usmUser *user, char *token,
 void            usm_save_user(struct usmUser *user, char *token, char *type);
 struct usmUser *usm_read_user(char *line);
 void            usm_parse_config_usmUser(char *token, char *line);
+
 void            usm_set_password(char *token, char *line);
+
 
 #endif /* SNMPUSM_H */

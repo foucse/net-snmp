@@ -172,10 +172,9 @@ extern void snmp_set_detail __P((char *));
 #define SNMPERR_BAD_ENG_ID 		(-26)
 #define SNMPERR_BAD_SEC_NAME 		(-27)
 #define SNMPERR_BAD_SEC_LEVEL 		(-28)
-#define SNMPERR_SC_GENERAL_FAILURE	(-29)	/* XXX  New class of errs?  */
-#define SNMPERR_SC_UNKNOWN TRANSFORM	(-30)
+#define SNMPERR_SC_GENERAL_FAILURE	(-29)	
 
-#define SNMPERR_MAX			(-30)
+#define SNMPERR_MAX			(-29)
 
 #define non_repeaters	errstat
 #define max_repetitions errindex

@@ -29,15 +29,8 @@
 #include "system.h"
 #include "read_config.h"
 #include "snmpusm.h"
-#include "tools.h"
+#include "snmp_api.h"
 #include "scapi.h"
-#include "keytools.h"
-
-/* misc protocol oids */
-static oid usmNoAuthProtocol[]      = { 1,3,6,1,6,3,10,1,1,1 };
-static oid usmNoPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,1 };
-static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
-static oid usmDESPrivProtocol[]     = { 1,3,6,1,6,3,10,1,2,2 };
 
 
 
@@ -707,7 +700,9 @@ usm_read_user(char *line) {
 }
 
 /* snmpd.conf parsing routines */
-void usm_parse_config_usmUser(char *token, char *line) {
+void
+usm_parse_config_usmUser(char *token, char *line)
+{
   struct usmUser *uptr;
 
   uptr = usm_read_user(line);
