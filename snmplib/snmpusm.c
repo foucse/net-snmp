@@ -1057,11 +1057,9 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 	/* Locate the engine ID record */
 	/* If it is unknown, then either create one or note this as an error */
 
-	printf ("UNIMPLEMENTED PORTION\n");
-
 	if (reportErrorOnUnknownID)
 	{
-		/* If name is not known */
+		if (ISENGINEKNOWN(secEngineID, *secEngineIDLen)==FALSE)
 		{
 			/* Report error */
 			/* INCREMENT usmStatsUnknownEngineIDs */
@@ -1076,7 +1074,14 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 	}
 	else
 	{
-		/* Ensure there is a record */
+		if (ENSURE_ENGINE_RECORD(secEngineID,*secEngineIDLen)!=SNMPERR_SUCCESS)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't ensure engine record");
+
+			return USM_ERR_GENERIC_ERROR;
+		}
+		
 	}
 
 	/* Locate the User record */
