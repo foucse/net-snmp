@@ -18,9 +18,13 @@ extern "C" {
    and SET related modes instead.
  */
 
+#define TABLE_ITERATOR_NAME "table_iterator"
+
 mib_handler *get_table_iterator_handler(table_registration_info *tabreq);
 int register_table_iterator(handler_registration *reginfo,
                             table_registration_info *tabreq);
+
+void *extract_iterator_context(request_info *);
 
 NodeHandler table_iterator_helper_handler;
 

@@ -91,12 +91,14 @@ old_api_helper(mib_handler               *handler,
     struct variable	compat_var, *cvp = &compat_var;
     int exact = 1;
     int status;
+    int have_delegated = 0;
     
     struct variable *vp;
     WriteMethod *write_method = NULL;
     size_t len;
     u_char *access = NULL;
     old_api_cache *cacheptr;
+    AddVarMethod *add_method;
 
     vp = (struct variable *) handler->myvoid;
 
@@ -135,6 +137,15 @@ old_api_helper(mib_handler               *handler,
                 else
                     access = NULL;
 
+#ifdef WWW_FIX
+                if (IS_DELEGATED(cvp->type)) {
+                    add_method = (AddVarMethod*)statP;
+                    requests->delayed = 1;
+                    have_delegated = 1;
+                    continue; /* WWW: This may not get to the right place */
+                }
+#endif
+
                 /* WWW: end range checking */
                 if (access) {
                     /* result returned */
@@ -158,6 +169,7 @@ old_api_helper(mib_handler               *handler,
 #endif
                 }
 
+                /* AAA: fall through for everything that is a set (see BBB) */
                 if (reqinfo->mode != MODE_SET_RESERVE1)
                     break;
 
@@ -168,9 +180,11 @@ old_api_helper(mib_handler               *handler,
                 cacheptr->data = access;
                 cacheptr->write_method = write_method;
                 requests->state_reference = (void *) cacheptr;
+                /* BBB: fall through for everything that is a set (see AAA) */
                 
             default:
-                /* SET contions */
+                /* WWW: explicitly list the SET conditions */
+                /* (the rest of the) SET contions */
                 cacheptr = (old_api_cache *) requests->state_reference;
 
                 if (cacheptr == NULL || cacheptr->write_method == NULL) {
@@ -179,7 +193,7 @@ old_api_helper(mib_handler               *handler,
                                              SNMP_ERR_NOTWRITABLE);
                 }
 
-                /* set_current_agent_session(asp); /* WWW */
+                /* WWW: set_current_agent_session(asp);  */
                 status =
                     (*(cacheptr->write_method))(reqinfo->mode,
                                                 requests->requestvb->val.string,
@@ -188,7 +202,7 @@ old_api_helper(mib_handler               *handler,
                                                 cacheptr->data,
                                                 requests->requestvb->name,
                                                 requests->requestvb->name_length);
-                /* set_current_agent_session(oldval); /* WWW */
+                /* WWW: set_current_agent_session(oldval); */
 
                 if (requests->status == SNMP_ERR_NOERROR)
                     set_request_error(reqinfo, requests, status);

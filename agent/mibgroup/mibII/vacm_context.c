@@ -112,7 +112,9 @@ vacm_context_handler(mib_handler               *handler,
         if (requests->processed != 0)
             continue;
 
-        context_ptr = (subtree_context_cache *) requests->parent_data;
+        
+        context_ptr = (subtree_context_cache *)
+            extract_iterator_context(requests);
         
         if (context_ptr==NULL) {
             snmp_log(LOG_ERR, "vacm_context_handler called without data\n");

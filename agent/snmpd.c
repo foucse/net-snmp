@@ -124,6 +124,7 @@ typedef long    fd_mask;
 
 #include "snmp_client.h"
 #include "snmpd.h"
+#include "agent_handler.h"
 #include "var_struct.h"
 #include "mibgroup/struct.h"
 #include "snmp_debug.h"

@@ -26,11 +26,22 @@ extern int	log_addresses;
 
 extern int	lastAddrAge;
 
+typedef void (Free_Parent_Data)(void *);
+
+typedef struct request_parent_data_s {
+   struct request_parent_data_s *next;
+   char *parent_name;
+   void *data;                     /* The pointer to the data passed on. */
+   Free_Parent_Data *free_func;     /* must know how to free parent_data */
+} request_parent_data;
+    
 typedef struct request_info_s {
    struct variable_list *requestvb; /* will certainly change */
-   void *parent_data;               /* can be used to pass information
-                                       on a per-request basis from a
-                                       helper to the final handler */
+
+   /* can be used to pass information on a per-request basis from a
+      helper to the later handlers */
+   request_parent_data *parent_data;
+
    void *state_reference;           /* if multiple calls to you are
                                        needed for a request (SETs
                                        namely), this can be used to

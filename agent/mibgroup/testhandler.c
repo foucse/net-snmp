@@ -144,11 +144,11 @@ my_test_table_handler(mib_handler               *handler,
         DEBUGMSGOID(("testhandler_table", var->name, var->name_length));
         DEBUGMSG(("testhandler_table", "\n"));
 
-        table_info = (table_request_info *) requests->parent_data;
-		if (table_info==NULL) {
-		  requests = requests->next;
-		  continue;
-		}
+        table_info = extract_table_info(requests);
+        if (table_info==NULL) {
+            requests = requests->next;
+            continue;
+        }
 
         switch(reqinfo->mode) {
             case MODE_GETNEXT:

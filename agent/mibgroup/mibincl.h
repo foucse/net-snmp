@@ -38,6 +38,8 @@
 
 #include "snmp_vars.h"
 #include "agent_read_config.h"
+#include "agent_handler.h"
+#include "agent_registry.h"
 #include "var_struct.h"
 
 #include "snmp.h"

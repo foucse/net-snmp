@@ -20,6 +20,9 @@ extern "C" {
  *      you answer a request.
  */
 
+/* used as an index to parent_data lookups */
+#define TABLE_HANDLER_NAME "table"
+
 /*
  * column info struct.  OVERLAPPING RANGES ARE NOT SUPPORTED.
  */
@@ -106,6 +109,7 @@ check_getnext_reply(request_info *request, oid *prefix,
                     struct variable_list *newvar,
                     struct variable_list **outvar);
 
+table_request_info *extract_table_info(request_info *);
 #ifdef __cplusplus
 };
 #endif

@@ -7,7 +7,6 @@
 #else
 #include <strings.h>
 #endif
-#include <assert.h>
 
 #include "mibincl.h"
 #include "tools.h"
@@ -22,7 +21,7 @@
 mib_handler *
 get_table_iterator_handler(table_registration_info *tabreq) {
     mib_handler *me=
-        create_handler("table_iterator", table_iterator_helper_handler);
+        create_handler(TABLE_ITERATOR_NAME, table_iterator_helper_handler);
     me->myvoid = tabreq; /* we need it too, but it really is not ours */
     return me;
 }
@@ -49,7 +48,6 @@ table_iterator_helper_handler(
     oid coloid[MAX_OID_LEN];
     size_t coloid_len;
     int ret;
-    void *old_parent_data;
     static oid myname[MAX_OID_LEN];
     static int myname_len;
     
@@ -77,7 +75,7 @@ table_iterator_helper_handler(
         struct variable_list *results = NULL;
         struct variable_list *index_search = NULL; /* WWW: move up? */
         table_request_info *table_info =
-            (table_request_info *) requests->parent_data;
+            extract_table_info(requests);
         void *callback_loop_context = NULL;
         void *callback_data_context = NULL;
         void *callback_data_keep = NULL;
@@ -209,14 +207,12 @@ table_iterator_helper_handler(
                            results->name_length);
         
         reqinfo->mode = MODE_GET;
-        old_parent_data = requests->parent_data;
-        requests->parent_data = callback_data_keep;
+        handler_add_parent_data(requests, handler_create_parent_data(TABLE_ITERATOR_NAME, callback_data_keep, NULL));
         ret = call_next_handler(handler, reginfo, reqinfo, requests);
-        requests->parent_data = old_parent_data;
         reqinfo->mode = MODE_GETNEXT;
 
-        if (callback_data_context && tbl_info->free_data_context)
-            (tbl_info->free_data_context)(callback_data_context);
+        if (callback_data_keep && tbl_info->free_data_context)
+            (tbl_info->free_data_context)(callback_data_keep);
         
 #ifdef NOT_SERIALIZED
         return ret;
@@ -225,4 +221,10 @@ table_iterator_helper_handler(
 #endif
         }
     return SNMP_ERR_NOERROR;
+}
+
+inline void *
+extract_iterator_context(request_info *request) 
+{
+    return handler_get_parent_data(request, TABLE_ITERATOR_NAME);
 }

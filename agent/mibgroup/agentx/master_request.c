@@ -59,6 +59,7 @@
 #include "master_admin.h"
 #include "snmp_agent.h"
 #include "snmp_vars.h"
+#include "agent_handler.h"
 #include "var_struct.h"
 #include "mibII/sysORTable.h"
 

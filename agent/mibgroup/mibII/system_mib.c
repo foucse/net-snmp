@@ -49,6 +49,7 @@
 #include "agent_read_config.h"
 #include "system.h"
 #include "sysORTable.h"
+#include "helpers/old_api.h"
 
 
 	/*********************
@@ -196,8 +197,8 @@ void init_system_mib(void)
                system_variables_oid);
 
   if ( ++system_module_count == 3 )
-	REGISTER_SYSOR_ENTRY( system_module_oid,
-		"The MIB module for SNMPv2 entities");
+	REGISTER_SYSOR_ENTRY( system_module_oid, \
+                              "The MIB module for SNMPv2 entities");
   
   /* register our config handlers */
   snmpd_register_config_handler("syslocation", system_parse_config_sysloc,

@@ -34,6 +34,8 @@
 #include "snmp.h"
 
 #include "snmp_vars.h"
+#include "snmp_agent.h"
+#include "agent_handler.h"
 #include "var_struct.h"
 #include "snmpd.h"
 #include "agentx/protocol.h"

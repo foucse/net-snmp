@@ -47,6 +47,8 @@
 #include "snmp.h"
 #include "mib.h"
 #include "m2m.h"
+#include "snmp_agent.h"
+#include "agent_handler.h"
 #include "snmp_vars.h"
 #include "agent_read_config.h"
 #include "snmpv3.h"
