@@ -69,8 +69,11 @@ usage __P((void))
 {
   fprintf(stderr,"Usage:\n  snmppass ");
   snmp_parse_args_usage(stderr);
-  fprintf(stderr," [-N new_passphrase]\n\n");
+  fprintf(stderr," [-N new_passphrase] [-o]\n\n");
   snmp_parse_args_descriptions(stderr);
+  fprintf(stderr, "snmppass options:\n");
+  fprintf(stderr, "  -N NEWPASS:\tuse NEWPASS as the new passphrase.\n");
+  fprintf(stderr, "  -o\t\tUse the ownKeyChange objects.\n");
 }
 
 #define                   KEY_CHANGE_LEN    12
@@ -155,6 +158,11 @@ main(argc, argv)
             newpass = &argv[arg][2];
           else
             newpass = argv[++arg];
+          break;
+
+        case 'o':
+          authKeyChange   = ownAuthKeyOid,
+          privKeyChange   = ownPrivKeyOid;
           break;
 
         default:
