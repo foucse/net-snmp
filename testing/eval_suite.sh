@@ -12,16 +12,16 @@
 
 								USAGE_LONG='
 #
-# HOW TO ENTER A NEW TEST --- tests may be toggled on to run or not.
+# HOW TO ENTER A NEW TEST
 #
-# To add a test to the testlist, add a line to the TESTLISTFILE ($TESTLISTFILE)
-# file defined below. Format is:
+# To add a test to the testlist, add a line to the TESTLISTFILE (eval_testlist)
+# using the following format:
 #
-#	<#_of_expected_successes> <program> <args>
+#	<#_of_expected_successes> [#]<program> <args>
 #
 # Any white space may be used as separator.  If <program> is immediately
 # preceeded by a pound sign (#) that test will be skipped.  (No white space
-# allowed in "#<program>".)
+# allowed after the pound.  Eg, "#<program>".)
 #
 #
 # HOW TESTS ARE RUN AND EVALUATED
@@ -31,11 +31,11 @@
 # when something succeeds.  If a test executes properly there should be
 # some SUCCESS strings and NO FAILED strings.  If the reason for the
 # success or failure of the test should be printed on the SAME line as the
-# SUCCESS/FAILED string to allow the dianostic to be massaged through
-# the harness filters.
+# SUCCESS/FAILED string to allow the dianostic to be easilly grepped from
+# the its output.
 #
 # The long form of the output (-l flag) will capture that output which may
-# help to diagnosis the problem.  For more information use:
+# help to diagnosis the problem.  For more information:
 #
 #	% eval_oneprogram.sh -h
 #
@@ -48,7 +48,7 @@
 '
 
 #
-# Suggested improvement:
+# Suggested improvement(s):
 #	Have two (or more?) arbitrary script(s) that may be associated
 #	with a given test.  One could prepare the environment, the other
 #	could clean up the environment after running the test.  This could

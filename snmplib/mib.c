@@ -76,7 +76,7 @@ SOFTWARE.
 static void sprint_by_type __P((char *, struct variable_list *, struct enum_list *, char *, char *));
 static int parse_subtree __P((struct tree *, char *, oid *, int *));
 static char *uptimeString __P((u_long, char *));
-static void sprint_hexstring __P((char *, u_char *, int));
+void sprint_hexstring __P((char *, u_char *, int));
 static void sprint_asciistring __P((char *, u_char *, int));
 static void sprint_octet_string __P((char *, struct variable_list *, struct enum_list *, char *, char *));
 static void sprint_opaque __P((char *, struct variable_list *, struct enum_list *, char *, char *));
@@ -204,7 +204,10 @@ uptimeString(timeticks, buf)
     return buf;
 }
 
-static void sprint_hexstring(buf, cp, len)
+
+
+void
+sprint_hexstring(buf, cp, len)
     char *buf;
     u_char  *cp;
     int	    len;
@@ -224,6 +227,8 @@ static void sprint_hexstring(buf, cp, len)
     }
     *buf = '\0';
 }
+
+
 
 static void sprint_asciistring(buf, cp, len)
     char *buf;

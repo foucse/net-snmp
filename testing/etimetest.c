@@ -1,16 +1,17 @@
 /*
  * etimetest.c
  *
- * Expected SUCCESSes:	FIX -- list number of lines containing the string
- *			"SUCCESS" that are expected to be printed to stdout.
+ * Expected SUCCESSes for all tests:	3
  *
  * Returns:
  *	Number of FAILUREs.
  *
- * FIX	Short test description/table of contents.
+ * Test of hash_engineID().				SUCCESSes:  0
+ * Test of LCD Engine ID and Time List.			SUCCESSes:  3
  */
 
 static char *rcsid = "$Id$";	/* */
+
 
 #include "all_system.h"
 #include "all_general_local.h"
@@ -31,13 +32,14 @@ extern int	optreset;
  */
 char *local_progname;
 
-#define USAGE	"Usage: %s [-h][-ae]"
-#define OPTIONLIST	"aeh"
+#define USAGE	"Usage: %s [-h][-s <seconds>][-aeH]"
+#define OPTIONLIST	"aehHs:"
 
 int	doalltests	= 0,
+	dohashindex	= 0,
 	doetimetest	= 0;
 
-#define	ALLOPTIONS	(doalltests + doetimetest)
+#define	ALLOPTIONS	(doalltests + dohashindex + doetimetest)
 
 
 
@@ -62,13 +64,23 @@ int	doalltests	= 0,
 
 
 
+/*
+ * Global variables.
+ */
+int sleeptime = 7;
+
+#define BLAT "alk;djf;an riu;alicenmrul;aiknglksajhe1 adcfalcenrco2"
+
+
 
 
 /*
  * Prototypes.
  */
 void	usage(FILE *ofp);
-int	test_dosomething(void);
+
+int	test_etime(void);
+int	test_hashindex(void);
 
 
 
@@ -82,7 +94,7 @@ main(int argc, char **argv)
 
 	local_progname = argv[0];
 
-/* EM(1);	/* */
+EM(-1);	/* */
 
 	/*
 	 * Parse.
@@ -90,8 +102,14 @@ main(int argc, char **argv)
 	while ( (ch = getopt(argc, argv, OPTIONLIST)) != EOF )
 	{
 		switch(ch) {
-		case 'a':	doalltests = 1;		break;
-		case 'e':	doetimetest = 1;	break;
+		case 'a':	doalltests = 1;			break;
+		case 'e':	doetimetest = 1;		break;
+		case 'H':	dohashindex = 1;		break;
+		case 's':	sleeptime = atoi(optarg);
+				if (sleeptime < 0) {
+					usage(stderr); exit(1000);
+				}				break;
+		break;
 		case 'h':
 			rval = 0;
 		default:
@@ -100,6 +118,7 @@ main(int argc, char **argv)
 		}
 
 		argc -= 1; argv += 1;
+		if (optarg) { argc -= 1; argv += 1; optarg = NULL; }
 		optind = 1;
 #if !defined(__linux__)
 		optreset = 1;
@@ -120,6 +139,13 @@ main(int argc, char **argv)
 	/*
 	 * Test stuff.
 	 */
+	rval = sc_init();
+	FAILED(rval, "sc_init()");
+
+
+	if (dohashindex || doalltests) {
+		failcount += test_hashindex();
+	}
 	if (doetimetest || doalltests) {
 		failcount += test_etime();
 	}
@@ -128,6 +154,9 @@ main(int argc, char **argv)
 	/*
 	 * Cleanup.
 	 */
+	rval = sc_shutdown();
+	FAILED(rval, "sc_shutdown()");
+
 	return failcount;
 
 } /* end main() */
@@ -143,10 +172,12 @@ usage(FILE *ofp)
 
 	USAGE								
 	""								NL
-	"	-a	All tests."					NL
-	"	-e	Test engine time maintenance somehow.  FIX"	NL
-	"	-h	Help."						NL
-	""								NL
+	"    -a			All tests."				NL
+	"    -e			Exercise the list of enginetimes."	NL
+	"    -h			Help."					NL
+	"    -H			Test hash_engineID()."			NL
+	"    -s <seconds>	Seconds to pause.  (Default: 0.)"	NL
+									NL
 		, local_progname);
 
 }  /* end usage() */
@@ -181,24 +212,189 @@ test_dosomething_quit:
 
 
 
+
+/*******************************************************************-o-******
+ * test_hashindex
+ *
+ * Returns:
+ *	Number of failures.
+ *
+ *
+ * Test hash_engineID().
+ */
+int
+test_hashindex(void)
+{
+	int		/* rval = SNMPERR_SUCCESS,	*/
+			failcount = 0;
+	char		*s;
+
+EM(-1); /* */
+
+
+	OUTPUT(	"Visual spot check of hash index outputs.  "
+		"(Success or failure not noted.)");
+
+	s = "A";
+	fprintf(stdout, "%s = %d\n", s, hash_engineID(s, strlen(s)) );
+
+	s = "BB";
+	fprintf(stdout, "%s = %d\n", s, hash_engineID(s, strlen(s)) );
+
+	s = "CCC";
+	fprintf(stdout, "%s = %d\n", s, hash_engineID(s, strlen(s)) );
+
+	s = "DDDD";
+	fprintf(stdout, "%s = %d\n", s, hash_engineID(s, strlen(s)) );
+
+	s = "EEEEE";
+	fprintf(stdout, "%s = %d\n", s, hash_engineID(s, strlen(s)) );
+
+	s = BLAT;
+	fprintf(stdout, "%s = %d\n", s, hash_engineID(s, strlen(s)) );
+
+
+	return failcount;
+
+}  /* end test_hashindex() */
+
+
+
+
+
 /*******************************************************************-o-******
  * test_etime
  *
  * Returns:
  *	Number of failures.
  *
- *
- * Test template.  FIX
+ * Test of LCD Engine ID and Time List.	
  */
 int
 test_etime(void)
 {
 	int		rval = SNMPERR_SUCCESS,
 			failcount = 0;
+	u_int		etime, eboot;
 
-EM0(1, "UNIMPLEMENTED");	/* EM(1); /* */
+EM(-1); /* */
 
-test_etime_quit:
+
+
+	/* ------------------------------------ -o-
+	 */
+	OUTPUT("Query of empty list, two set actions.");
+
+
+	rval = ISENGINEKNOWN("A", 1);
+	if (rval == TRUE) {
+		FAILED(SNMPERR_GENERR, "Query of empty list returned TRUE.")
+	}
+
+
+	rval = set_enginetime("BB", 2, 20, 2);
+	FAILED(rval, "set_enginetime()");
+
+
+	rval = set_enginetime("CCC", 3, 90127, 31);
+	FAILED(rval, "set_enginetime()");
+
+
+	SUCCESS("Check of empty list, and two additions.");
+
+
+
+	/* ------------------------------------ -o-
+	 */
+	OUTPUT("Add entries using macros, test for existence with macros.");
+
+
+	rval = ENSURE_ENGINE_RECORD("DDDD", 4);
+	FAILED(rval, "ENSURE_ENGINE_RECORD()");
+
+
+	rval = MAKENEW_ENGINE_RECORD("EEEEE", 5);
+	if (rval == SNMPERR_SUCCESS) {
+		FAILED(	rval,
+			"MAKENEW_ENGINE_RECORD returned success for "
+			"missing record.");
+	}
+
+
+	rval = MAKENEW_ENGINE_RECORD("BB", 2);
+	FAILED(rval, "MAKENEW_ENGINE_RECORD().");
+
+
+	SUCCESS("Added entries with macros, tested for existence with macros.");
+
+
+
+	/* ------------------------------------ -o-
+	 */
+	OUTPUT("Dump the list and then sleep.");
+
+	dump_etimelist();
+
+	fprintf(stdout, "\nSleeping for %d second%s... ",
+					sleeptime, (sleeptime==1)?"":"s");
+	fflush(stdout);
+
+	sleep(sleeptime);
+	fprintf(stdout, "\n");
+
+
+
+	/* ------------------------------------ -o-
+	 */
+	OUTPUT("Retrieve data from real/stubbed records, update real/stubbed.");
+
+
+	rval = get_enginetime("BB", 2, &etime, &eboot);
+	FAILED(rval, "get_enginetime().");
+
+	fprintf(stdout, "BB = <%d,%d>\n", etime, eboot);
+	if ( (etime < 20) || (eboot < 2) ) {
+		FAILED(	SNMPERR_GENERR,
+			"get_enginetime() returned bad values.  (1)");
+	}
+
+
+	rval = get_enginetime("DDDD", 4, &etime, &eboot);
+	FAILED(rval, "get_enginetime().");
+
+	fprintf(stdout, "DDDD = <%d,%d>\n", etime, eboot);
+	if ( (etime < sleeptime) || (eboot != 0) ) {
+		FAILED(	SNMPERR_GENERR,
+			"get_enginetime() returned bad values.  (2)");
+	}
+
+
+	rval = set_enginetime("CCC", 3, 10000, 234);
+	FAILED(rval, "set_enginetime().");
+
+
+	rval = set_enginetime("EEEEE", 5, 55555, 9876);
+	FAILED(rval, "set_enginetime().");
+
+
+	SUCCESS("Retrieval and updates.");
+
+
+
+	/* ------------------------------------ -o-
+	 */
+	OUTPUT("Sleep again, then dump the list one last time.");
+
+	fprintf(stdout, "Sleeping for %d second%s... ",
+					sleeptime, (sleeptime==1)?"":"s");
+	fflush(stdout);
+
+	sleep(sleeptime);
+	fprintf(stdout, "\n");
+
+	dump_etimelist();
+
+
 	return failcount;
 
 }  /* end test_etime() */

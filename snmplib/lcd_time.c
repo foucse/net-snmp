@@ -2,6 +2,7 @@
  * lcd_time.c
  *
  * XXX	Should etimelist entries with <0,0> time tuples be timed out?
+ * XXX	Need a routine to free the memory?  (Perhaps at shutdown?)
  */
 
 #include "all_system.h"
@@ -46,10 +47,10 @@ get_enginetime(	u_char	*engineID,
 		u_int	*engineboot)
 {
 	int		rval	 = SNMPERR_SUCCESS;
-	u_int		timediff = 0;
+	time_t		timediff = 0;
 	Enginetime	e	 = NULL;
 
-EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -73,7 +74,7 @@ EM(1); /* */
 	*enginetime = e->engineTime;
 	*engineboot = e->engineBoot;
 
-	timediff = (u_int) (time(NULL) - e->lastReceivedEngineTime);
+	timediff = time(NULL) - e->lastReceivedEngineTime;
 
 	if ( timediff > (ENGINETIME_MAX - *enginetime) ) {
 		*enginetime = (timediff - (ENGINETIME_MAX - *enginetime));
@@ -125,7 +126,7 @@ set_enginetime(	u_char	*engineID,
 			index;
 	Enginetime	e = NULL;
 
-EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -147,10 +148,10 @@ EM(1); /* */
 			QUITFUN(SNMPERR_GENERR, set_enginetime_quit);
 		}
 
-		e = (Enginetime) SNMP_MALLOC(sizeof(enginetime));
+		e = (Enginetime) SNMP_MALLOC(sizeof(*e));
 
 		e->next = etimelist[index];
-		e = etimelist[index];
+		etimelist[index] = e;
 
 		e->engineID = (u_char *) SNMP_MALLOC(engineID_len);
 		memcpy(e->engineID, engineID, engineID_len);
@@ -179,7 +180,6 @@ set_enginetime_quit:
  * search_enginetime_list
  *
  * Parameters:
- *	*e		To keep pointer to engineID record if found.
  *	*engineID
  *	 engineID_len
  *      
@@ -198,7 +198,7 @@ search_enginetime_list(u_char *engineID, u_int engineID_len)
 	int		rval = SNMPERR_SUCCESS;
 	Enginetime	e    = NULL;
 
-EM(1); /* */
+EM(-1); /* */
 
 	/*
 	 * Sanity check.
@@ -212,16 +212,18 @@ EM(1); /* */
 	 * Find the entry for engineID if there be one.
 	 */
 	rval = hash_engineID(engineID, engineID_len);
-	if (index < 0) {
-		QUITFUN(rval, search_enginetime_list_quit);
+	if (rval < 0) {
+		QUITFUN(SNMPERR_GENERR, search_enginetime_list_quit);
 	}
 	e = etimelist[rval];
 
-	while ( e &&
-		!memcmp(e->engineID, engineID,
-				MIN(engineID_len, e->engineID_len)) )
+	for ( /*EMPTY*/; e; e = e->next )
 	{
-		e = e->next;
+		if ( (engineID_len == e->engineID_len)
+			&& !memcmp(e->engineID, engineID, engineID_len) )
+		{
+			break;
+		}
 	}
 	
 
@@ -253,14 +255,14 @@ search_enginetime_list_quit:
 int
 hash_engineID(u_char *engineID, u_int engineID_len)
 {
-	int		  rval		= SNMPERR_GENERR,
-			  buf_len	= SNMP_MAXBUF;
-	u_int		  additive	= 0;
-	u_int8_t	 *bufp,
-			  buf[SNMP_MAXBUF];
-	void		**context;
+	int		 rval		= SNMPERR_GENERR,
+			 buf_len	= SNMP_MAXBUF;
+	u_int		 additive	= 0;
+	u_int8_t	*bufp,
+			 buf[SNMP_MAXBUF];
+	void		*context = NULL;
 
-EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -277,13 +279,13 @@ EM(1); /* */
 	SET_HASH_TRANSFORM(kmt_s_md5);
 
 	bufp = (u_int8_t *) buf;
-	rval = kmt_hash(KMT_CRYPT_MODE_ALL, context,
+	rval = kmt_hash(KMT_CRYPT_MODE_ALL, &context,
 			engineID, engineID_len,
 			&bufp, &buf_len);
 	QUITFUN(rval, hash_engineID_quit);
 
 	for ( bufp = buf; (bufp-buf) < buf_len; bufp += 4 ) {
-		additive += (u_int) bufp;
+		additive += (u_int) *bufp;
 	}
 
 
@@ -301,13 +303,85 @@ hash_engineID_quit:
 /*******************************************************************-o-******
  * dump_etimelist_entry
  *
- * FIX	Need this?
+ * Parameters:
+ *	e
+ *	count
  */
 void
-dump_etimelist_entry(void)
+dump_etimelist_entry(Enginetime e, int count)
 {
+#define pt	DEBUGP("%s", tabs); DEBUGP(
+#define p	);
 
-EM0(1, "UNIMPLEMENTED");	/* EM(1); /* */
+	u_int	 buflen;
+	char	 tabs[SNMP_MAXBUF],
+		*t = tabs, 
+		*s;
 
+EM(-1); /* */
+
+
+	count += 1;
+	while (count--) {
+		t += sprintf(t, "  ");
+	}
+
+
+	buflen = e->engineID_len;
+	if ( !(s = dump_snmpEngineID(e->engineID, &buflen)) ) {
+		binary_to_hex(e->engineID, e->engineID_len, &s);
+	}
+
+	pt	"\n"						p
+	pt	"%s (len=%d) <%d,%d>\n",
+			s, e->engineID_len,
+			e->engineTime, e->engineBoot		p
+	pt	"%ld (%ld) -- %s",
+			e->lastReceivedEngineTime,
+			time(NULL) - e->lastReceivedEngineTime,
+			ctime(&e->lastReceivedEngineTime)	p
+
+	SNMP_FREE(s);
+
+#undef pt p
+	
 }  /* end dump_etimelist_entry() */
+
+
+
+
+/*******************************************************************-o-******
+ * dump_etimelist
+ */
+void
+dump_etimelist(void)
+{
+	int		index = -1,
+			count = 0;
+	Enginetime	e;
+
+EM(-1); /* */
+
+
+	DEBUGP("\n");
+
+	while (++index < ETIMELIST_SIZE) {
+		DEBUGP("[%d]", index);
+
+		count = 0;
+		e = etimelist[index];
+
+		while (e) {
+			dump_etimelist_entry(e, count++);
+			e = e->next;
+		}
+
+		if (count > 0) {
+			DEBUGP("\n");
+		}
+	}  /* endwhile */
+
+	DEBUGP("\n");
+
+}  /* end dump_etimelist() */
 

@@ -7,8 +7,6 @@
  *	Number of FAILUREs.
  * 
  *
- * FIX	Useful to allow usmUser key (U) and/or localized key (L) to be
- *	entered with commandline option?
  * FIX	Or how about passing a usmUser name and looking up the entry as
  *	a means of getting key material?  This means the userList is
  *	available from an application...

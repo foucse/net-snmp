@@ -122,7 +122,7 @@ main(int argc, char **argv)
 
 	local_progname = argv[0];
 
-/* EM(1);	/* */
+EM(-1);	/* */
 
 	/*
 	 * Parse.
@@ -260,7 +260,7 @@ test_dorandom(void)
 		i;
 	char	buf[LOCAL_MAXBUF];
 
-EM(1); /* */
+EM(-1); /* */
 
 
 	OUTPUT("Random test -- large request:");
@@ -331,7 +331,7 @@ test_dokeyedhash(void)
 
 	u_char		 hashbuf[LOCAL_MAXBUF];
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	OUTPUT("Keyed hash test using MD5 --");
@@ -365,7 +365,6 @@ test_dokeyedhash(void)
 
 	memset(hashbuf, 0, LOCAL_MAXBUF);
 	hashbuf_len = LOCAL_MAXBUF;
-	/* secret_len  = strlen(BKWDSECRET);	/* */
 
 
 	rval = sc_generate_keyed_hash(
@@ -421,7 +420,7 @@ test_docrypt(void)
 			 cryptbuf[LOCAL_MAXBUF],
 			 secret[LOCAL_MAXBUF],
 			 iv[LOCAL_MAXBUF];
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	OUTPUT("Test 1DES-CBC --");

@@ -35,6 +35,10 @@
 #include "keytools.h"
 #include "tools.h"
 
+#define TRUE	1
+#define FALSE	0
+
+
 /*
 	This is the seed for the salt (an arbitrary number - RFC2274,
 	Sect 8.1.1.1.)

@@ -2,7 +2,7 @@
 # Makefile for testing
 #
 
-TARG		= stest ktest etest
+TARG		= etest ktest misctest stest
 
 SUBDIRS		= 
 
@@ -32,6 +32,9 @@ etest:    etimetest.o $(PARSEOBJS) $(USELIBS)
 
 ktest:    keymanagetest.o $(PARSEOBJS) $(USELIBS)
 	${CC} -o $@ keymanagetest.o ../snmplib/libsnmp.a $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+
+misctest:    misctest.o $(PARSEOBJS) $(USELIBS)
+	${CC} -o $@ misctest.o ../snmplib/libsnmp.a $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
 
 stest:    scapitest.o $(PARSEOBJS) $(USELIBS)
 	${CC} -o $@ scapitest.o ../snmplib/libsnmp.a $(PARSEOBJS) ${LDFLAGS} ${LIBS} 

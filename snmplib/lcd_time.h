@@ -5,14 +5,6 @@
 #ifndef _LCD_TIME_H
 #define _LCD_TIME_H
 
-#ifndef TRUE
-#define TRUE (!0)
-#endif
-
-#ifndef FALSE
-#define FALSE !(TRUE)
-#endif
-
 
 
 
@@ -23,10 +15,10 @@
 
 #define SET_HASH_TRANSFORM(t)	kmt_hash = t;
 
-#define ENGINETIME_MAX	((2^31)-1)
-#define ENGINEBOOT_MAX	((2^31)-1)	/* XXX	Perhaps these two deserve
-					 *	a more conspicuous location?
-					 */
+/* XXX	Perhaps these two deserve a more conspicuous location?
+ */
+#define ENGINETIME_MAX	2147483647	/* ((2^31)-1) */
+#define ENGINEBOOT_MAX	2147483647	/* ((2^31)-1) */
 
 
 typedef struct enginetime_struct {
@@ -65,7 +57,7 @@ typedef struct enginetime_struct {
  *  ENSURE_ENGINE_RECORD(e, e_l)
  *	Adds the given engineID to the EngineID List if it does not exist
  *		already.  engineID is added with a <enginetime, engineboots>
- *		tuple of <0,0>.  Always succeeds -- except in case of a
+ *		tuple of <0,0>.  ALWAYS succeeds -- except in case of a
  *		fatal internal error.
  *	Returns:
  *		SNMPERR_SUCCESS	On success;
@@ -91,9 +83,9 @@ static u_int	dummy_etime, dummy_eboot;
 		: SNMPERR_GENERR )
 
 #define MAKENEW_ENGINE_RECORD(e, e_l)				\
-	( (ISENGINEKNOWN(e, e_l))				\
+	( (ISENGINEKNOWN(e, e_l) == TRUE)			\
 		? SNMPERR_SUCCESS				\
-		: ENSURE_ENGINE_RECORD(e, e_l), SNMPERR_GENERR )
+		: (ENSURE_ENGINE_RECORD(e, e_l), SNMPERR_GENERR) )
 
 
 
@@ -114,7 +106,8 @@ Enginetime
 
 int	 hash_engineID __P((u_char *engineID, u_int engineID_len));
 
-void	 dump_etimelist_entry __P((void));
+void	 dump_etimelist_entry __P((Enginetime e, int count));
+void	 dump_etimelist __P((void));
 
 #endif /* _LCD_TIME_H */
 

@@ -44,6 +44,7 @@
 #include "snmp.h"
 #include "read_config.h"
 #include "scapi.h"
+#include "tools.h"
 
 
 
@@ -59,6 +60,9 @@ static struct timeval	 snmpv3starttime;
 static char	*defaultSecName		= NULL;
 static char	*defaultContext		= NULL;
 int		defaultSecurityLevel	= 0;
+
+
+
 
 void
 snmpv3_secName_conf(char *word, char *cptr)
@@ -114,45 +118,62 @@ get_default_secLevel(void)
   return defaultSecurityLevel;
 }
 
-/* places a malloced copy of the engineID into engineID */
+
+
+
+/*******************************************************************-o-******
+ * setup_engineID
+ *
+ * Parameters:
+ *	*text	Printable (?) text to be plugged into the snmpEngineID.
+ *
+ * XXX	Does the TC require a minimum length of 12?
+ * XXX	Is text a NULL-terminated printable string?
+ * XXX	What if a node has multiple interfaces?
+ * XXX	What if multiple engines all choose the same address?  There must
+ *	  be some additional enumeration.  (Static counter?)
+ */
 void
 setup_engineID(char *text)
 {
-
-#define MAX_HOSTNAME_LEN 512
   int netid = htonl(ENTERPRISE_NUMBER);
-  char buf[MAX_HOSTNAME_LEN];
+  char buf[SNMP_MAXBUF_SMALL];
   struct hostent *hent;
   
   if (engineID)
     free(engineID);
+
   
   if (text) {
-    engineIDLength = 5 + strlen(text);  /* 5 leading bytes + text */
+    engineIDLength = 5+strlen(text)+1; /* 5 leading bytes + text + null char. */
   } else {
     engineIDLength = 5 + 4;  /* 5 leading bytes + four byte IPv4 address */
-    gethostname(buf, MAX_HOSTNAME_LEN);
+    gethostname(buf, SNMP_MAXBUF_SMALL);
     hent = gethostbyname(buf);
 #ifdef AF_INET6
     if (hent && hent->h_addrtype == AF_INET6)
-      engineIDLength += 2;
+      engineIDLength += 12;	/* 16 bytes total for IPv6 address. */
 #endif
-  }
+  }  /* endif -- text (1) */
+
+
   if ((engineID = (char *) malloc(engineIDLength)) == NULL) {
     /* malloc failed */
     snmp_perror("malloc");
     return;
   }
 
-  memcpy(engineID, &netid, sizeof(netid)); /* this had better be 4 bytes */
+
+  memcpy(engineID, &netid, sizeof(netid)); /* XXX this had better be 4 bytes */
   engineID[0] |= 0x80;
   
   if (text) {
     engineID[4] = 4;
     sprintf(engineID+5,text);
+
   } else {
     engineID[4] = 1;
-    gethostname(buf, MAX_HOSTNAME_LEN);
+    gethostname(buf, SNMP_MAXBUF_SMALL);
     hent = gethostbyname(buf);
 #ifdef AF_INET6
     if (hent && hent->h_addrtype == AF_INET6) {
@@ -160,8 +181,10 @@ setup_engineID(char *text)
       memcpy(engineID+5, hent->h_addr_list[0], hent->h_length);
     } else
 #endif
+
     if (hent && hent->h_addrtype == AF_INET) {
       memcpy(engineID+5, hent->h_addr_list[0], hent->h_length);
+
     } else {
       /* sigh...  unknown address type.  Default to 127.0.0.1 */
       engineID[5] = 127;
@@ -169,8 +192,11 @@ setup_engineID(char *text)
       engineID[7] = 0;
       engineID[8] = 1;
     }
-  }
-}
+  }  /* endif -- text (2) */
+
+}  /* end setup_engineID() */
+
+
 
 void
 engineBoots_conf(char *word, char *cptr)
@@ -179,12 +205,26 @@ engineBoots_conf(char *word, char *cptr)
   DEBUGP("engineBoots: %d\n",engineBoots);
 }
 
+
+
+/*******************************************************************-o-******
+ * engineID_conf
+ *
+ * Parameters:
+ *	*word
+ *	*cptr
+ *
+ * FIX	cptr should be treated as a non-printable octet string, or perhaps
+ *	converted from a printable hex string...  (?)
+ */
 void
 engineID_conf(char *word, char *cptr)
 {
   setup_engineID(cptr);
   DEBUGP("initialized engineID with: %s\n",cptr);
 }
+
+
 
 
 /*******************************************************************-o-******
@@ -218,6 +258,8 @@ init_snmpv3(char *type) {
 #endif		/* !USE_INTERNAL_MD5 */
 }
 
+
+
 /*******************************************************************-o-******
  * shutdown_snmpv3
  *
@@ -227,7 +269,7 @@ init_snmpv3(char *type) {
 void
 shutdown_snmpv3(char *type)
 {
-	char            line[512];
+	char            line[SNMP_MAXBUF_SMALL];
 
 	sprintf(line, "engineBoots %d", engineBoots);
 	read_config_store(type, line);

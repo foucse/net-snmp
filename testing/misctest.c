@@ -1,15 +1,12 @@
 /*
- * T.c
+ * misctest.c
  *
- * Expected SUCCESSes for all tests:	FIX [+ FIX ...]
- *					(List number of lines containing the
- *					 string "SUCCESS" that are expected
- *					 to be printed to stdout.)
+ * Expected SUCCESSes for all tests:	0
  *
  * Returns:
  *	Number of FAILUREs.
  *
- * FIX	Short test description/table of contents.	SUCCESSes: FIX
+ * Test of dump_snmpEngineID().			SUCCESSes:  0
  */
 
 static char *rcsid = "$Id$";	/* */
@@ -33,13 +30,13 @@ extern int	optreset;
  */
 char *local_progname;
 
-#define USAGE	"Usage: %s [-h][-aS]"
-#define OPTIONLIST	"ahS"
+#define USAGE	"Usage: %s [-h][-1a]"
+#define OPTIONLIST	"1ah"
 
 int	doalltests	= 0,
-	dosomething	= 0;
+	dodumpseid	= 0;
 
-#define	ALLOPTIONS	(doalltests + dosomething)
+#define	ALLOPTIONS	(doalltests + dodumpseid)
 
 
 
@@ -65,13 +62,35 @@ int	doalltests	= 0,
 
 
 
+#define IDBLAT_4	"00010203"
+
+#define IDVIOLATE1	"8000000300deedcafe"
+
+#define IDIPv4		"80000003010a090807"
+#define IDIPv6		"8000000302100f0e0d0c0b0a090807060504030201"
+#define IDMAC		"8000000303ffeeddccbbaa"
+
+#define IDTEXT		"8000000304"
+#define PRINTABLE	"Let this be printable."
+
+#define IDOCTETS_7	"80000003050001020304050607"
+
+#define IDLOCAL_11	"8000000306000102030405060708090a0b"
+
+#define IDIPv4_EXTRA3	"80000003010a090807010203"
+
+#define ID_NUMSTRINGS		10
+
+
+
 
 /*
  * Prototypes.
  */
 void	usage(FILE *ofp);
 
-int	test_dosomething(void);
+int	test_dumpseid(void);
+
 
 
 
@@ -93,8 +112,8 @@ EM(-1);	/* */
 	while ( (ch = getopt(argc, argv, OPTIONLIST)) != EOF )
 	{
 		switch(ch) {
+		case '1':	dodumpseid = 1;	break;
 		case 'a':	doalltests = 1;		break;
-		case 'S':	dosomething = 1;	break;
 		case 'h':
 			rval = 0;
 		default:
@@ -124,8 +143,8 @@ EM(-1);	/* */
 	/*
 	 * Test stuff.
 	 */
-	if (dosomething || doalltests) {
-		failcount += test_dosomething();
+	if (dodumpseid || doalltests) {
+		failcount += test_dumpseid();
 	}
 
 
@@ -146,11 +165,11 @@ usage(FILE *ofp)
 	fprintf(ofp,
 
 	USAGE								
-	""						NL
-	"	-a		All tests."		NL
-	"	-S		Test something."	NL
-	"	-h		Help."			NL
-	""						NL
+	""							NL
+	"	-1		Test dump_snmpEngineID()."	NL
+	"	-a		All tests."			NL
+	"	-h		Help."				NL
+	""							NL
 		, local_progname);
 
 }  /* end usage() */
@@ -159,7 +178,6 @@ usage(FILE *ofp)
 
 
 #ifdef EXAMPLE
-#endif /* EXAMPLE */
 /*******************************************************************-o-******
  * test_dosomething
  *
@@ -181,5 +199,71 @@ test_dosomething_quit:
 	return failcount;
 
 }  /* end test_dosomething() */
+#endif /* EXAMPLE */
 
 
+
+
+/*******************************************************************-o-******
+ * test_dumpseid
+ *
+ * Returns:
+ *	Number of failures.
+ *
+ * Test dump_snmpEngineID().
+ */
+int
+test_dumpseid(void)
+{
+	int		 /* rval = SNMPERR_SUCCESS, */
+			 failcount = 0,
+			 tlen,
+			 count = 0;
+
+	char		 buf[SNMP_MAXBUF],
+			*s, *t,
+			*ris,
+			*rawid_set[ID_NUMSTRINGS+1] = {
+				IDBLAT_4,
+				IDVIOLATE1,
+				IDIPv4,
+				IDIPv6,
+				IDMAC,
+				IDTEXT,
+				IDOCTETS_7,
+				IDLOCAL_11,
+				IDIPv4_EXTRA3,
+				NULL
+			};
+
+EM(-1); /* */
+
+	OUTPUT(	"Test of dump_snmpEngineID.  "
+		"(Does not report failure or success.)");
+
+
+	while ( (ris = rawid_set[count++]) ) {
+		tlen = hex_to_binary2(ris, strlen(ris), &t);
+
+		if (ris == IDTEXT) {
+			memset(buf, 0, SNMP_MAXBUF);
+			memcpy(buf, t, tlen);
+			tlen += sprintf(buf+tlen, "%s", PRINTABLE);
+
+			SNMP_FREE(t);
+			t = buf;
+		}
+
+		s = dump_snmpEngineID(t, &tlen);
+		printf("%s    (len=%d)\n", s, tlen);
+
+		SNMP_FREE(s);
+		if (t != buf) {
+			SNMP_FREE(t);
+		}
+	}
+
+
+	return failcount;
+
+}  /* end test_dumpseid() */

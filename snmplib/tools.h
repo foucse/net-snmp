@@ -11,6 +11,8 @@
  * Macros and constants.
  */
 #define SNMP_MAXBUF		4096
+#define SNMP_MAXBUF_SMALL	512
+
 #define SNMP_FILEMODE		0600
 
 #define BYTESIZE(bitsize)       ((bitsize + 7) >> 3)
@@ -64,6 +66,7 @@ u_int	binary_to_hex __P((char *input, u_long len, char **output));
 int	hex_to_binary2 __P((char *input, u_long len, char **output));
 
 void	dump_chunk __P((char *buf, int size));
+char   *dump_snmpEngineID __P((u_char *buf, u_int *buflen));
 
 
 
