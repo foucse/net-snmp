@@ -58,6 +58,7 @@ SOFTWARE.
 #include "snmp_vars.h"
 #include "snmp_client.h"
 #include "snmpv3.h"
+#include "snmpusm.h"
 #if USING_MIBII_SNMP_MIB_MODULE
 #include "mibgroup/mibII/snmp_mib.h"
 #endif
@@ -162,9 +163,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
             snmp_free_pdu(pdu);
             return 1;
           }
-          userList = usm_get_userList();
-          user = usm_get_user(engineID, engineIDLen, pdu->securityName,
-                              userList);
+          pdu->securityName[pdu->securityNameLen] = 0;
+          user = usm_get_user(engineID, engineIDLen, pdu->securityName);
           if (user == NULL) {
             ltmp = snmp_increment_statistic(STAT_USMSTATSUNKNOWNUSERNAMES);
             return 0;
