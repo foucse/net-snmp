@@ -1,4 +1,5 @@
 #include "config.h"
+#include <sys/types.h>
 #include "snmp-tc.h"
 #include "asn1.h"
 #include "snmp.h"
