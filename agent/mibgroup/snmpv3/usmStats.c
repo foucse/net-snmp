@@ -22,7 +22,7 @@
 
 void init_usmStats __P((void)) {
 #ifdef USING_MIBII_SYSORTABLE_MODULE
-  static oid reg[] = {1,3,6,1,6,3,12,2,1,1};
+  static oid reg[] = {1,3,6,1,6,3,15,2,1,1};
   register_sysORTable(reg,10,"The management information definitions for the SNMP User-based Security Model.");
 #endif
 }

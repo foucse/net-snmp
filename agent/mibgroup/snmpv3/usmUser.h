@@ -77,7 +77,7 @@ struct variable4 usmUser_variables[] = {
 };
 
 /* now load this mib into the agents mib table */
-config_load_mib(1.3.6.1.6.3.12.1.2, 9, usmUser_variables)
+config_load_mib(1.3.6.1.6.3.15.1.2, 9, usmUser_variables)
 
 #endif /* IN_SNMP_VARS_C */
 #endif /* _MIBGROUP_USMUSER_H */

@@ -84,7 +84,7 @@ SOFTWARE.
 /*
  * Globals.
  */
-#define ERROR_STAT_LENGTH 10
+#define ERROR_STAT_LENGTH 11
 
 struct repeater {
     oid	name[MAX_NAME_LEN];
@@ -168,12 +168,12 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     long           	 version;
     u_char         	*engineID;
     int            	 engineIDLen;
-    static oid      	 unknownSecurityLevel[] = {1,3,6,1,6,3,12,1,1,1};
-    static oid      	 notInTimeWindow[]      = {1,3,6,1,6,3,12,1,1,2};
-    static oid      	 unknownUserName[]      = {1,3,6,1,6,3,12,1,1,3};
-    static oid      	 unknownEngineID[]      = {1,3,6,1,6,3,12,1,1,4};
-    static oid      	 wrongDigest[]          = {1,3,6,1,6,3,12,1,1,5};
-    static oid      	 decryptionError[]      = {1,3,6,1,6,3,12,1,1,6};
+    static oid      	 unknownSecurityLevel[] = {1,3,6,1,6,3,15,1,1,1,0};
+    static oid      	 notInTimeWindow[]      = {1,3,6,1,6,3,15,1,1,2,0};
+    static oid      	 unknownUserName[]      = {1,3,6,1,6,3,15,1,1,3,0};
+    static oid      	 unknownEngineID[]      = {1,3,6,1,6,3,15,1,1,4,0};
+    static oid      	 wrongDigest[]          = {1,3,6,1,6,3,15,1,1,5,0};
+    static oid      	 decryptionError[]      = {1,3,6,1,6,3,15,1,1,6,0};
     struct variable_list *vp, *ovp;
     int			 ret_err = 0;
     
