@@ -38,6 +38,10 @@ void init_usmUser(void) {
                                 usm_parse_config_usmUser, NULL);
 }
 
+struct usmUser *usmUser_get_userList() {
+  return userList;
+}
+
 void usm_parse_config_usmUser(char *token, char *line) {
   struct usmUser *uptr;
 
