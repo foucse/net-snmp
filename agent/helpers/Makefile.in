@@ -9,6 +9,7 @@ OBJS =  multiplexer.o \
 	null.o \
 	old_api.o \
 	serialize.o \
+	table_array.o \
 	table_iterator.o \
 	table_data.o \
 	table_dataset.o \
@@ -20,6 +21,7 @@ LOBJS = multiplexer.lo \
 	null.lo \
 	old_api.lo \
 	serialize.lo \
+	table_array.lo \
 	table_iterator.lo \
 	table_data.lo \
 	table_dataset.lo \
@@ -31,6 +33,7 @@ SRCS =  multiplexer.c \
 	null.c \
 	old_api.c \
 	serialize.c \
+	table_array.c \
 	table_iterator.c \
 	table_data.c \
 	table_dataset.c \
@@ -45,6 +48,7 @@ INSTALLHEADERS=instance.h \
         set_helper.h \
         table_data.h \
         table_dataset.h \
+		table_array.h \
         table.h \
         table_iterator.h
 
