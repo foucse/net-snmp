@@ -618,6 +618,11 @@ AC_CHECK_HEADERS(winsock.h io.h)
 dnl KMT
 AC_CHECK_HEADERS(kmt.h kmt_algs.h)
 
+if test "x$ac_cv_lib_kmt_kmt_init" != "xyes"; then
+dnl if KMT is not found, default to using internal md5 support.
+    AC_DEFINE(USE_INTERNAL_MD5)
+fi
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_OFF_T
 AC_TYPE_PID_T
