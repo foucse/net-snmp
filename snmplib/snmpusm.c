@@ -199,6 +199,13 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
   return 0;
 }
 
+/* local storage of the default user list */
+static struct usmUser *userList=NULL;
+
+struct usmUser *usm_get_userList() {
+  return userList;
+}
+
 /* checks that a given security level is valid for a given user */
 int usm_check_secLevel(int level, struct usmUser *user) {
   if (level == SNMP_SEC_LEVEL_AUTHPRIV &&
@@ -216,8 +223,12 @@ int usm_check_secLevel(int level, struct usmUser *user) {
 /* usm_get_user(): Returns a user from userList based on the engineID,
    engineIDLen and name of the requested user. */
 
-struct usmUser *usm_get_user(char *engineID, int engineIDLen, char *name,
-                         struct usmUser *userList) {
+struct usmUser *usm_get_user(char *engineID, int engineIDLen, char *name) {
+  return usm_get_user_from_list(engineID, engineIDLen, name, userList);
+}
+
+struct usmUser *usm_get_user_from_list(char *engineID, int engineIDLen,
+                                       char *name, struct usmUser *userList) {
   struct usmUser *ptr;
   for (ptr = userList; ptr != NULL; ptr = ptr->next) {
     if (ptr->engineIDLen == engineIDLen &&
@@ -239,7 +250,13 @@ struct usmUser *usm_get_user(char *engineID, int engineIDLen, char *name,
    returns the head of the list (which could change due to this add).
 */
 
-struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList) {
+struct usmUser *usm_add_user(struct usmUser *user) {
+  userList = usm_add_user_to_list(user, userList);
+  return userList;
+}
+
+struct usmUser *usm_add_user_to_list(struct usmUser *user,
+                                     struct usmUser *userList) {
   struct usmUser *nptr, *pptr;
 
   /* loop through userList till we find the proper, sorted place to
@@ -287,8 +304,12 @@ struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList) {
 }
 
 /* usm_remove_user(): finds and removes a user from a list */
-struct usmUser *usm_remove_user(struct usmUser *user,
-                                struct usmUser *userList) {
+struct usmUser *usm_remove_user(struct usmUser *user) {
+  return usm_remove_user_from_list(user, userList);
+}
+
+struct usmUser *usm_remove_user_from_list(struct usmUser *user,
+                                          struct usmUser *userList) {
   struct usmUser *nptr, *pptr;
   for (nptr = userList, pptr = NULL; nptr != NULL;
        pptr = nptr, nptr = nptr->next) {
@@ -551,7 +572,12 @@ struct usmUser *usm_create_initial_user(void) {
 }
 
 /* usm_save_users(): saves a list of users to the persistent cache */
-void usm_save_users(struct usmUser *userList, char *token, char *type) {
+void usm_save_users(char *token, char *type) {
+  usm_save_users_from_list(userList, token, type);
+}
+
+void usm_save_users_from_list(struct usmUser *userList, char *token,
+                              char *type) {
   struct usmUser *uptr;
   for (uptr = userList; uptr != NULL; uptr = uptr->next) {
     if (uptr->userStorageType == ST_NONVOLATILE)
