@@ -634,25 +634,12 @@ reterr:
 	default:
 	    return 0;
     }
-    /* sigh...  currently this is a snmp_internal_varlist, which has to
-       have its variables freed without freeing the name pointer, so we have
-       to free the variables by hand. This is a memory leak!!! */
     if (version == SNMP_VERSION_3) {
-      vp = (struct variable_list *)pdu->variables;
-      while(vp){
-        ovp = vp;
-        vp = (struct variable_list *)vp->next_variable;
-        free(ovp);
-      }
-      pdu->variables = NULL;
-
       snmp_free_pdu(pdu);
     }
     *out_length = pi->packet_end - out_auth;
 
-
     return 1;
-
 }  /* end snmp_agent_parse() */
 
 
