@@ -40,9 +40,9 @@ static void proxyOptProc(int argc, char *const *argv, int opt)
                     case 'n':
                         optind++;
                         if (optind<argc) {
-                            context_string = argv[optind];
+                            context_string = argv[optind-1];
                         } else {
-                            config_perror("No context name passed to -CN");
+                            config_perror("No context name passed to -Cn");
                         }
                         break;
                     default:
