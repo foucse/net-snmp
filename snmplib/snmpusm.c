@@ -13,8 +13,12 @@
 #else
 #include <strings.h>
 #endif
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
 
 #include "asn1.h"
+#include "snmp_api.h"
 #include "snmpv3.h"
 #include "snmp-tc.h"
 #include "snmpusm.h"
@@ -136,6 +140,59 @@ struct usmUser *usm_free_user(struct usmUser *user) {
       DEBUGP("Severe: Asked to free the head of a usmUser tree somewhere.");
   }
   return NULL;  /* for convenience to returns from calling functions */
+}
+
+/* take a given user and clone the security info into another */
+struct usmUser *usm_cloneFrom_user(struct usmUser *from, struct usmUser *to) {
+  /* copy the authProtocol oid row pointer */
+  if (to->authProtocol != NULL)
+    free(to->authProtocol);
+
+  if ((to->authProtocol =
+       snmp_duplicate_objid(from->authProtocol,from->authProtocolLen)) != NULL)
+    to->authProtocolLen = from->authProtocolLen;
+  else
+    to->authProtocolLen = 0;
+  
+
+  /* copy the authKey */
+  if (to->authKey)
+    free(to->authKey);
+  
+  if (from->authKeyLen > 0 &&
+      (to->authKey = (char *) malloc(sizeof(char) * from->authKeyLen))
+      != NULL) {
+    memcpy(to->authKey, to->authKey, to->authKeyLen);
+    to->authKeyLen = from->authKeyLen;
+  } else {
+    to->authKey = NULL;
+    to->authKeyLen = 0;
+  }
+    
+  
+  /* copy the privProtocol oid row pointer */
+  if (to->privProtocol != NULL)
+    free(to->privProtocol);
+
+  if ((to->privProtocol =
+       snmp_duplicate_objid(from->privProtocol,from->privProtocolLen)) != NULL)
+    to->privProtocolLen = from->privProtocolLen;
+  else
+    to->privProtocolLen = 0;
+
+  /* copy the privKey */
+  if (to->privKey)
+    free(to->privKey);
+  
+  if (from->privKeyLen > 0 &&
+      (to->privKey = (char *) malloc(sizeof(char) * from->privKeyLen))
+      != NULL) {
+    memcpy(to->privKey, to->privKey, to->privKeyLen);
+    to->privKeyLen = from->privKeyLen;
+  } else {
+    to->privKey = NULL;
+    to->privKeyLen = 0;
+  }
 }
 
 /* take a given user and duplicate him */
