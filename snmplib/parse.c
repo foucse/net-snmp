@@ -3212,7 +3212,7 @@ static void print_mib_leaves(FILE *f, struct tree *tp)
 
   *ip = '+';
   if (tp->type == 0)
-    fprintf(f, "%s--%s(%d)\n", indent, tp->label, tp->subid);
+    fprintf(f, "%s--%s(%ld)\n", indent, tp->label, tp->subid);
   else {
     const char *acc, *typ;
     switch (tp->access) {
@@ -3242,7 +3242,7 @@ static void print_mib_leaves(FILE *f, struct tree *tp)
     default:			typ = "         "; break;
     }
     if (tp->enums)		typ = "EnumVal  ";
-    fprintf(f, "%s-- %s %s %s(%d)\n", indent, acc, typ, tp->label, tp->subid);
+    fprintf(f, "%s-- %s %s %s(%ld)\n", indent, acc, typ, tp->label, tp->subid);
   }
   *ip = last;
   strcat(indent, "  |");

@@ -60,6 +60,9 @@ SOFTWARE.
 #endif
 #include <sys/socket.h>
 #include <net/if.h>
+#if HAVE_INET_MIB2_H
+#include <inet/mib2.h>
+#endif
 #if HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
@@ -84,7 +87,6 @@ typedef long    fd_mask;
 #define FD_ZERO(p)      memset((p), 0, sizeof(*(p)))
 #endif
 
-#include "mib_module_config.h"
 #include "asn1.h"
 #include "snmp_api.h"
 #include "snmp_impl.h"
@@ -95,6 +97,9 @@ typedef long    fd_mask;
 #include "m2m.h"
 #include "snmp_vars.h"
 #include "agent_read_config.h"
+#include "mibgroup/struct.h"
+#include "mib_module_includes.h"
+#include "mib_module_config.h"
 
 #ifdef USING_V2PARTY_ALARM_MODULE
 #include "mibgroup/v2party/alarm.h"
