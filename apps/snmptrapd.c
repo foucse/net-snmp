@@ -53,6 +53,8 @@ SOFTWARE.
 #include <sys/ioctl.h>
 #endif
 #include <net/if.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
 #include "snmp.h"
 #include "asn1.h"
@@ -76,7 +78,7 @@ typedef long	fd_mask;
 #define	FD_SET(n, p)	((p)->fds_bits[(n)/NFDBITS] |= (1 << ((n) % NFDBITS)))
 #define	FD_CLR(n, p)	((p)->fds_bits[(n)/NFDBITS] &= ~(1 << ((n) % NFDBITS)))
 #define	FD_ISSET(n, p)	((p)->fds_bits[(n)/NFDBITS] & (1 << ((n) % NFDBITS)))
-#define       FD_ZERO(p)      memset((p), 0, sizeof(*(p)))
+#define FD_ZERO(p)      memset((char *)(p), 0, sizeof(*(p)))
 #endif
 
 extern int  errno;
@@ -251,16 +253,21 @@ int snmp_input(op, session, reqid, pdu, magic)
     struct snmp_pdu *reply;
     struct tm *tm;
     time_t timer;
+    struct hostent *host;
 
     if (op == RECEIVED_MESSAGE){
 	if (pdu->command == TRP_REQ_MSG){
 	    if (Print){
 		time (&timer);
 		tm = localtime (&timer);
-              printf("%.4d-%.2d-%.2d %.2d:%.2d:%.2d %s %s:\n\t%s Trap (%d) Uptime: %s\n",
+                host = gethostbyaddr ((char *)&pdu->agent_addr.sin_addr,
+                                      sizeof (pdu->agent_addr.sin_addr),
+                                      AF_INET);
+                printf("%.4d-%.2d-%.2d %.2d:%.2d:%.2d %s [%s] %s:\n\t%s Trap (%d) Uptime: %s\n",
 		       tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
 		       tm->tm_hour, tm->tm_min, tm->tm_sec,
-                     inet_ntoa(pdu->agent_addr.sin_addr),
+                       host ? host->h_name : inet_ntoa(pdu->agent_addr.sin_addr),
+                       inet_ntoa(pdu->agent_addr.sin_addr),
  		       sprint_objid (oid_buf, pdu->enterprise, pdu->enterprise_length),
 		       trap_description(pdu->trap_type), pdu->specific_type,
 		       uptime_string(pdu->time, buf));
