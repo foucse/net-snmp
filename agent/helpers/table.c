@@ -20,6 +20,38 @@
 #include <dmalloc.h>
 #endif
 
+static void table_helper_cleanup(agent_request_info * reqinfo,
+                                 request_info * request, int status);
+static void table_data_free_func(void *data);
+
+/** @defgroup table table: Helps you implement a table.
+ *  @ingroup handler
+ *
+ *  This handler helps you implement a table by doing some of the
+ *  processing for you.
+ *  
+ *  This handler truly shows the power of the new handler mechanism.
+ *  By creating a table handler and injecting it into your calling
+ *  chain, or by using the register_table() function to register your
+ *  table, you get access to some pre-parsed information.
+ *  Specifically, the table handler pulls out the column number and
+ *  indexes from the request oid so that you don't have to do the
+ *  complex work to do that parsing within your own code.
+ *
+ *  To do this, the table handler needs to know up front how your
+ *  table is structured.  To inform it about this, you fill in a
+ *  table_registeration_info structure that is passed to the table
+ *  handler.  It contains the asn index types for the table as well as
+ *  the minimum and maximum column that should be used.
+ *  
+ *  @{
+ */
+
+/** Given a table_registration_info object, creates a table handler.
+ *  You can use this table handler by injecting it into a calling
+ *  chain.  When the handler gets called, it'll do processing and
+ *  store it's information into the request->parent_data structure.
+ */
 mib_handler    *
 get_table_handler(table_registration_info * tabreq)
 {
@@ -39,6 +71,10 @@ get_table_handler(table_registration_info * tabreq)
 }
 
 
+/** creates a table handler given the table_registration_info object,
+ *  inserts it into the request chain and then calls
+ *  register_handler() to register the table into the agent.
+ */
 int
 register_table(handler_registration * reginfo,
                table_registration_info * tabreq)
@@ -47,85 +83,28 @@ register_table(handler_registration * reginfo,
     return register_handler(reginfo);
 }
 
-void
-table_data_free_func(void *data)
+/** extracts the processed table information from a given request.
+ *  call this from subhandlers on a request to extract the processed
+ *  request_info information.  The resulting information includes the
+ *  index values and the column number.
+ */
+inline table_request_info *
+extract_table_info(request_info * request)
 {
-    table_request_info *info = (table_request_info *) data;
-    if (!info)
-        return;
-    snmp_free_varbind(info->indexes);
-    free(info);
+    return (table_request_info *)
+        request_get_list_data(request, TABLE_HANDLER_NAME);
 }
 
-
-
-static void
-table_helper_cleanup(agent_request_info * reqinfo, request_info * request,
-                     int status)
+/** extracts the registered table_registration_info object from a
+ *  handler_registration object */
+table_registration_info *
+find_table_registration_info(handler_registration * reginfo)
 {
-    set_request_error(reqinfo, request, status);
-    free_request_data_sets(request);
-    request->parent_data = NULL;
+    return (table_registration_info *)
+        find_handler_data_by_name(reginfo, TABLE_HANDLER_NAME);
 }
 
-
-unsigned int
-closest_column(unsigned int current, column_info * valid_columns)
-{
-    unsigned int    closest = 0;
-    char            done = 0;
-    char            idx;
-
-    if(valid_columns == NULL)
-        return 0;
-
-    do {
-
-        if (valid_columns->isRange) {
-
-            if (current < valid_columns->details.range[0]) {
-                if (valid_columns->details.range[0] < closest) {
-                    closest = valid_columns->details.range[0];
-                }
-            } else if (current <= valid_columns->details.range[1]) {
-                closest = current;
-                done = 1;       /* can not get any closer! */
-            }
-
-        } /* range */
-        else {                  /* list */
-
-            if (current < valid_columns->details.list[0]) {
-                if (valid_columns->details.list[0] < closest)
-                    closest = valid_columns->details.list[0];
-                continue;
-            }
-
-            if (current >
-                valid_columns->details.list[valid_columns->list_count])
-                continue;       /* not in list range. */
-
-            for (idx = 0; idx < valid_columns->list_count; ++idx) {
-                if (current == valid_columns->details.list[idx]) {
-                    closest = current;
-                    done = 1;   /* can not get any closer! */
-                    break;      /* for */
-                } else if (current < valid_columns->details.list[idx]) {
-                    if (valid_columns->details.list[idx] < closest)
-                        closest = valid_columns->details.list[idx];
-                    break;      /* list should be sorted */
-                }
-            }                   /* for */
-
-        }                       /* list */
-
-        valid_columns = valid_columns->next;
-
-    } while (!done && valid_columns);
-
-    return closest;
-}
-
+/** implements the table helper handler */
 int
 table_helper_handler(mib_handler * handler,
                      handler_registration * reginfo,
@@ -436,55 +415,12 @@ table_helper_handler(mib_handler * handler,
     return status;
 }
 
-int
-table_build_oid(handler_registration * reginfo,
-                request_info * reqinfo, table_request_info * table_info)
-{
-    oid             tmpoid[MAX_OID_LEN];
-    struct variable_list *var;
-
-    if (!reginfo || !reqinfo || !table_info)
-        return SNMPERR_GENERR;
-
-    memcpy(tmpoid, reginfo->rootoid, reginfo->rootoid_len * sizeof(oid));
-    tmpoid[reginfo->rootoid_len] = 1;   /** .Entry */
-    tmpoid[reginfo->rootoid_len + 1] = table_info->colnum; /** .column */
-
-    var = reqinfo->requestvb;
-    if (build_oid(&var->name, &var->name_length,
-                  tmpoid, reginfo->rootoid_len + 2, table_info->indexes)
-        != SNMPERR_SUCCESS)
-        return SNMPERR_GENERR;
-
-    return SNMPERR_SUCCESS;
-}
-
-int
-table_build_oid_from_index(handler_registration * reginfo,
-                           request_info * reqinfo,
-                           table_request_info * table_info)
-{
-    oid             tmpoid[MAX_OID_LEN];
-    struct variable_list *var;
-    int             len;
-
-    if (!reginfo || !reqinfo || !table_info)
-        return SNMPERR_GENERR;
-
-    var = reqinfo->requestvb;
-    len = reginfo->rootoid_len;
-    memcpy(tmpoid, reginfo->rootoid, len * sizeof(oid));
-    tmpoid[len++] = 1;          /* .Entry */
-    tmpoid[len++] = table_info->colnum; /* .column */
-    memcpy(&tmpoid[len], table_info->index_oid,
-           table_info->index_oid_len * sizeof(oid));
-    len += table_info->index_oid_len;
-    snmp_clone_mem((void **) &var->name, tmpoid, len * sizeof(oid));
-    var->name_length = len;
-
-    return SNMPERR_SUCCESS;
-}
-
+/** Builds the result to be returned to the agent given the table information.
+ *  Use this function to return results from lowel level handlers to
+ *  the agent.  It takes care of building the proper resulting oid
+ *  (containing proper indexing) and inserts the result value into the
+ *  returning varbind.
+ */
 int
 table_build_result(handler_registration * reginfo,
                    request_info * reqinfo,
@@ -511,6 +447,64 @@ table_build_result(handler_registration * reginfo,
     return SNMPERR_SUCCESS;
 }
 
+  
+/** given a registration info object, a request object and the table
+ *  info object it builds the request->requestvb->name oid from the
+ *  index values and column information found in the table_info
+ *  object.
+ */
+int
+table_build_oid(handler_registration * reginfo,
+                request_info * reqinfo, table_request_info * table_info)
+{
+    oid             tmpoid[MAX_OID_LEN];
+    struct variable_list *var;
+
+    if (!reginfo || !reqinfo || !table_info)
+        return SNMPERR_GENERR;
+
+    memcpy(tmpoid, reginfo->rootoid, reginfo->rootoid_len * sizeof(oid));
+    tmpoid[reginfo->rootoid_len] = 1;   /** .Entry */
+    tmpoid[reginfo->rootoid_len + 1] = table_info->colnum; /** .column */
+
+    var = reqinfo->requestvb;
+    if (build_oid(&var->name, &var->name_length,
+                  tmpoid, reginfo->rootoid_len + 2, table_info->indexes)
+        != SNMPERR_SUCCESS)
+        return SNMPERR_GENERR;
+
+    return SNMPERR_SUCCESS;
+}
+
+/** Builds an oid from index information.
+ */
+int
+table_build_oid_from_index(handler_registration * reginfo,
+                           request_info * reqinfo,
+                           table_request_info * table_info)
+{
+    oid             tmpoid[MAX_OID_LEN];
+    struct variable_list *var;
+    int             len;
+
+    if (!reginfo || !reqinfo || !table_info)
+        return SNMPERR_GENERR;
+
+    var = reqinfo->requestvb;
+    len = reginfo->rootoid_len;
+    memcpy(tmpoid, reginfo->rootoid, len * sizeof(oid));
+    tmpoid[len++] = 1;          /* .Entry */
+    tmpoid[len++] = table_info->colnum; /* .column */
+    memcpy(&tmpoid[len], table_info->index_oid,
+           table_info->index_oid_len * sizeof(oid));
+    len += table_info->index_oid_len;
+    snmp_clone_mem((void **) &var->name, tmpoid, len * sizeof(oid));
+    var->name_length = len;
+
+    return SNMPERR_SUCCESS;
+}
+
+/** parses an OID into table indexses */
 int
 update_variable_list_from_index(table_request_info * tri)
 {
@@ -518,6 +512,7 @@ update_variable_list_from_index(table_request_info * tri)
                              tri->indexes);
 }
 
+/** builds an oid given a set of indexes. */
 int
 update_indexes_from_variable_list(table_request_info * tri)
 {
@@ -572,16 +567,85 @@ check_getnext_reply(request_info * request,
     return 0;
 }
 
-inline table_request_info *
-extract_table_info(request_info * request)
+/** @} */
+
+/* internal routines */
+void
+table_data_free_func(void *data)
 {
-    return (table_request_info *)
-        request_get_list_data(request, TABLE_HANDLER_NAME);
+    table_request_info *info = (table_request_info *) data;
+    if (!info)
+        return;
+    snmp_free_varbind(info->indexes);
+    free(info);
 }
 
-table_registration_info *
-find_table_registration_info(handler_registration * reginfo)
+
+
+static void
+table_helper_cleanup(agent_request_info * reqinfo, request_info * request,
+                     int status)
 {
-    return (table_registration_info *)
-        find_handler_data_by_name(reginfo, TABLE_HANDLER_NAME);
+    set_request_error(reqinfo, request, status);
+    free_request_data_sets(request);
+    request->parent_data = NULL;
 }
+
+
+unsigned int
+closest_column(unsigned int current, column_info * valid_columns)
+{
+    unsigned int    closest = 0;
+    char            done = 0;
+    char            idx;
+
+    if(valid_columns == NULL)
+        return 0;
+
+    do {
+
+        if (valid_columns->isRange) {
+
+            if (current < valid_columns->details.range[0]) {
+                if (valid_columns->details.range[0] < closest) {
+                    closest = valid_columns->details.range[0];
+                }
+            } else if (current <= valid_columns->details.range[1]) {
+                closest = current;
+                done = 1;       /* can not get any closer! */
+            }
+
+        } /* range */
+        else {                  /* list */
+
+            if (current < valid_columns->details.list[0]) {
+                if (valid_columns->details.list[0] < closest)
+                    closest = valid_columns->details.list[0];
+                continue;
+            }
+
+            if (current >
+                valid_columns->details.list[valid_columns->list_count])
+                continue;       /* not in list range. */
+
+            for (idx = 0; idx < valid_columns->list_count; ++idx) {
+                if (current == valid_columns->details.list[idx]) {
+                    closest = current;
+                    done = 1;   /* can not get any closer! */
+                    break;      /* for */
+                } else if (current < valid_columns->details.list[idx]) {
+                    if (valid_columns->details.list[idx] < closest)
+                        closest = valid_columns->details.list[idx];
+                    break;      /* list should be sorted */
+                }
+            }                   /* for */
+
+        }                       /* list */
+
+        valid_columns = valid_columns->next;
+
+    } while (!done && valid_columns);
+
+    return closest;
+}
+

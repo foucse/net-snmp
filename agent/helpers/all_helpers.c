@@ -1,4 +1,4 @@
-/** @addgroup handler
+/** @name handler
  *  @{ */
 
 

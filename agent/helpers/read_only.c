@@ -15,17 +15,25 @@
 #include <dmalloc.h>
 #endif
 
-void
-init_read_only_helper(void) 
-{
-    register_handler_by_name("read_only", get_read_only_handler());
-}
+/** @defgroup read_only read_only: make your handler read_only automatically 
+ *  The only purpose of this handler is to return an
+ *  appropriate error for any requests passed to it in a SET mode.
+ *  Inserting it into your handler chain will ensure you're never
+ *  asked to perform a SET request so you can ignore those error
+ *  conditions.
+ *  @ingroup handler
+ *  @{
+ */
 
+/** returns a read_only handler that can be injected into a given
+ *  handler chain.
+ */
 mib_handler *
 get_read_only_handler(void) {
     return create_handler("read_only", read_only_helper);
 }
 
+/** @internal Implements the read_only handler */
 int
 read_only_helper(
     mib_handler               *handler,
@@ -52,3 +60,12 @@ read_only_helper(
     return SNMP_ERR_GENERR; /* should never get here */
 }
 
+/** initializes the read_only helper which then registers a read_only
+ *  handler as a run-time injectable handler for configuration file
+ *  use.
+ */
+void
+init_read_only_helper(void) 
+{
+    register_handler_by_name("read_only", get_read_only_handler());
+}

@@ -12,6 +12,27 @@
 #include <dmalloc.h>
 #endif
 
+/** @defgroup multiplexer multiplexer: splits mode requests into calls to different handlers.
+ *  @ingroup handler
+ * The multiplexer helper lets you split the calling chain depending
+ * on the calling mode (get vs getnext vs set).  Useful if you want
+ * different routines to handle different aspects of SNMP requests,
+ * which is very common for GET vs SET type actions.
+ *
+ * Functionally:
+ *
+ * -# GET requests call the get_method
+ * -# GETNEXT requests call the getnext_method, or if not present, the
+ *    get_method.
+ * -# GETBULK requests call the getbulk_method, or if not present, the
+ *    getnext_method, or if even that isn't present the get_method.
+ * -# SET requests call the set_method, or if not present return a
+ *    SNMP_ERR_NOTWRITABLE error.
+ *  @{
+ */
+
+/** returns a multiplixer handler given a mib_handler_methods structure of subhandlers.
+ */
 mib_handler *
 get_multiplexer_handler(mib_handler_methods *req) {
     mib_handler *ret = NULL;
@@ -28,6 +49,7 @@ get_multiplexer_handler(mib_handler_methods *req) {
     return ret;
 }
 
+/** implements the multiplexer helper */
 int
 multiplexer_helper_handler(
     mib_handler               *handler,

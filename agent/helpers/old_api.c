@@ -17,23 +17,28 @@
 
 #define MIB_CLIENTS_ARE_EVIL 1
 
-static struct agent_snmp_session *current_agent_session = NULL;
-struct agent_snmp_session  *
-get_current_agent_session() {
-    return current_agent_session;
-}
+/** @defgroup old_api old_api: Calls mib module code written in the old style of code.
+ *  @ingroup handler
+ *  This is a backwards compatilibity module that allows code written
+ *  in the old API to be run under the new handler based architecture.
+ *  Use it by calling register_old_api().
+ *  @{
+ */
 
-void
-set_current_agent_session(struct agent_snmp_session  *asp) {
-    current_agent_session = asp;
-}
-
+/** returns a old_api handler that should be the final calling
+ * handler.  Don't use this function.  Use the register_old_api()
+ * function instead.
+ */
 mib_handler *
 get_old_api_handler(void) {
     return create_handler("old_api", old_api_helper);
 }
     
 
+/** Registers an old API set into the mib tree.  Functionally this
+ * mimics the old register_mib_context() function (and in fact the new
+ * register_mib_context() function merely calls this new old_api one).
+ */
 int
 register_old_api(const char *moduleName,
                  struct variable *var,
@@ -93,6 +98,7 @@ register_old_api(const char *moduleName,
     return SNMPERR_SUCCESS;
 }
 
+/** implements the old_api handler */
 int
 old_api_helper(mib_handler               *handler,
                handler_registration      *reginfo,
@@ -236,5 +242,20 @@ old_api_helper(mib_handler               *handler,
         requests = requests->next;
     }
     return SNMP_ERR_NOERROR;
+}
+
+/** @} */
+
+/* don't use this! */
+static struct agent_snmp_session *current_agent_session = NULL;
+struct agent_snmp_session  *
+get_current_agent_session() {
+    return current_agent_session;
+}
+
+/* don't use this! */
+void
+set_current_agent_session(struct agent_snmp_session  *asp) {
+    current_agent_session = asp;
 }
 
