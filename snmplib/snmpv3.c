@@ -1,6 +1,16 @@
 #include <config.h>
 
 #include <stdio.h>
+#if TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# if HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
 #if HAVE_STRING_H
 #include <string.h>
 #else
@@ -19,9 +29,14 @@
 #include <netdb.h>
 #endif
 
+#include "system.h"
+#include "snmpv3.h"
+
 static int engineBoots=0;
 static char *engineID=NULL;
 static int engineIDLength=0;
+static struct timeval snmpv3starttime;
+
 
 /* places a malloced copy of the engineID into engineID */
 void
@@ -96,6 +111,7 @@ engineID_conf(char *word, char *cptr)
 
 void
 init_snmpv3(char *type) {
+  gettimeofday(&snmpv3starttime, NULL);
   setup_engineID(NULL);
   register_config_handler(type,"engineBoots", engineBoots_conf, NULL);
   register_config_handler(type,"engineID", engineID_conf, NULL);
@@ -117,4 +133,14 @@ int
 snmpv3_get_engineID(char *buf) {
   memcpy(buf,engineID,engineIDLength);
   return engineIDLength;
+}
+
+/* snmpv3_get_engineTime(): return the number of seconds since the
+   snmpv3 engine last incremented engine_boots */
+int
+snmpv3_get_engineTime(void) {
+  struct timeval now;
+
+  gettimeofday(&now, NULL);
+  return calculate_time_diff(now,snmpv3starttime)/100;
 }

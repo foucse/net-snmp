@@ -60,8 +60,7 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
       return (unsigned char *) &long_ret;
 
     case SNMPENGINETIME:
-      gettimeofday(&now, NULL);
-      long_ret = calculate_time_diff(now,starttime);
+      long_ret = snmpv3_get_engineTime();
       return (unsigned char *) &long_ret;
 
     case SNMPENGINEMAXMESSAGESIZE:

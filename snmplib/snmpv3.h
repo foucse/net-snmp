@@ -8,5 +8,6 @@ void init_snmpv3(char *);
 void shutdown_snmpv3(char *type);
 int snmpv3_get_engine_boots(void);
 int snmpv3_get_engineID(char *buf);
+int snmpv3_get_engineTime(void);
 
 #endif /* SNMPV3_H */
