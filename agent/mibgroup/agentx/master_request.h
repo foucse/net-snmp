@@ -3,5 +3,6 @@
 
 int agentx_add_request( struct agent_snmp_session *asp,
 		    struct variable_list *vbp);
+void fully_free_agentx_request(struct request_list *req);
 
 #endif /* _AGENTX_MASTER_REQUEST_H */

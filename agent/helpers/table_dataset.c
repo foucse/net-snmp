@@ -16,6 +16,7 @@ typedef struct data_set_cache_s {
    size_t data_len;
 } data_set_cache;
 
+/** Create a table_data_set structure given a table_data definition */
 table_data_set *
 create_table_data_set(table_data *table) 
 {
@@ -24,6 +25,7 @@ create_table_data_set(table_data *table)
     return table_set;
 }
 
+/** Given a table_data_set definition, create a handler for it */
 mib_handler *
 get_table_data_set_handler(table_data_set *data_set)
 {
@@ -42,6 +44,11 @@ get_table_data_set_handler(table_data_set *data_set)
 }
 
 
+/** register a given data_set at a given oid (specified in the
+    handler_registration pointer).  The
+    reginfo->handler->access_method *may* be null if the call doesn't
+    ever want to be called for SNMP operations.
+*/
 int
 register_table_data_set(handler_registration *reginfo, table_data_set *data_set,
                         table_registration_info *table_info)
@@ -50,6 +57,9 @@ register_table_data_set(handler_registration *reginfo, table_data_set *data_set,
     return register_table_data(reginfo, data_set->table, table_info);
 }
 
+/** Finds a column within a given storage set, given the pointer to
+   the start of the storage set list.
+*/
 table_data_set_storage *
 table_data_set_find_column(table_data_set_storage *start, int column) 
 {
@@ -59,7 +69,17 @@ table_data_set_find_column(table_data_set_storage *start, int column)
 }
 
 /**
- * marks a given column in a row as writable or not
+ * extracts a table_data_set pointer from a given request
+ */
+inline table_data_set *
+extract_table_data_set(request_info *request)
+{
+    return (table_data_set *)
+        request_get_list_data(request, TABLE_DATA_SET_NAME);
+}
+
+/**
+ * marks a given column in a row as writable or not.
  */
 int
 mark_row_column_writable(table_row *row, int column, int writable) 
@@ -81,6 +101,7 @@ mark_row_column_writable(table_row *row, int column, int writable)
     } else {
         data->writable = writable;
     }
+    return SNMPERR_SUCCESS;
 }
 
 
@@ -259,3 +280,4 @@ table_data_set_helper_handler(
         call_next_handler(handler, reginfo, reqinfo, requests);
     return SNMP_ERR_NOERROR;
 }
+    

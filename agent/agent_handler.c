@@ -15,6 +15,7 @@
 /* New Handler based API */
 /***********************************************************************/
 
+/** register a handler, as defined by the handler_registration pointer */ 
 int
 register_handler(handler_registration *reginfo) {
     mib_handler *handler;
@@ -34,7 +35,12 @@ register_handler(handler_registration *reginfo) {
         }
         DEBUGMSG(("handler::register", "\n"));
     }
-    
+
+    /* don't let them register for absolutely nothing.  Probably a mistake */
+    if (0 == reginfo->modes) {
+        reginfo->modes = HANDLER_CAN_DEFAULT;
+    }
+
     return register_mib_context2(reginfo->handler->handler_name,
                          NULL, 0, 0,
                          reginfo->rootoid, reginfo->rootoid_len,
@@ -46,6 +52,10 @@ register_handler(handler_registration *reginfo) {
                          0, reginfo);
 }
 
+/** inject a new handler into the calling chain of the handlers
+   definedy by the handler_registration pointer.  The new handler is
+   injected at the top of the list and hence will be the new handler
+   to be called first.*/ 
 int
 inject_handler(handler_registration *reginfo, mib_handler *handler) {
     DEBUGMSGTL(("handler:inject", "injecting %s before %s\n", \
@@ -72,8 +82,42 @@ int call_handlers(handler_registration *reginfo,
         snmp_log(LOG_ERR, "no handler specified.");
         return  SNMP_ERR_GENERR;
     }
-        
-    DEBUGMSGTL(("handler:calling", "calling handler %s\n",
+
+    switch(reqinfo->mode) {
+        case MODE_GET:
+        case MODE_GETNEXT:
+            if (!(reginfo->modes & HANDLER_CAN_GETANDGETNEXT))
+                return SNMP_ERR_NOERROR; /* legal */
+            break;
+
+        case MODE_SET_RESERVE1:
+        case MODE_SET_RESERVE2:
+        case MODE_SET_ACTION:
+        case MODE_SET_COMMIT:
+        case MODE_SET_FREE:
+        case MODE_SET_UNDO:
+            if (!(reginfo->modes & HANDLER_CAN_SET)) {
+                for(; requests; requests = requests->next) {
+                    set_request_error(reqinfo, requests, SNMP_ERR_NOTWRITABLE);
+                }
+                return SNMP_ERR_NOERROR;
+            }
+            break;
+
+        case MODE_GETBULK:
+            if (!(reginfo->modes & HANDLER_CAN_GETBULK))
+                return SNMP_ERR_NOERROR; /* XXXWWW: should never get
+                                            here after we force a
+                                            getbulk->getnext helper on
+                                            them during registration
+                                            process. */
+            break;
+            
+        default:
+            snmp_log(LOG_ERR, "unknown mode in call_handlers! bug!\n");
+            return SNMP_ERR_GENERR;
+    }
+    DEBUGMSGTL(("handler:calling", "calling main handler %s\n",
                  reginfo->handler->handler_name));
     
     nh = reginfo->handler->access_method;
@@ -88,6 +132,7 @@ int call_handlers(handler_registration *reginfo,
     return status;
 }
 
+/** calls a handler with with appropriate NULL checking, etc. */
 inline int call_handler(mib_handler          *next_handler,
                         handler_registration *reginfo,
                         agent_request_info   *reqinfo,
@@ -119,6 +164,8 @@ inline int call_handler(mib_handler          *next_handler,
     return ret;
 }
 
+/** calls the next handler in the chain after the current one with
+   with appropriate NULL checking, etc. */
 inline int call_next_handler(mib_handler          *current,
                              handler_registration *reginfo,
                              agent_request_info   *reqinfo,
@@ -133,6 +180,7 @@ inline int call_next_handler(mib_handler          *current,
     return call_handler(current->next, reginfo, reqinfo, requests);
 }
 
+/** creates a mib_handler structure given a name and a access method */
 mib_handler *
 create_handler(const char *name, NodeHandler *handler_access_method) {
     mib_handler *ret = SNMP_MALLOC_TYPEDEF(mib_handler);
@@ -141,14 +189,24 @@ create_handler(const char *name, NodeHandler *handler_access_method) {
     return ret;
 }
 
+/** creates a handler registration structure given a name, a
+    access_method function, a registration location oid and the modes
+    the handler supports. If modes == 0, then modes will automatically
+    be set to the default value of only HANDLER_CAN_DEFAULT, which is by default. */
 handler_registration *
 create_handler_registration(const char *name,
                             NodeHandler *handler_access_method,
-                            oid *reg_oid, size_t reg_oid_len) {
+                            oid *reg_oid, size_t reg_oid_len,
+                            int modes) {
     handler_registration *the_reg;
     the_reg = SNMP_MALLOC_TYPEDEF(handler_registration);
     if (!the_reg)
         return NULL;
+
+    if (modes)
+        the_reg->modes = modes;
+    else
+        the_reg->modes = HANDLER_CAN_DEFAULT;
 
     the_reg->handler = create_handler(name, handler_access_method);
     the_reg->rootoid = reg_oid;
@@ -156,6 +214,9 @@ create_handler_registration(const char *name,
     return the_reg;
 }
 
+/** creates a cache of information which can be saved for future
+   reference.  Use handler_check_cache() later to make sure it's still
+   valid before referencing it in the future. */
 inline delegated_cache *
 create_delegated_cache(mib_handler               *handler,
                        handler_registration      *reginfo,
@@ -166,6 +227,7 @@ create_delegated_cache(mib_handler               *handler,
 
     ret = SNMP_MALLOC_TYPEDEF(delegated_cache);
     if (ret) {
+        ret->transaction_id = reqinfo->asp->pdu->transid;
         ret->handler = handler;
         ret->reginfo = reginfo;
         ret->reqinfo = reqinfo;
@@ -173,6 +235,31 @@ create_delegated_cache(mib_handler               *handler,
         ret->localinfo = localinfo;
     }
     return ret;
+}
+
+/** check's a given cache and returns it if it is still valid (ie, the
+   agent still considers it to be an outstanding request.  Returns
+   NULL if it's no longer valid. */
+inline delegated_cache *
+handler_check_cache(delegated_cache *dcache)
+{
+    if (!dcache)
+        return dcache;
+    
+    if (check_transaction_id(dcache->transaction_id) == SNMPERR_SUCCESS)
+        return dcache;
+
+    return NULL;
+}
+
+/** marks a list of requests as delegated (or not if isdelegaded = 0) */
+void
+handler_mark_requests_as_delegated(request_info *requests, int isdelegated) 
+{
+    while(requests) {
+        requests->delegated = isdelegated;
+        requests = requests->next;
+    }
 }
 
 inline void

@@ -20,6 +20,14 @@ typedef struct mib_handler_s {
    struct mib_handler_s *prev;
 } mib_handler;
 
+#define HANDLER_CAN_GETANDGETNEXT     0x1 /* must be able to do both */
+#define HANDLER_CAN_SET               0x2
+#define HANDLER_CAN_GETBULK           0x4
+
+#define HANDLER_CAN_RONLY   (HANDLER_CAN_GETANDGETNEXT)
+#define HANDLER_CAN_RWRITE  (HANDLER_CAN_GETANDGETNEXT | HANDLER_CAN_SET)
+#define HANDLER_CAN_DEFAULT HANDLER_CAN_RONLY
+
 /* root registration info */
 typedef struct handler_registration_s {
 
@@ -32,6 +40,7 @@ typedef struct handler_registration_s {
 
    /* handler details */
    mib_handler *handler;
+   int modes;
    
    /* more optional stuff */
    int     priority;
@@ -50,6 +59,7 @@ typedef int (NodeHandler)(
     );
 
 typedef struct delegated_cache_s {
+   int                        transaction_id;
    mib_handler               *handler;
    handler_registration      *reginfo;
    agent_request_info        *reqinfo;
@@ -78,13 +88,14 @@ mib_handler *create_handler(const char *name,
 handler_registration *
 create_handler_registration(const char *name,
                             NodeHandler *handler_access_method,
-                            oid *reg_oid, size_t reg_oid_len);
+                            oid *reg_oid, size_t reg_oid_len, int modes);
 delegated_cache *
 create_delegated_cache(mib_handler               *,
                        handler_registration      *,
                        agent_request_info        *,
                        request_info              *,
                        void                      *);
+inline delegated_cache *handler_check_cache(delegated_cache *dcache);
 
 inline void
 request_add_list_data(request_info *request, data_list *node);
@@ -98,6 +109,10 @@ free_request_data_set(request_info *request);
 inline void
 free_request_data_sets(request_info *request);
 
+#define REQUEST_IS_DELEGATED     1
+#define REQUEST_IS_NOT_DELEGATED 0
+void handler_mark_requests_as_delegated(request_info *, int);
+void *handler_get_parent_data(request_info *, const char *);
 
 #ifdef __cplusplus
 };

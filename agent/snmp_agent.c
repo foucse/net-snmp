@@ -1399,6 +1399,13 @@ add_varbind_to_cache(struct agent_snmp_session  *asp, int vbcount,
             tp->cacheid = cacheid;
         }
 
+        /* if this is a search type, get the ending range oid as well */
+        if (asp->pdu->command == SNMP_MSG_GETNEXT ||
+            asp->pdu->command == SNMP_MSG_GETBULK) {
+            request->range_end     = tp->end;
+            request->range_end_len = tp->end_len;
+        }
+
         /* link into chain */
         if (asp->treecache[cacheid]->requests_end)
             asp->treecache[cacheid]->requests_end->next = request;
@@ -1657,9 +1664,10 @@ handle_var_requests(struct agent_snmp_session  *asp) {
    if they've completed yet */ 
 void
 check_outstanding_agent_requests(int status) {
-    struct agent_snmp_session *asp, *prev_asp = NULL;
+    struct agent_snmp_session *asp, *prev_asp = NULL, *next_asp = NULL;
 
-    for(asp = agent_delegated_list; asp; prev_asp = asp, asp = asp->next) {
+    for(asp = agent_delegated_list; asp; prev_asp = asp, asp = next_asp) {
+        next_asp = asp->next; /* save in case we clean up asp */
         if (!check_for_delegated(asp)) {
 
             /* we're done with this one, remove from queue */
@@ -1673,6 +1681,24 @@ check_outstanding_agent_requests(int status) {
         }
     }
 }
+
+/** Decide if the requested transaction_id is still being processed
+   within the agent.  This is used to validate whether a delayed cache
+   (containing possibly freed pointers) is still usable.
+
+   returns SNMPERR_SUCCESS if it's still valid, or SNMPERR_GENERR if not. */
+int
+check_transaction_id(int transaction_id) 
+{
+    struct agent_snmp_session *asp, *prev_asp = NULL;
+
+    for(asp = agent_delegated_list; asp; prev_asp = asp, asp = asp->next) {
+        if (asp->pdu->transid == transaction_id)
+            return SNMPERR_SUCCESS;
+    }
+    return SNMPERR_GENERR;
+}
+
 
 /*
  * check_delayed_request(asp)
@@ -1697,10 +1723,27 @@ check_delayed_request(struct agent_snmp_session  *asp) {
             /* WWW */
             break;
 
-        case SNMP_MSG_SET:
+        case MODE_SET_BEGIN:
+        case MODE_SET_RESERVE1:
+        case MODE_SET_RESERVE2:
+        case MODE_SET_ACTION:
+        case MODE_SET_COMMIT:
+        case MODE_SET_FREE:
+        case MODE_SET_UNDO:
             handle_set_loop(asp);
-            if (asp->mode != FINISHED_SUCCESS && asp->mode != FINISHED_FAILURE)
+            if (asp->mode != FINISHED_SUCCESS &&
+                asp->mode != FINISHED_FAILURE) {
+
+                if (check_for_delegated(asp)) {
+                    /* add to delegated request chain */
+                    if (!asp->status)
+                        asp->status = status;
+                    asp->next = agent_delegated_list;
+                    agent_delegated_list = asp;
+                }
+
                 return SNMP_ERR_NOERROR;
+            }
             break;
 
         default:
@@ -2187,6 +2230,9 @@ statp_loop:
 
 int set_request_error(agent_request_info *reqinfo, request_info *request,
                        int error_value) {
+    if (!request || !reqinfo)
+        return error_value;
+
     switch(error_value) {
         case SNMP_NOSUCHOBJECT:
         case SNMP_NOSUCHINSTANCE:

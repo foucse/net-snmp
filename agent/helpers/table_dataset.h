@@ -50,6 +50,7 @@ int register_table_data_set(handler_registration *, table_data_set *,
 mib_handler *get_table_data_set_handler(table_data_set *);
 table_data_set *create_table_data_set(table_data *);
 int mark_row_column_writable(table_row *row, int column, int writable);
+inline table_data_set *extract_table_data_set(request_info *request);
 
 #ifdef __cplusplus
 };

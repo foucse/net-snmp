@@ -70,7 +70,7 @@ register_old_api(const char *moduleName,
         reginfo->range_ubound = range_ubound;
         reginfo->timeout = timeout;
         reginfo->contextName = (context) ? strdup(context) : NULL;
-        
+        reginfo->modes = HANDLER_CAN_RWRITE;
 
         /* register ourselves in the mib tree */
         register_handler(reginfo);

@@ -34,6 +34,8 @@ typedef struct request_info_s {
       helper to the later handlers */
    data_list *parent_data;
 
+   oid    *range_end;     /* don't free, reference to (struct tree)->end */
+   size_t  range_end_len;
    int delegated;
    int processed;
    int status;
@@ -136,6 +138,7 @@ int set_all_requests_error(agent_request_info *reqinfo, request_info *requests,
 int marker_uptime( marker_t pm );
 int timeval_uptime( struct timeval *tv );
 int get_agent_uptime(void);
+int check_transaction_id(int transaction_id);
 
 /*  Register and de-register agent NSAPs.  */
  

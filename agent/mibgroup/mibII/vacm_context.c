@@ -77,7 +77,8 @@ init_vacm_context(void) {
     my_handler = create_handler_registration("vacm_context",
                                           vacm_context_handler,
                                           vacm_context_oid,
-                                          sizeof(vacm_context_oid)/sizeof(oid));
+                                          sizeof(vacm_context_oid)/sizeof(oid),
+					  HANDLER_CAN_RONLY);
     
     if (!my_handler)
         return;

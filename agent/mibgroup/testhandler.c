@@ -39,7 +39,8 @@ init_testhandler(void) {
      * basic handler test
      */
     register_handler(create_handler_registration("myTest", my_test_handler,
-                                                 my_test_oid, 4));
+                                                 my_test_oid, 4,
+                                                 HANDLER_CAN_RONLY));
 
     /*
      * instance handler test
@@ -47,7 +48,8 @@ init_testhandler(void) {
 
     register_instance(create_handler_registration("myInstance",
                                                   my_test_instance_handler,
-                                                  my_instance_oid, 5));
+                                                  my_instance_oid, 5,
+                                                  HANDLER_CAN_RWRITE));
     
     /*
      * table helper test
@@ -55,7 +57,8 @@ init_testhandler(void) {
 
     my_test = create_handler_registration("myTable",
                                           my_test_table_handler,
-                                          my_table_oid, 4);
+                                          my_table_oid, 4,
+                                          HANDLER_CAN_RONLY);
     if (!my_test)
         return;
 
@@ -111,7 +114,7 @@ init_testhandler(void) {
         create_handler_registration("12days",
                                     my_data_table_handler,
                                     my_data_table_oid,
-                                    4),
+                                    4, HANDLER_CAN_RONLY),
         table,
         table_info);
 
@@ -146,7 +149,7 @@ init_testhandler(void) {
     register_table_data_set(create_handler_registration("chairs",
                                                         NULL,
                                                         my_data_table_set_oid,
-                                                        4),
+                                                        4, HANDLER_CAN_RWRITE),
                             table_set, table_info);
 
     /* add the data */
@@ -326,6 +329,7 @@ my_test_table_handler(mib_handler               *handler,
     return SNMP_ERR_NOERROR;
 }
 
+#define TESTHANDLER_SET_NAME "my_test"
 int
 my_test_instance_handler(
     mib_handler               *handler,
@@ -334,6 +338,7 @@ my_test_instance_handler(
     request_info              *requests) {
 
     static u_long accesses = 0;
+    u_long *accesses_cache = NULL;
 
     DEBUGMSGTL(("testhandler", "Got instance request:\n"));
 
@@ -352,11 +357,16 @@ my_test_instance_handler(
 
         case MODE_SET_RESERVE2:
             /* store old info for undo later */
-            memdup((u_char **) &requests->state_reference,
+            memdup((u_char **) &accesses_cache,
                    (u_char *) &accesses, sizeof(accesses));
-            if (requests->state_reference == NULL)
+            if (accesses_cache == NULL) {
                 set_request_error(reqinfo, requests,
                                   SNMP_ERR_RESOURCEUNAVAILABLE);
+                return SNMP_ERR_NOERROR;
+            }
+            request_add_list_data(requests,
+                                  create_data_list(TESTHANDLER_SET_NAME,
+                                                   accesses_cache, free));
             break;
 
         case MODE_SET_ACTION:
@@ -366,12 +376,14 @@ my_test_instance_handler(
             break;
             
         case MODE_SET_UNDO:
-            accesses = *((u_long *) requests->state_reference);
-            /* fall through */
+            accesses =
+                *((u_long *) request_get_list_data(requests,
+                                                   TESTHANDLER_SET_NAME));
+            break;
 
         case MODE_SET_COMMIT:
         case MODE_SET_FREE:
-            SNMP_FREE(requests->state_reference);
+                /* nothing to do */
             break;
     }
     

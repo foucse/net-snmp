@@ -190,7 +190,7 @@ proxy_handler(
     size_t ourlength;
     request_info              *request = requests;
     
-    DEBUGMSGTL(("proxy", "proxy module starting, mode = %d\n",
+    DEBUGMSGTL(("proxy", "proxy handler starting, mode = %d\n",
                 reqinfo->mode));
 
     switch(reqinfo->mode) {

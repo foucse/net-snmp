@@ -9,6 +9,7 @@ config_require(mibII/sysORTable)
 
 void init_master(void);
 void real_init_master(void);
+NodeHandler agentx_master_handler;
 
 #endif /* _AGENTX_MASTER_H */
 

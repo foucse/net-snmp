@@ -55,12 +55,12 @@
 
 #include "protocol.h"
 #include "client.h"
-#include "master.h"
-#include "master_admin.h"
 #include "snmp_agent.h"
 #include "snmp_vars.h"
 #include "agent_handler.h"
 #include "var_struct.h"
+#include "master.h"
+#include "master_admin.h"
 #include "mibII/sysORTable.h"
 
 #define VARLIST_ITERATION	10

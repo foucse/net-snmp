@@ -31,6 +31,7 @@ init_testdelayed(void) {
     if (!my_test)
         return;
 
+    my_test->modes = HANDLER_CAN_RWRITE;
     my_test->rootoid = my_delayed_oid;
     my_test->rootoid_len = 4; /* [sic] */
     my_test->handler = create_handler("myDelayed", my_test_delayed_handler);
@@ -39,22 +40,29 @@ init_testdelayed(void) {
 
 }
 
+#define TESTDELAYED_SET_NAME "test_delayed"
 u_long sleeptime = 1;
 
 void
 return_delayed_response(unsigned int clientreg, void *clientarg) {
     delegated_cache *cache = (delegated_cache *) clientarg;
-    request_info              *requests = cache->requests;
-    agent_request_info        *reqinfo  = cache->reqinfo;
     int cmp;
-    
-    DEBUGMSGTL(("testdelayed", "continuing delayed request, mode = %d\n",
-                cache->reqinfo->mode));
+    request_info              *requests;
+    agent_request_info        *reqinfo;
+    u_long *sleeptime_cache = NULL;
 
+    cache = handler_check_cache(cache);
+    
     if (!cache) {
         snmp_log(LOG_ERR,"illegal call to return delayed response\n");
         return;
     }
+
+    reqinfo = cache->reqinfo;
+    requests = cache->requests;
+
+    DEBUGMSGTL(("testdelayed", "continuing delayed request, mode = %d\n",
+                cache->reqinfo->mode));
     
     requests->delegated = 0; /* mark it as completed, because it will be */
     switch(cache->reqinfo->mode) {
@@ -119,13 +127,16 @@ return_delayed_response(unsigned int clientreg, void *clientarg) {
 
         case MODE_SET_RESERVE2:
             /* store old info for undo later */
-            memdup((u_char **) &requests->state_reference,
-                   (u_char *) &sleeptime, sizeof(sleeptime));
-            if (requests->state_reference == NULL) {
+            memdup((u_char **) &sleeptime_cache,
+                   (u_char *) &accesses, sizeof(accesses));
+            if (sleeptime_cache == NULL) {
                 set_request_error(reqinfo, requests,
                                   SNMP_ERR_RESOURCEUNAVAILABLE);
                 return;
             }
+            request_add_list_data(requests,
+                                  create_data_list(TESTDELAYED_SET_NAME,
+                                                   sleeptime_cache, free));
             break;
 
         case MODE_SET_ACTION:
@@ -135,12 +146,13 @@ return_delayed_response(unsigned int clientreg, void *clientarg) {
             break;
             
         case MODE_SET_UNDO:
-            sleeptime = *((u_long *) requests->state_reference);
-            /* fall through */
-
+            sleeptime =
+                *((u_long *) request_get_list_data(requests,
+                                                   TESTDELAYED_SET_NAME));
+            break;
+            
         case MODE_SET_COMMIT:
         case MODE_SET_FREE:
-            SNMP_FREE(requests->state_reference);
             break;
     }
     accesses++;

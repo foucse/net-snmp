@@ -59,6 +59,7 @@
 #include "agent_trap.h"
 #include "mibII/sysORTable.h"
 #include "snmp_debug.h"
+#include "master.h"
 
 extern struct variable2 agentx_varlist[];
 extern struct timeval   starttime;
@@ -179,7 +180,8 @@ register_agentx_list(struct snmp_session *session, struct snmp_pdu *pdu)
     char buf[32];
     oid ubound = 0;
     u_long flags = 0;
-
+    handler_registration *reg;
+    
     DEBUGMSGTL(("agentx:register","in register_agentx_list\n"));
     
     sp = find_agentx_session( session, pdu->sessid );
@@ -197,12 +199,17 @@ register_agentx_list(struct snmp_session *session, struct snmp_pdu *pdu)
     if(pdu->flags & AGENTX_MSG_FLAG_INSTANCE_REGISTER)
       flags = FULLY_QUALIFIED_INSTANCE;
 
-    switch (register_mib_context(buf, (struct variable *)agentx_varlist,
+    reg = create_handler_registration(buf, agentx_master_handler,
+                                      pdu->variables->name,
+                                      pdu->variables->name_length,
+                                      HANDLER_CAN_RWRITE);
+    reg->handler->myvoid = session;
+    switch (register_mib_context2(buf, (struct variable *)agentx_varlist,
 			 sizeof(agentx_varlist[0]), 1,
 			 pdu->variables->name, pdu->variables->name_length,
 			 pdu->priority, pdu->range_subid, ubound, sp,
 			 (char *)pdu->community, pdu->time,
-			 flags)) {
+			 flags, reg)) {
 
 	case MIB_REGISTERED_OK:
 				DEBUGMSGTL(("agentx:register",
