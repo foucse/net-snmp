@@ -490,8 +490,10 @@ snmp_parse_args(int argc,
         usage();
         exit(1);
       }
-      else
+      else {
 	Cpsz = argv[optind++];
+	fprintf(stderr, "Warning: positional community parameter is deprecated. Use -c\n");
+      }
     }
     session->community = (unsigned char *)Cpsz;
     session->community_len = strlen(Cpsz);

@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
     struct snmp_session session;
     int dest_port = SNMP_PORT;
     int timeout = SNMP_DEFAULT_TIMEOUT;
-    int version = SNMP_VERSION_1;
+    int version = SNMP_DEFAULT_VERSION;
     int arg;
 
     init_mib();
@@ -310,6 +310,7 @@ int main(int argc, char *argv[])
 	} else if ((version == SNMP_VERSION_1 || version == SNMP_VERSION_2c)
                    && community == NULL){
 	    community = argv[arg]; 
+	    fprintf(stderr, "Warning: positional community parameter is deprecated. Use -c\n");
 	} else if (isdigit(argv[arg][0])) {
             interval = atoi(argv[arg]);
             if (interval <= 0){
@@ -323,9 +324,12 @@ int main(int argc, char *argv[])
 	}
     }
     
-    if (!hostname ||
-	((version == SNMP_VERSION_1 || version == SNMP_VERSION_2c) && !community)) {
-	usage();
+    init_snmp("snmpapp");
+    if (version == SNMP_DEFAULT_VERSION) {
+      version = ds_get_int(DS_LIBRARY_ID, DS_LIB_SNMPVERSION);
+    }
+    if (!hostname) {
+	fprintf(stderr, "Missing host name.\n");
 	exit(1);
     }
 
@@ -334,6 +338,10 @@ int main(int argc, char *argv[])
     session.remote_port = dest_port;
     session.timeout = timeout;
     if (version == SNMP_VERSION_1 || version == SNMP_VERSION_2c){
+	if (!community && !(community = ds_get_string(DS_LIBRARY_ID, DS_LIB_COMMUNITY))) {
+	    fprintf(stderr, "Missing community name.\n");
+	    exit(1);
+	}
         session.version = version;
         session.community = (u_char *)community;
         session.community_len = strlen((char *)community);
