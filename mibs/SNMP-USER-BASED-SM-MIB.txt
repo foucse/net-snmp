@@ -114,6 +114,7 @@ usmDESPrivProtocol OBJECT-IDENTITY
                     American National Standards Institute.
                     ANSI X3.106-1983, (May 1983).
                  "
+    ::= { snmpPrivProtocols 2 }
 
 KeyChange ::=     TEXTUAL-CONVENTION
    STATUS         current
