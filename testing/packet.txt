@@ -2,11 +2,11 @@ msgFlags => reportableFlag; # or 0x04
 msgID => 43;
 # the secParams field can be given in hex or each field defined seperately
 #secParams => 0x3019040C800007e5746573746974000201010201ef040004000400;
-msgEngineID => 0x040C800007e574657374697400;
+msgEngineID => 0x800007e574657374697400;
 msgEngineBoots => 1;
 msgEngineTime => 1;
 msgUserName => initial;
-contextEngineID => 0x040C800007e574657374697400;
+contextEngineID => 0x800007e574657374697400;
 contextName => "default";
 pduData => GETNEXT; 
 varbind => 0x3000;
