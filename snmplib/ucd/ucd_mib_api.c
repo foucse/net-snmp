@@ -23,6 +23,7 @@
 
 #include <net-snmp/mib_api.h>
 #include <net-snmp/var_api.h>
+#include <ucd/ucd_convert.h>
 #include <smi.h>
 
 #ifndef SPRINT_MAX_LEN
@@ -137,7 +138,7 @@ void fprint_description (FILE *fp, oid *objid, int objidlen)
     SmiNode     *node;
     netsnmp_oid *o;
 
-    o = var_create_oid_ucd( objid, objidlen );
+    o = ucd_convert_oid( objid, objidlen );
     node = (SmiNode*)mib_find_by_oid( o );
 
     if (( node != NULL ) &&
@@ -145,6 +146,7 @@ void fprint_description (FILE *fp, oid *objid, int objidlen)
         (*node->description != '\0' )) {
 	fprintf( fp, "%s\n", node->description);
     }
+    var_free_oid( o );
 }
 void print_description (oid *objid, int objidlen)
 {
