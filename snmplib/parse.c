@@ -3921,7 +3921,7 @@ add_mibdir(const char *dirname)
     DIR *dir, *dir2;
     const char *oldFile = File;
     struct dirent *file;
-    char token[MAXTOKEN];
+    char token[MAXTOKEN], token2[MAXTOKEN];
     char tmpstr[300];
     int count = 0;
 #ifndef WIN32
@@ -3971,10 +3971,13 @@ add_mibdir(const char *dirname)
                     Line = 1;
                     File = tmpstr;
                     get_token( fp, token, MAXTOKEN);
-                    new_module(token, tmpstr);
-                    count++;
+		    /* simple test for this being a MIB */
+		    if (get_token(fp, token2, MAXTOKEN) == DEFINITIONS) {
+			new_module(token, tmpstr);
+			count++;
+			if (ip) fprintf(ip, "%s %s\n", token, file->d_name);
+		    }
                     fclose (fp);
-		    if (ip) fprintf(ip, "%s %s\n", token, file->d_name);
                 }
             }
         }
