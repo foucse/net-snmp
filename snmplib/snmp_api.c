@@ -915,7 +915,7 @@ snmpv3_build(session, pdu, packet, out_length)
     register u_char	*packet;
     int			*out_length;
 {
-  snmpv3_packet_build(pdu, packet, out_length);
+  snmpv3_packet_build(pdu, packet, out_length, NULL, 0);
   session->s_snmp_errno = snmp_errno;
 }
 
@@ -1000,9 +1000,9 @@ snmpv3_header_build(struct snmp_pdu *pdu, register u_char *packet,
 }
 
 u_char *
-snmpv3_scopedPDU_build(struct snmp_pdu *pdu, char *pdu_buf, int pdu_buf_len,
-                       u_char *sec_param_buf, int *sec_param_buf_len,
-                       register u_char *packet, int *out_length)
+snmpv3_scopedPDU_header_build(struct snmp_pdu *pdu, 
+                              register u_char *packet, int *out_length,
+                              register u_char **spdu_e)
   
 {
   u_char msg_buf[SNMP_MAX_MSG_SIZE];
@@ -1012,11 +1012,12 @@ snmpv3_scopedPDU_build(struct snmp_pdu *pdu, char *pdu_buf, int pdu_buf_len,
 
   init_length = *out_length;
 
-  pb = scopedPdu = spdu_buf;
+  pb = scopedPdu = packet;
   pb = asn_build_sequence(pb, out_length, 
                           (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
   if (pb == NULL) return NULL;
-  pb0e = pb;
+  if (spdu_e)
+    *spdu_e = pb;
 
   pb = asn_build_string(pb, out_length,
                         (u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
@@ -1028,40 +1029,14 @@ snmpv3_scopedPDU_build(struct snmp_pdu *pdu, char *pdu_buf, int pdu_buf_len,
                         pdu->contextName, pdu->contextNameLen);
   if (pb == NULL) return NULL;
 
-  /* copy in the pdu passed in */
-  memcpy(pb, pdu_buf, pdu_buf_len);
-  pb += pdu_buf_len;
-  *out_length -= pdu_buf_len;
-  
-  /* insert actual length */
-  if(asn_build_sequence(spdu_buf, out_length, 
-                        (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
-                        pb - pb0e) == NULL)
-    return NULL;
-
-  /* call the security module to possibly encrypt the data, and to
-     return to us the appropriate security parameters */
-  pdu_buf_len = pb - scopedPdu;
-  msg_buf_len = SNMP_MAX_MSG_SIZE;
-  generateRequestMsg(SNMP_VERSION_3, NULL, SNMP_MAX_MSG_SIZE, 
-                     SNMP_SEC_MODEL_USM, 
-                     pdu->contextEngineID, pdu->contextEngineIDLen,
-                     pdu->securityName, pdu->securityNameLen,
-                     pdu->securityLevel, spdu_buf, pdu_buf_len,
-                     sec_param_buf, sec_param_buf_len,
-                     msg_buf, &msg_buf_len);
-
-  memcpy(packet, msg_buf, msg_buf_len);
-  *out_length = init_length - msg_buf_len;
-  
-  return packet+msg_buf_len;
+  return pb;
 }
 
 int
 snmpv3_packet_build(struct snmp_pdu *pdu, register u_char *packet,
-                    int *out_length)
+                    int *out_length, u_char *pdu_data, int pdu_data_len)
 {
-    u_char *msg_hdr_e, *global_hdr, *global_hdr_e;
+    u_char *msg_hdr_e, *pdu_hdr_e, *global_hdr, *global_hdr_e;
     register u_char  *cp;
     struct variable_list *vp;
     int length;
@@ -1071,7 +1046,7 @@ snmpv3_packet_build(struct snmp_pdu *pdu, register u_char *packet,
     u_char spdu_buf[SNMP_MAX_MSG_SIZE];
     u_char msg_buf[SNMP_MAX_MSG_SIZE];
     u_char sec_param_buf[SNMP_SEC_PARAM_BUF_SIZE];
-    int pdu_buf_len, msg_buf_len, sec_param_buf_len;
+    int pdu_buf_len, spdu_buf_len, msg_buf_len, sec_param_buf_len;
     u_char *scopedPdu, *pb, *pb0e;
 
     snmp_errno = SNMPERR_BAD_ASN1_BUILD;
@@ -1079,34 +1054,71 @@ snmpv3_packet_build(struct snmp_pdu *pdu, register u_char *packet,
     /* save length */
     length = *out_length;
 
-    /* build the PDU structure into spdu_buf */
-    pdu_buf_len = SNMP_MAX_MSG_SIZE;
-    if ((pb = snmp_pdu_build(pdu, spdu_buf, &pdu_buf_len)) == NULL)
-      return -1;
-
-    /* build a scopedPDU structure into pdu_buf (possibly encrypted) */
-    sec_param_buf_len = SNMP_MAX_MSG_SIZE;
-    pdu_buf_len = pb - spdu_buf;
-    if ((pb = snmpv3_scopedPDU_build(pdu, spdu_buf, pdu_buf_len,
-                                   sec_param_buf, &sec_param_buf_len,
-                                   pdu_buf, out_length)) == NULL)
-      return -1;
-
-    /* the length of the data is the length of the security parameters
-       plus the length of the pdu data. */
-    pdu_buf_len = pb - pdu_buf;
     /* build the headers for the packet */
-    if ((cp = snmpv3_header_build(pdu, packet, out_length,
-                                  sec_param_buf_len + pdu_buf_len,
+    if ((cp = snmpv3_header_build(pdu, packet, out_length, 0,
                                   &msg_hdr_e)) == NULL)
       return -1;
 
-    memcpy(cp, sec_param_buf, sec_param_buf_len);
-    cp += sec_param_buf_len;
-    memcpy(cp, pdu_buf, pdu_buf_len);
-    cp += pdu_buf_len;
+    /* build a scopedPDU structure into spdu_buf */
+    sec_param_buf_len = SNMP_MAX_MSG_SIZE;
+    spdu_buf_len = SNMP_MAX_MSG_SIZE;
+    if ((pb = snmpv3_scopedPDU_header_build(pdu, spdu_buf, &spdu_buf_len,
+                                            &pdu_hdr_e))
+         == NULL)
+      return -1;
 
+    /* build the PDU structure onto the end of spdu_buf */
+    if (pdu_data) {
+      memcpy(pb, pdu_data, pdu_data_len);
+      pb += pdu_data_len;
+    } else
+      if ((pb = snmp_pdu_build(pdu, pb, &spdu_buf_len)) == NULL)
+        return -1;
+
+    /* the length of the scopedPdu generated minus the headers */
+    pdu_buf_len = pb - pdu_hdr_e;
+
+    /* re-encode the actual length of the scopedPdu */
+    spdu_buf_len = SNMP_MAX_MSG_SIZE;
+    if (asn_build_sequence(spdu_buf, &spdu_buf_len,
+                           (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
+                           pdu_buf_len) == NULL)
+      return -1;
+
+    /* the length of the data generated */
+    pdu_buf_len = pb - spdu_buf;
+
+    /* call the security module to possibly encrypt the data, and to
+     return to us the appropriate security parameters */
+    msg_buf_len = sec_param_buf_len = SNMP_MAX_MSG_SIZE;
+    generateRequestMsg(SNMP_VERSION_3, NULL, SNMP_MAX_MSG_SIZE, 
+                       SNMP_SEC_MODEL_USM, 
+                       pdu->contextEngineID, pdu->contextEngineIDLen,
+                       pdu->securityName, pdu->securityNameLen,
+                       pdu->securityLevel, spdu_buf, pdu_buf_len,
+                       sec_param_buf, &sec_param_buf_len,
+                       msg_buf, &msg_buf_len);
+
+    /* build the security parameters string onto the packet */
+    cp = asn_build_string(cp, out_length,
+                          (u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+                          sec_param_buf, sec_param_buf_len);
+
+    /* append the message to the end */
+    memcpy(cp, msg_buf, msg_buf_len);
+    cp += msg_buf_len;
+
+    pdu_buf_len = *out_length = cp - msg_hdr_e;
+
+    /* re-encode the actual length */
+    if (asn_build_sequence(packet, out_length,
+                           (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
+                           pdu_buf_len) == NULL)
+      return -1;
+
+    /* the length of everything, including the headers */
     *out_length = cp - packet;
+
     snmp_errno = 0;
     return 0;
 }
