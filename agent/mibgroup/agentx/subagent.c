@@ -306,6 +306,7 @@ handle_subagent_response(int op, struct snmp_session *session, int reqid,
 
     retsess = (struct snmp_session *) magic;
     
+    pdu = snmp_clone_pdu(pdu);
     DEBUGMSGTL(("agentx/subagent","handling agentx subagent response....\n"));
 
     if (pdu->command == SNMP_MSG_INTERNAL_SET_FREE ||
