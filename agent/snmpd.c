@@ -507,6 +507,10 @@ main(int argc, char *argv[])
 	    }
 	}  /* end-for */
 
+	/* honor selection of standard error output */
+	if (!stderr_log)
+		snmp_disable_stderrlog();
+
 	/* 
 	 * Initialize a argv set to the current for restarting the agent.
 	 */
@@ -628,10 +632,6 @@ main(int argc, char *argv[])
 	}
 #endif
 #endif
-
-	/* honor selection of standard error output */
-	if (!stderr_log)
-		snmp_disable_stderrlog();
 
 	/* we're up, log our version number */
 	snmp_log(LOG_INFO, "UCD-SNMP version %s\n", VersionInfo);
