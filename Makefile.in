@@ -6,8 +6,9 @@ TARG		=	bin/snmpget bin/snmpgetnext bin/snmpset 	\
 			bin/snmptranslate bin/snmpwalk bin/snmpbulkwalk \
 			bin/snmptest bin/snmptrapd bin/snmpnetstat bin/snmpd
 
-SUBDIRS		= snmplib agent apps local ov man testing
+SUBDIRS		= snmplib agent apps local ov man
 INSTALLDIRS	= snmplib agent apps local man mibs
+TESTDIRS	= testing
 
 CPP		= @CPP@ 						\
 			-I$(srcdir)/agent/mibgroup -I. -I$(srcdir)	\
@@ -17,12 +18,11 @@ CPP		= @CPP@ 						\
 
 all:	sedscript EXAMPLE.conf subdirs ucd-snmp-config.h
 
-
 sedscript: sedscript.in config.h agent/mibgroup/mibdefs.h
 	$(CPP) -DPREFIX=$(prefix) -DLIBDIR=$(libdir) -DDATADIR=$(datadir)    \
 		$(srcdir)/sedscript.in |				     \
-			sed 's/REMOVEME//g;s# */#/#g;s/ *#/#/g;s#/ *#/#g;' | \
-				egrep '^s[/#]' > sedscript
+		sed 's/REMOVEME//g;s# */#/#g;s/ *#/#/g;s#/ *#/#g;' |         \
+		egrep '^s[/#]' > sedscript
 
 
 ucd-snmp-config.h:
@@ -31,6 +31,14 @@ ucd-snmp-config.h:
 
 subdirs:
 	for i in $(SUBDIRS) ; do	\
+        ( cd $$i ; $(MAKE) ) ;		\
+	done
+
+
+test: all testdirs
+
+testdirs:
+	for i in $(TESTDIRS) ; do	\
         ( cd $$i ; $(MAKE) ) ;		\
 	done
 
@@ -72,7 +80,7 @@ makefileindepend:
 
 
 clean:
-	for i in $(SUBDIRS) ; do \
+	for i in $(SUBDIRS) $(TESTDIRS); do \
         ( cd $$i ; $(MAKE) clean ) ; \
 	done
 	rm -f EXAMPLE.conf sedscript ucd-snmp.txt
