@@ -308,7 +308,7 @@ setPassPersist(int action,
 	       oid *name,
 	       size_t name_len)
 {
-  int i, j, rtest, tmplen=1000, last;
+  int i, j, rtest, last;
   struct extensible *persistpassthru;
 
   static char buf[STRMAX], buf2[STRMAX];

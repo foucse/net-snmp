@@ -319,8 +319,6 @@ sc_hash(oid *hashtype, size_t hashtypelen, u_char *buf, size_t buf_len,
         u_char *MAC, size_t *MAC_len)
 #if defined(USE_INTERNAL_MD5) || defined(USE_OPENSSL)
 {
-  int   rval       = SNMPERR_SUCCESS;
-
 #ifdef USE_OPENSSL 
   EVP_MD *hash(void);
   HMAC_CTX *c = NULL; 
@@ -353,7 +351,7 @@ sc_hash(oid *hashtype, size_t hashtypelen, u_char *buf, size_t buf_len,
   EVP_DigestUpdate(&c->md_ctx, buf, buf_len);
   EVP_DigestFinal(&(c->md_ctx), MAC, MAC_len);
   free(c);
-  return (rval);
+  return (SNMPERR_SUCCESS);
 #else /* USE_INTERNAL_MD5 */
 
   if (MDchecksum(buf, buf_len, MAC, *MAC_len)) {

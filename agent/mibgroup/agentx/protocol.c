@@ -274,7 +274,6 @@ _agentx_build(struct snmp_session        *session,
 {
      u_char *bufp = packet;
      u_char *prefix_ptr, *range_ptr;
-     size_t length;
      struct variable_list *vp;
      int inc;
      
@@ -551,7 +550,7 @@ u_char *
 agentx_parse_oid( u_char *data, size_t *length, int *inc,
 		  oid *oid_buf, size_t *oid_len, u_int network_byte_order)
 {
-     u_int n_subid, subid;
+     u_int n_subid;
      u_int prefix;
      int i;
      oid *oid_ptr = oid_buf;
@@ -664,7 +663,6 @@ agentx_parse_varbind( u_char *data, size_t *length, int *type,
      u_char *bufp = data;
      u_int   int_val;
      struct counter64 *c64 = (struct counter64 *)data_buf;
-     size_t convert_tmp;
      
      DEBUGDUMPHEADER("dump_recv", "VarBind:\n");
      DEBUGDUMPHEADER("dump_recv", "Parsing Byte Order\n");
@@ -1193,7 +1191,7 @@ agentx_dump_short(u_char *data, u_int network_byte_order)
 u_char *
 agentx_dump_oid( u_char *data, size_t *length, u_int network_byte_order)
 {
-     u_int n_subid, subid;
+     u_int n_subid;
      u_int prefix;
      int i;
      u_char *buf_ptr = data;
@@ -1391,12 +1389,9 @@ int
 agentx_dump(struct snmp_session *session, struct snmp_pdu *pdu, u_char *data, size_t len)
 {
      register u_char *bufp = data;
-     u_char buffer[BUFSIZ];
      u_char *prefix_ptr;
 
      int    range_subid;
-     int    inc;	/* Inclusive SearchRange flag */
-     int    type;	/* VarBind data type */
      size_t *length = &len;
 
      if (!IS_AGENTX_VERSION( session->version ))
