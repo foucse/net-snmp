@@ -563,7 +563,8 @@ snmp_set_var_objid (struct variable_list *vp,
         vp->name = (oid *)malloc(len);
         if (!vp->name) return 1;
     }
-    memmove(vp->name, objid, len);
+    if (objid)
+        memmove(vp->name, objid, len);
     vp->name_length = name_length;
     return 0;
 }
