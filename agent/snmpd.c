@@ -970,7 +970,7 @@ void snmpd_parse_config_trapcommunity(char *token,
 				      char *cptr)
 {
     if (snmp_trapcommunity) free(snmp_trapcommunity);
-    snmp_trapcommunity = malloc (strlen(cptr));
+    snmp_trapcommunity = malloc (strlen(cptr)+1);
     copy_word(cptr, snmp_trapcommunity);
 }
 
