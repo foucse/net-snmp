@@ -149,6 +149,9 @@
 /* debugging stuff */
 #define DODEBUG 0
 
+/* testing code sections. */
+#undef SNMP_TESTING_CODE 
+
 /* If you don't have root access don't exit upon kmem errors */
 #undef NO_ROOT_ACCESS
 
