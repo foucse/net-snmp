@@ -39,12 +39,14 @@
 #define SNMP_STREAM_QUEUE_LEN  5
 #endif
 
+static snmp_transport_list *trlist = NULL;
+
+static int callback_count = 0;
+
 typedef struct callback_hack_s {
    void *orig_transport_data;
    struct snmp_pdu *pdu;
 } callback_hack;
-
-static int callback_count = 0;
 
 typedef struct callback_queue_s {
    int callback_num;
@@ -53,6 +55,16 @@ typedef struct callback_queue_s {
 } callback_queue;
 
 callback_queue *thequeue;
+
+static snmp_transport *
+find_transport_from_callback_num(int num) 
+{
+    static snmp_transport_list *ptr;
+    for(ptr = trlist; ptr; ptr = ptr->next)
+        if (((callback_info *) ptr->transport->data)->callback_num == num)
+            return ptr->transport;
+    return NULL;
+}
 
 void
 callback_push_queue(int num, callback_pass *item) 
@@ -113,7 +125,8 @@ char	       *snmp_callback_fmtaddr	(snmp_transport *t,
     if (!mystuff)
         return strdup("callback: unknown");
 
-    snprintf(buf, SPRINT_MAX_LEN, "callback: %d", mystuff->callback_num);
+    snprintf(buf, SPRINT_MAX_LEN, "callback: %d on fd %d",
+             mystuff->callback_num, mystuff->pipefds[0]);
     return strdup(buf);
 }
 
@@ -132,14 +145,13 @@ int		snmp_callback_recv	(snmp_transport *t, void *buf, int size,
 
     DEBUGMSGTL(("transport_callback","hook_recv enter\n"));
 
-    t->data = mystuff->parent_data;
-
-    rc = snmp_unix_recv(t, newbuf, 1, opaque, olength);
-    t->data = mystuff;
+    rc = read(mystuff->pipefds[0], newbuf, 1);
 
     if (mystuff->linkedto) {
-        /* we're the client */
+        /* we're the client.  We don't need to do anything. */
     } else {
+        /* malloc the space here, but it's filled in by
+           snmp_callback_created_pdu() below */
         int *returnnum = (int *) calloc(1,sizeof(int));
         *opaque = returnnum;
         *olength = sizeof(int);
@@ -154,32 +166,47 @@ int		snmp_callback_send	(snmp_transport *t, void *buf, int size,
                                          void **opaque, int *olength)
 {
     int rc;
+    int from;
     callback_info *mystuff = (callback_info *) t->data;
     callback_pass *cp;
   
     /* extract the pdu from the hacked buffer */
+    snmp_transport *other_side;
     callback_hack *ch = (callback_hack *) *opaque;
     struct snmp_pdu *pdu = ch->pdu;
     *opaque = ch->orig_transport_data;
 
     DEBUGMSGTL(("transport_callback","hook_send enter\n"));
 
-    /* send it through the requested transport (XXX: only unix) */
-    t->data = mystuff->parent_data;
-    rc = snmp_unix_send(t, " ", 1, opaque, olength);
-    t->data = mystuff;
-
-    /* push the sent pdu onto the stack */
     cp  = SNMP_MALLOC_TYPEDEF(callback_pass);
+    if (!cp)
+        return -1;
+    
     cp->pdu = snmp_clone_pdu(pdu);
+
     if (cp->pdu->flags & UCD_MSG_FLAG_EXPECT_RESPONSE)
         cp->pdu->flags ^= UCD_MSG_FLAG_EXPECT_RESPONSE;
+
+    /* push the sent pdu onto the stack */
+    /* AND send a bogus byte to the remote callback receiver's pipe */
     if (mystuff->linkedto) {
+        /* we're the client, send it to the parent */
         cp->return_transport_num = mystuff->callback_num;
+
+        other_side = find_transport_from_callback_num(mystuff->linkedto);
+        if (!other_side)
+            return -1;
+
+        write(((callback_info *) other_side->data)->pipefds[1]," ",1);
         callback_push_queue(mystuff->linkedto, cp);
     } else {
-        callback_push_queue(**((int **) opaque), cp);
-        /* we're the server */
+        /* we're the server, send it to the person that sent us the request */
+        from = **((int **) opaque);
+        other_side = find_transport_from_callback_num(from);
+        if (!other_side)
+            return -1;
+        write(((callback_info *) other_side->data)->pipefds[1]," ",1);
+        callback_push_queue(from, cp);
     }
 
     DEBUGMSGTL(("transport_callback","hook_send exit\n"));
@@ -193,11 +220,11 @@ int		snmp_callback_close	(snmp_transport *t)
     int rc;
     callback_info *mystuff = (callback_info *) t->data;
     DEBUGMSGTL(("transport_callback","hook_close enter\n"));
-    t->data = mystuff->parent_data;
 
-    rc = snmp_unix_close(t);
+    rc = close(mystuff->pipefds[0]);
+    rc = close(mystuff->pipefds[1]);
 
-    t->data = mystuff;
+    snmp_transport_remove_from_list(&trlist, t);
 
     DEBUGMSGTL(("transport_callback","hook_close exit\n"));
     return rc;
@@ -207,17 +234,9 @@ int		snmp_callback_close	(snmp_transport *t)
 
 int		snmp_callback_accept	(snmp_transport *t)
 {
-    int rc;
-    callback_info *mystuff = (callback_info *) t->data;
     DEBUGMSGTL(("transport_callback","hook_accept enter\n"));
-    t->data = mystuff->parent_data;
-
-    rc = snmp_unix_accept(t);
-
-    t->data = mystuff;
-
     DEBUGMSGTL(("transport_callback","hook_accept exit\n"));
-    return rc;
+    return 0;
 }
 
 
@@ -232,29 +251,37 @@ snmp_transport		*snmp_callback_transport   (int to)
 {
     
     snmp_transport *t = NULL;
-    struct sockaddr_un addr;
     callback_info *mydata;
-
-    addr.sun_family = AF_UNIX;
-    sprintf(addr.sun_path, "%s/callback", "/tmp");
-  
-    t = snmp_unix_transport(&addr, ((to)?0:1));
-    if (NULL == t)
-        return t;
-
+    int rc;
+    
+    /* transport */
+    t = SNMP_MALLOC_TYPEDEF(snmp_transport);
+    if (!t)
+        return NULL;
+    
     /* our stuff */
     mydata = SNMP_MALLOC_TYPEDEF(callback_info);
-    mydata->parent_data = t->data;
     mydata->linkedto = to;
     mydata->callback_num = ++callback_count;
     mydata->data = NULL;
     t->data = mydata;
 
+    rc = pipe(mydata->pipefds);
+    t->sock = mydata->pipefds[0];
+    
+    if (rc) {
+        free(mydata);
+        free(t);
+        return NULL;
+    }
+    
     t->f_recv      = snmp_callback_recv;
     t->f_send      = snmp_callback_send;
     t->f_close     = snmp_callback_close;
     t->f_accept    = snmp_callback_accept;
     t->f_fmtaddr   = snmp_callback_fmtaddr;
+
+    snmp_transport_add_to_list(&trlist, t);
 
     if (to)
         DEBUGMSGTL(("transport_callback","initialized %d linked to %d\n",
@@ -291,7 +318,7 @@ snmp_callback_hook_build(struct snmp_session *sp,
     DEBUGMSGTL(("transport_callback","hook_build enter\n"));
     ch->pdu = pdu;
     ch->orig_transport_data = pdu->transport_data;
-    pdu->transport_data = ch;
+    pdu->transport_data = ch;;
     *len = 1;
     DEBUGMSGTL(("transport_callback","hook_build exit\n"));
     return 1;
@@ -340,7 +367,6 @@ snmp_callback_open(int attach_to,
     callback_sess.callback = return_func;
     if (attach_to) {
         /* client */
-        callback_sess.flags  |= SNMP_FLAGS_STREAM_SOCKET;
         /* trysess.community = (u_char *) callback_ss; */
     } else {
         callback_sess.isAuthoritative = SNMP_SESS_AUTHORITATIVE;

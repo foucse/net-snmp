@@ -21,6 +21,7 @@ typedef struct callback_info_s {
    void *parent_data;
    callback_pass *data;
    int callback_num;
+   int pipefds[2];
 } callback_info;
 
 snmp_transport		*snmp_callback_transport (int);
