@@ -915,11 +915,15 @@ compare_tree(name1, len1, name2, len2)
 }
 
 
+#ifdef hpux
+char version_descr[128] = "HP-UX";
+#else
+char version_descr[128] = "Unknown";
+#endif
 
-char version_descr[128] = "HP-UX A.09.05";
-char sysContact[128] = "support@ece.ucdavis.edu";
+char sysContact[128] = "Unknown";
 char sysName[128] = "Unknown";
-char sysLocation[128] = "UCDavis Electrical Engineering Department";
+char sysLocation[128] = "Unknown";
 
 #ifdef hpux
 oid version_id[] = {1, 3, 6, 1, 4, 1, 11, 2, 3, 2, 5};
