@@ -311,6 +311,7 @@ asn_predict_length (int type, u_char *ptr, int u_char_len)
 	[11] = theTotalLength - the length of the header itself
 	[12] = theTotalLength
 */
+
 int
 usm_calc_offsets (
 	int globalDataLen,
@@ -615,6 +616,10 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	{
 		if (get_enginetime (theEngineID, theEngineIDLength, 
 							&boots_uint, &time_uint) == -1)
+
+		/* RFC 2274, section 3.1, step 6a is unclear here */
+
+#ifdef USM_ASSUME_ERROR
 		{
 			DEBUGP ("usm_generate_out_msg():%s,%d: %s\n",
 				__FILE__,__LINE__, "Failed to find engine data");
@@ -624,6 +629,15 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 
 			return USM_ERR_GENERIC_ERROR;
 		}
+#else
+		{
+			DEBUGP ("usm_generate_out_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Warning: Failed to find engine data");
+
+			boots_uint = 0;
+			time_uint = 0;
+		}
+#endif
 	}
 	else
 	{
