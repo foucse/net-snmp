@@ -35,8 +35,8 @@
 #include <errno.h>
 #include <time.h>
 
-#include <sys/sockio.h>
 #include <sys/socket.h>
+#include <sys/sockio.h>
 #include <sys/stream.h>
 #include <sys/stropts.h>
 #include <sys/tihdr.h>
