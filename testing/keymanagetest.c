@@ -40,7 +40,7 @@ extern int	optreset;
 char *local_progname;
 
 #define USAGE	"Usage: %s [-h][-aklu][-E <engineID>][-N <newkey>][-O <oldkey>][-P <passphrase>]"
-#define OPTIONLIST	"aE:hklN:O:P:u"
+#define OPTIONLIST	"aqE:hklN:O:P:u"
 
 int	doalltests	= 0,
 	dogenKu		= 0,
@@ -53,17 +53,18 @@ int	doalltests	= 0,
 #define LOCAL_MAXBUF	(1024 * 8)
 #define NL		"\n"
 
-#define OUTPUT(o)	fprintf(stdout, "\n\n%s\n\n", o);
+#define OUTPUTALWAYS(o)	fprintf(stdout, "\n\n%s\n\n", o);
+#define OUTPUT(o)	if (!bequiet) { OUTPUTALWAYS(o); }
 
 #define SUCCESS(s)					\
 {							\
-	if (!failcount)					\
+	if (!failcount && !bequiet)					\
 		fprintf(stdout, "\nSUCCESS: %s\n", s);	\
 }
 
 #define FAILED(e, f)					\
 {							\
-	if (e != SNMPERR_SUCCESS) {			\
+	if (e != SNMPERR_SUCCESS && !bequiet) {			\
 		fprintf(stdout, "\nFAILED: %s\n", f);	\
 		failcount += 1;				\
 	}						\
@@ -84,8 +85,7 @@ char	*engineID	= NULL;
 char	*passphrase	= NULL;
 char	*oldkey 	= NULL;
 char	*newkey		= NULL;
-
-
+int      bequiet        = 1;
 
 
 /*
@@ -126,6 +126,7 @@ EM(-1);	/* */
 		case 'O':	oldkey = optarg;	break;
 		case 'P':	passphrase = optarg;	break;
 		case 'u':	dogenKu = 1;		break;
+		case 'q':	bequiet = 1;		break;
 		case 'h':
 			rval = 0;
 		default:
@@ -202,6 +203,7 @@ usage(FILE *ofp)
 	"    -O [0x]<oldkey>	Old key (for testing KeyChange TC)."	NL
 	"    -P <passphrase>	Source string for usmUser master key."	NL
 	"    -u			generate_Ku()."				NL
+	"    -q			be quiet."				NL
 	""								NL
 		, local_progname);
 
@@ -269,9 +271,10 @@ EM(-1); /* */
 	if (!passphrase) {
 		passphrase = PASSPHRASE_DEFAULT;
 	}
-	fprintf(stdout, "Passphrase%s:\n\t%s\n\n",
-		(passphrase == PASSPHRASE_DEFAULT) ? " (default)" : "",
-		passphrase);
+        if (!bequiet)
+          fprintf(stdout, "Passphrase%s:\n\t%s\n\n",
+                  (passphrase == PASSPHRASE_DEFAULT) ? " (default)" : "",
+                  passphrase);
 
 		
 test_genKu_again:
@@ -288,11 +291,13 @@ test_genKu_again:
 	}
 
 	binary_to_hex(Ku, kulen, &s);
-	fprintf(stdout, "Ku (len=%d):  %s\n", kulen, s);
+        if (!bequiet)
+          fprintf(stdout, "Ku (len=%d):  %s\n", kulen, s);
 	free_zero(s, kulen);
 
 	SUCCESS(hashname);
-	fprintf(stdout, "\n");
+        if (!bequiet)
+          fprintf(stdout, "\n");
 
 	if (hashtype == usmHMACMD5AuthProtocol) {
 		hashtype	=  usmHMACSHA1AuthProtocol;
@@ -362,9 +367,10 @@ EM(-1); /* */
 	if (!passphrase) {
 		passphrase = PASSPHRASE_DEFAULT;
 	}
-	fprintf(stdout, "Passphrase%s:\n\t%s\n\n",
-		(passphrase == PASSPHRASE_DEFAULT) ? " (default)" : "",
-		passphrase);
+        if (!bequiet)
+          fprintf(stdout, "Passphrase%s:\n\t%s\n\n",
+                  (passphrase == PASSPHRASE_DEFAULT) ? " (default)" : "",
+                  passphrase);
 
 	if (!engineID) {
 		engineID  = ENGINEID_DEFAULT;
@@ -383,9 +389,10 @@ EM(-1); /* */
 		binary_to_hex(engineID, engineID_len, &s);
 	}
 
-	fprintf(stdout, "engineID%s (len=%d):  %s\n\n",
-		(isdefault) ? " (default)" : "",
-		engineID_len, (s) ? s : engineID);
+        if (!bequiet)
+          fprintf(stdout, "engineID%s (len=%d):  %s\n\n",
+                  (isdefault) ? " (default)" : "",
+                  engineID_len, (s) ? s : engineID);
 	if (s) {
 		SNMP_FREE(s);
 	}
@@ -410,8 +417,9 @@ test_genkul_again_master:
 	FAILED(rval, "generate_Ku().");
 
 	binary_to_hex(Ku, kulen, &s);
-	fprintf(stdout,
-		"\n\nMaster Ku using \"%s\":\n\t%s\n\n", hashname_Ku, s);
+        if (!bequiet)
+          fprintf(stdout,
+                  "\n\nMaster Ku using \"%s\":\n\t%s\n\n", hashname_Ku, s);
 	free_zero(s, kulen);
 
 
@@ -442,7 +450,9 @@ test_genkul_again_local:
 		}
 
 		binary_to_hex(kul, kul_len, &s);
-		fprintf(stdout, "kul (len=%d):  %s\n", kul_len, s);
+		fprintf(stdout, "kul (%s) (len=%d):  %s\n",
+                        ((hashtype_Ku  == usmHMACMD5AuthProtocol)?"MD5":"SHA"),
+                        kul_len, s);
 		free_zero(s, kul_len);
 	}
 
