@@ -90,6 +90,7 @@ process();
 $fh->close;
 
 foreach $i (keys(%written)) {
+    next if ($i eq "-");
     print STDERR "running indent on $i\n";
     system("indent -orig -nbc -bap -nut $i");
 }
@@ -142,6 +143,48 @@ sub process_vars {
     return $it;
 }
 
+# process various types of statements
+#
+# which include:
+#   @open FILE@
+#     writes generated output to FILE
+#   @foreach $VAR table@
+#     repeat iterate over code until @end@ setting $VAR to all known tables
+#   @foreach $VAR column@
+#     repeat iterate over code until @end@ setting $VAR to all known
+#     columns within a given table.  Obviously this must be called
+#     within a foreach-table clause.
+#   @foreach $VAR index@
+#     repeat iterate over code until @end@ setting $VAR to all known
+#     indexes within a given table.  Obviously this must be called
+#     within a foreach-table clause.
+#   @eval $VAR = expression@
+#     evaluates expression and assigns the results to $VAR
+#   @perleval STUFF@
+#     evaluates STUFF directly in perl.  Note that all mib2c variables
+#     interpereted within .conf files are in $vars{NAME}.
+#   @skip@
+#     skips everything till the appropriately matched @end@
+#   @if expression@
+#      evaluates expression, and if expression is true processes
+#      contained part until appropriate @end@ is reached.
+sub skippart {
+    my $endcount = 1;
+    while(<$fh>) {
+	if (/\@end\@/) {
+	    return if ($endcount == 1);
+	    $endcount--;
+	}
+	if (/\@else\@/) {
+	    return if ($endcount == 1);
+	}
+	if (/\@(foreach|if)/) {
+	    $endcount++;
+	}
+    }
+}
+
+
 sub process {
     while(<$fh>) {
 	if (/\@open\s+([^\@]+)\@/) {
@@ -153,7 +196,21 @@ sub process {
 	    $written{$spec} = '1';
 	} elsif (/\@end\@/) {
 	    return;
-	} elsif (/\@\s*foreach\s+\$([^\@]+)\s+table\s*\@/) {
+	} elsif (/\@if\s+([^@]*)\@/) {
+	    if (eval(process_vars($1))) {
+		process();
+	    } else {
+		skippart();
+	    }
+	} elsif (/\@eval\s+\$(\w+)\s*=\s*([^\@]*)/) {
+	    my ($v, $e) = ($1, $2);
+	    my $e = process_vars($e);
+	    $vars{$v} = eval($e);
+	} elsif (/\@perleval\s*(.*)\@/) {
+	    eval($1);
+	} elsif (/\@skip\@/) {
+	    skippart();
+	} elsif (/\@\s*foreach\s+\$([^\@]+)\s+tables*\s*\@/) {
 	    my $var = $1;
 	    my $startpos = tell(C);
 	    my $table;
@@ -172,7 +229,6 @@ sub process {
 	    my $startpos = $fh->tell();
 	    my $column, @columns;
 	    @columns = sort { $a <=> $b } keys %{$tables{$currenttable}{$type}};
-#	    print "looping in table $currenttable $var = $type, #=", $#columns, ": ",$tables{$currenttable}{$type . "s"},"\n";
 	    foreach $column (@columns) {
 #		print "looping on $var for $type -> $column\n";
 		$fh->seek($startpos, 0); # go to top of section.
@@ -184,7 +240,6 @@ sub process {
 		$vars{$var} = $oldvar;
 		$currentcolumn = $oldcolumn;
 	    }
-#	    print "done looping $var = $type\n";
 	} else {
 	    die "no output file specified" if (!$out);
 	    print $out process_vars($_);
