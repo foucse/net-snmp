@@ -237,15 +237,14 @@ sub process {
 	} elsif (/\@\s*foreach\s+\$([^\@]+)\s+(column|index)\s*\@/) {
 	    my ($var, $type) = ($1, $2);
 	    my $startpos = $fh->tell();
-	    my $column, @columns;
-	    @columns = sort { $a <=> $b } keys %{$tables{$currenttable}{$type}};
-	    foreach $column (@columns) {
+	    my $column;
+	    foreach $column (@{$tables{$currenttable}{$type}}) {
 #		print "looping on $var for $type -> $column\n";
 		$fh->seek($startpos, 0); # go to top of section.
 		my $oldvar = $vars{$var};
-		$vars{$var} = $tables{$currenttable}{$type}{$column};
+		$vars{$var} = $column;
 		my $oldcolumn = $currentcolumn;
-		$currentcolumn = $tables{$currenttable}{$type}{$column};
+		$currentcolumn = $column;
 		process();
 		$vars{$var} = $oldvar;
 		$currentcolumn = $oldcolumn;
@@ -263,14 +262,14 @@ sub setup_data {
 	my $tablename = $mib->{label};
 	my $entry = $mib->{children};
 	my $columns = $entry->[0]{children};
-	foreach my $col (@$columns) {
+	foreach my $col (sort { $a->{'subID'} <=> $b->{'subID'} } @$columns) {
 	    # store by numeric key so we can sort them later
-	    $tables{$tablename}{'column'}{$col->{subID}} = $col->{'label'};
+	    push @{$tables{$tablename}{'column'}}, $col->{'label'};
 	}
 	foreach my $index (@{$entry->[0]{'indexes'}}) {
 	    my $node = $SNMP::MIB{$index} || 
 		die "can't find info about index $index in table $tablename\n";
-	    $tables{$tablename}{'index'}{$node->{subID}} = $index;
+	    push @{$tables{$tablename}{'index'}}, $index;
 	}
     } else {
 	my $children = $mib->{children};
