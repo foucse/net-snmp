@@ -60,3 +60,11 @@
 + hardaker/Sep 23
     general question:  notReady can never be set as a RowStatus, but
     what error is the proper error to return if someone tries?
+
+- hardaker/Sep 27
+    currently the persistent cache assumes name and secName don't have 
+    NULLs in them.
+
++ hardaker/Sep 27
+    usmUser parsing will fill the structure if parsed twice.  The free 
+    routine in the config_handler needs to be created.
