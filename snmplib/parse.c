@@ -1388,11 +1388,11 @@ static void do_linkup(struct module *mp,
 	    while (onp) {
 		if (ds_get_int(DS_LIBRARY_ID, DS_LIB_MIB_WARNINGS))
 		    snmp_log(LOG_WARNING,
-                             "Unlinked OID in %s: %s ::= { %s %ld }\n",
-                             (mp->name ? mp->name : "<no module>"),
-                             (onp->label ? onp->label : "<no label>"),
-                             (onp->parent ? onp->parent : "<no parent>"),
-                             onp->subid);
+			     "Unlinked OID in %s: %s ::= { %s %ld }\n",
+			     (mp->name ? mp->name : "<no module>"),
+			     (onp->label ? onp->label : "<no label>"),
+			     (onp->parent ? onp->parent : "<no parent>"),
+			     onp->subid);
 		np = onp;
 		onp = onp->next;
 	    }
@@ -2468,10 +2468,12 @@ static struct node *
 parse_capabilities(FILE *fp,
 		   char *name)
 {
-    register int type;
+    int type;
     char token[MAXTOKEN];
     char quoted_string_buffer[MAXQUOTESTR];
-    register struct node *np;
+    struct node *np;
+    int modid;
+    struct tree *tp;
     
     np = alloc_node(current_module);
     if (np == NULL) return(NULL);
@@ -2505,9 +2507,8 @@ parse_capabilities(FILE *fp,
 	print_error("Bad DESCRIPTION", token, type);
 	goto skip;
     }
-    if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_SAVE_MIB_DESCRS)) {
+    if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_SAVE_MIB_DESCRS))
 	np->description = strdup (token);
-    }
     type = get_token(fp, token, MAXTOKEN);
     if (type == REFERENCE) {
 	type = get_token(fp, token, MAXTOKEN);
@@ -2523,6 +2524,12 @@ parse_capabilities(FILE *fp,
 	    print_error("Bad module name", token, type);
 	    goto skip;
 	}
+	modid = read_module_internal(token);
+	if (modid != MODULE_LOADED_OK && modid != MODULE_ALREADY_LOADED) {
+	    print_error("Module not found", token, type);
+	    goto skip;
+	}
+	modid = which_module(token);
 	type = get_token(fp, token, MAXTOKEN);
 	if (type != INCLUDES) {
 	    print_error("Expected INCLUDES", token, type);
@@ -2536,9 +2543,11 @@ parse_capabilities(FILE *fp,
 	do {
 	    type = get_token(fp, token, MAXTOKEN);
 	    if (type != LABEL) {
-		print_error("Bad group name", token, type);
+		print_error("Expected group name", token, type);
 		goto skip;
 	    }
+	    tp = find_tree_node(token, modid);
+	    if (!tp) print_error("Group not found in module", token, type);
 	    type = get_token(fp, token, MAXTOKEN);
 	} while (type == COMMA);
 	if (type != RIGHTBRACKET) {
@@ -2552,6 +2561,8 @@ parse_capabilities(FILE *fp,
 		print_error("Bad object name", token, type);
 		goto skip;
 	    }
+	    tp = find_tree_node(token, modid);
+	    if (!tp) print_error("Object not found in module", token, type);
 	    type = get_token(fp, token, MAXTOKEN);
 	    if (type == SYNTAX) {
 		type = eat_syntax(fp, token, MAXTOKEN);
