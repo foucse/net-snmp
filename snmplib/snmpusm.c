@@ -54,8 +54,17 @@ generateRequestMsg (msgProcModel, globalData, maxMsgSize, secModel,
                                      /* NOTE: memory provided by caller */
      int *msgLen;                    /* IN/OUT - len available, len returned */
 {
-  if (secParamsLen) *secParamsLen = 0;
-  if (msgLen) *msgLen = 0;
+  u_char *cp;
+  if (secParams && secParamsLen) {
+    cp = asn_build_string(secParams, secParamsLen,
+                          (u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+                          "", 0);
+    *secParamsLen = cp - secParams;
+  }
+  if (msgLen && msg && scopedPdu) {
+    *msgLen = scopedPduLen;
+    memcpy(msg, scopedPdu, scopedPduLen);
+  }
   return 0;
 }
 
