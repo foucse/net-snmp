@@ -56,6 +56,7 @@ SOFTWARE.
 #include "context.h"
 #include "mib.h"
 #include "snmp_vars.h"
+#include "snmp_client.h"
 #if USING_MIBII_SNMP_MIB_MODULE
 #include "mibgroup/mibII/snmp_mib.h"
 #endif
@@ -99,7 +100,7 @@ static void dump_var (var_name, var_name_len, statType, statP, statLen)
 
 int
 snmp_agent_parse(data, length, out_data, out_length, sourceip)
-    register u_char	*data;
+    u_char	*data;
     int			length;
     register u_char	*out_data;
     int			*out_length;
@@ -111,31 +112,46 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     long	    reqid, errstat, errindex, dummyindex;
     register u_char *out_auth, *out_header = NULL, *out_reqid;
     u_char	    *startData = data;
+    u_char          *after_sequence;
     int		    startLength = length;
     int		    packet_len, len;
     struct partyEntry *tmp;
+    struct snmp_pdu *pdu;
+    u_char          v3data[SNMP_MAX_LEN];
+    long            version;
     
     len = length;
-    (void)asn_parse_header(data, &len, &type);
+    v3data = asn_parse_header(data, &len, &type);
 
     pi->source.sin_addr.s_addr = sourceip;
     if (type == (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
-        /* authenticates message and returns length if valid */
-	pi->community_len = COMMUNITY_MAX_LEN;
-        data = snmp_comstr_parse(data, &length,
-			       pi->community, &pi->community_len,
-                               &pi->version);
-	switch (pi->version) {
-	case SNMP_VERSION_1:
-	    pi->mp_model = SNMP_MP_MODEL_SNMPv1;
-	    pi->sec_model = SNMP_SEC_MODEL_SNMPv1;
-	    break;
-	case SNMP_VERSION_2c:
-	    pi->mp_model = SNMP_MP_MODEL_SNMPv2c;
-	    pi->sec_model = SNMP_SEC_MODEL_SNMPv2c;
-	    break;
-	}
-	pi->sec_level = SNMP_SEC_LEVEL_NOAUTH;
+        asn_parse_int(v3data, &len, &type, &version, sizeof(version));
+        if (version == SNMP_VERSION_3) {
+          pdu = snmp_pdu_create(SNMP_MSG_GETNEXT);
+          snmpv3_parse(pdu, data, &length, &data);
+          pi->version = pdu->version;
+          pi->sec_level = pdu->securityLevel;
+          pi->sec_model = pdu->securityModel;
+          pi->securityName = pdu->securityName;
+          pi->packet_end = data + length;
+        } else {
+          /* authenticates message and returns length if valid */
+          pi->community_len = COMMUNITY_MAX_LEN;
+          data = snmp_comstr_parse(data, &length,
+                                        pi->community, &pi->community_len,
+                                        &pi->version);
+          switch (pi->version) {
+            case SNMP_VERSION_1:
+              pi->mp_model = SNMP_MP_MODEL_SNMPv1;
+              pi->sec_model = SNMP_SEC_MODEL_SNMPv1;
+              break;
+            case SNMP_VERSION_2c:
+              pi->mp_model = SNMP_MP_MODEL_SNMPv2c;
+              pi->sec_model = SNMP_SEC_MODEL_SNMPv2c;
+              break;
+          }
+          pi->sec_level = SNMP_SEC_LEVEL_NOAUTH;
+        }
     } else if (type == (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)){
         pi->srcPartyLength = sizeof(pi->srcParty)/sizeof(oid);
         pi->dstPartyLength = sizeof(pi->dstParty)/sizeof(oid);
@@ -249,6 +265,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 					pi->srcParty, pi->srcPartyLength,
 					pi->context, pi->contextLength,
 					&packet_len, FIRST_PASS);
+    } else if (version == SNMP_VERSION_3) {
+      out_header = v3data;
     }
     if (out_header == NULL){
 	ERROR_MSG("snmp_auth_build failed");
@@ -318,6 +336,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	fprintf (stdout, "\n");
     }
 
+    /* here we begin building the pdu structure for the outgoing packet */
     /* create the requid, errstatus, errindex for the output packet */
     out_reqid = asn_build_sequence(out_header, out_length,
 				 (u_char)SNMP_MSG_RESPONSE, 0);
@@ -392,6 +411,55 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     }
     switch((short)errstat){
 	case SNMP_ERR_NOERROR:
+          if (pi->version == SNMP_VERSION_3) {
+            /* the pdu data has been stored into the v3data array,
+               create the outgoing message */
+            u_char pdu_buf[SNMP_MAX_MSG_SIZE];
+            u_char sec_param_buf[SNMP_SEC_PARAM_BUF_SIZE];
+            int sec_param_buf_len = SNMP_MAX_MSG_SIZE;
+            int pdu_buf_len = out_data - v3data;
+            u_char *cp;
+
+            pdu_buf_len = *out_length = pi->packet_end - out_header;
+	    out_data = asn_build_sequence(out_header, out_length,
+                                          SNMP_MSG_RESPONSE,
+                                          pi->packet_end - out_reqid);
+	    if (out_data != out_reqid){
+              ERROR_MSG("internal error: header");
+              return 0;
+	    }
+
+            pdu_buf_len = pi->packet_end - out_header;
+            *out_length = SNMP_MAX_MSG_SIZE;
+            if ((cp = snmpv3_scopedPDU_build(pdu, v3data, pdu_buf_len,
+                                             sec_param_buf, &sec_param_buf_len,
+                                             pdu_buf, out_length)) == NULL) {
+              ERROR_MSG("internal error: scopedPDU_build");
+              return 0;
+            }
+
+            /* the length of the data is the length of the security parameters
+               plus the length of the pdu data. */
+            pdu_buf_len = sec_param_buf_len + cp - pdu_buf;
+            *out_length = SNMP_MAX_MSG_SIZE;
+
+            /* build the headers for the packet */
+            if ((cp = snmpv3_header_build(pdu, out_auth, out_length,
+                                          pdu_buf_len, NULL)) == NULL) {
+              ERROR_MSG("internal error: snmpv3_header_build");
+              return 0;
+            }
+              
+            /* append the security_parameters and the scopedPdu data */
+            memcpy(cp, sec_param_buf, sec_param_buf_len);
+            cp += sec_param_buf_len;
+            memcpy(cp, pdu_buf, pdu_buf_len);
+            cp += pdu_buf_len;
+
+            *out_length = cp - out_auth;
+            pi->packet_end = cp;
+            snmp_free_pdu(pdu);
+          } else {
 	    /* re-encode the headers with the real lengths */
 	    *out_length = pi->packet_end - out_header;
 	    out_data = asn_build_sequence(out_header, out_length, SNMP_MSG_RESPONSE,
@@ -423,7 +491,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	    /* packet_end is correct for old SNMP.  This dichotomy needs
 	       to be fixed. */
 	    if (pi->version == SNMP_VERSION_2p)
-		pi->packet_end = out_auth + packet_len;
+              pi->packet_end = out_auth + packet_len;
+          }
 #ifdef USING_MIBII_SNMP_MIB_MODULE       
 	    snmp_intotalreqvars += snmp_vars_inc;
 	    snmp_outgetresponses++;
@@ -913,22 +982,29 @@ create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi)
     register u_char *data;
     u_char	    type;
     long	    dummy;
+    long            version;
     int		    length, messagelen, headerLength;
     register u_char *headerPtr, *reqidPtr, *errstatPtr,
     *errindexPtr, *varListPtr;
     int		    packet_len;
     struct partyEntry *tmp;
+    struct snmp_pdu pdu;
 
     length = snmp_length;
-    (void)asn_parse_header(snmp_in, &length, &type);
+    data = asn_parse_header(snmp_in, &length, &type);
 
     length = snmp_length;
     if (type == (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
-        /* authenticates message and returns length if valid */
-	pi->community_len = COMMUNITY_MAX_LEN;
-        headerPtr = snmp_comstr_parse(snmp_in, &length,
-				    pi->community, &pi->community_len,
-				    &pi->version);
+        asn_parse_int(data, &length, &type, &version, sizeof(version));
+        if (version == SNMP_VERSION_3) {
+          snmpv3_parse(&pdu, snmp_in, &snmp_length, NULL);
+        } else {
+          /* authenticates message and returns length if valid */
+          pi->community_len = COMMUNITY_MAX_LEN;
+          headerPtr = snmp_comstr_parse(snmp_in, &length,
+                                        pi->community, &pi->community_len,
+                                        &pi->version);
+        }
     } else if (type == (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)){
         pi->srcPartyLength = sizeof(pi->srcParty)/sizeof(oid);
         pi->dstPartyLength = sizeof(pi->dstParty)/sizeof(oid);
