@@ -163,7 +163,7 @@ old_api_helper(mib_handler               *handler,
                         if (snmp_oid_compare(requests->requestvb->name,
                                              requests->requestvb->name_length,
                                              save, savelen) != 0) {
-                            snmp_log(LOG_WARNING, "evil_client: ",
+                            snmp_log(LOG_WARNING, "evil_client: %s\n",
                                      reginfo->handlerName);
                             memcpy(requests->requestvb->name, save,
                                    savelen*sizeof(oid));
