@@ -91,6 +91,7 @@ SOFTWARE.
 #include "read_config.h"
 #include "snmpusm.h"
 #include "tools.h"
+#include "keytools.h"
 
 #define PACKET_LENGTH	8000
 
@@ -614,6 +615,18 @@ snmp_sess_open(in_session)
       session->securityNameLen = strlen(cp);
     }
 
+    if (in_session->securityAuthKeyLen > 0) {
+      session->securityAuthKeyLen = in_session->securityAuthKeyLen;
+      memcpy(session->securityAuthKey, in_session->securityAuthKey,
+             session->securityAuthKeyLen);
+    }
+
+    if (in_session->securityPrivKeyLen > 0) {
+      session->securityPrivKeyLen = in_session->securityPrivKeyLen;
+      memcpy(session->securityPrivKey, in_session->securityPrivKey,
+             session->securityPrivKeyLen);
+    }
+
     if (session->srcPartyLen > 0){
 	op = (oid *)malloc((unsigned)session->srcPartyLen * sizeof(oid));
 	if (op == NULL) {
@@ -794,6 +807,7 @@ create_user_from_session(struct snmp_session *session) {
                       session->contextEngineIDLen,
                       session->securityName);
   if (user == NULL) {
+    DEBUGP("building user %s\n",session->securityName);
     /* user doesn't exist so we create and add it */
     user = (struct usmUser *) SNMP_MALLOC(sizeof(struct usmUser));
     if (user == NULL)
@@ -841,21 +855,31 @@ create_user_from_session(struct snmp_session *session) {
       user->privProtocolLen = session->securityPrivProtoLen;
     }
 
-    /* copy in the authentication Key */
-    if (memdup(&user->authKey, session->securityAuthKey,
-               session->securityAuthKeyLen) != SNMPERR_SUCCESS) {
-      usm_free_user(user);
-      return SNMPERR_GENERR;
+    /* copy in the authentication Key, and convert to the localized version */
+    if (session->securityAuthKey != NULL && session->securityAuthKeyLen != 0) {
+      user->authKey = malloc (USM_LENGTH_KU_HASHBLOCK);
+      user->authKeyLen = USM_LENGTH_KU_HASHBLOCK;
+      if (generate_kul( user->authProtocol, user->authProtocolLen,
+                        session->contextEngineID, session->contextEngineIDLen,
+                        session->securityAuthKey, session->securityAuthKeyLen,
+                        user->authKey, &user->authKeyLen ) != SNMPERR_SUCCESS) {
+        usm_free_user(user);
+        return SNMPERR_GENERR;
+      }
     }
-    user->authKeyLen = session->securityAuthKeyLen;
 
-    /* copy in the privacy Key */
-    if (memdup(&user->privKey, session->securityPrivKey,
-               session->securityPrivKeyLen) != SNMPERR_SUCCESS) {
-      usm_free_user(user);
-      return SNMPERR_GENERR;
+    /* copy in the privacy Key, and convert to the localized version */
+    if (session->securityPrivKey != NULL && session->securityPrivKeyLen != 0) {
+      user->privKey = malloc (USM_LENGTH_KU_HASHBLOCK);
+      user->privKeyLen = USM_LENGTH_KU_HASHBLOCK;
+      if (generate_kul( user->privProtocol, user->privProtocolLen,
+                        session->contextEngineID, session->contextEngineIDLen,
+                        session->securityPrivKey, session->securityPrivKeyLen,
+                        user->privKey, &user->privKeyLen ) != SNMPERR_SUCCESS) {
+        usm_free_user(user);
+        return SNMPERR_GENERR;
+      }
     }
-    user->privKeyLen = session->securityPrivKeyLen;
 
     /* add the user into the database */
     usm_add_user(user);
