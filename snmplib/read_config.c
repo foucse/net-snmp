@@ -366,10 +366,10 @@ read_config_store(char *type, char *line)
     if (line[strlen(line)] != '\n')
       fprintf(OUT,"\n");
     DEBUGP("storing: %s\n",line);
+    fclose(OUT);
   } else {
     snmp_perror(type);
   }
-  fclose(OUT);
 #endif
 }
 
@@ -442,13 +442,18 @@ char *copy_word(from, to)
    followed by a string of hex */
 char *read_config_save_octet_string(char *saveto, u_char *str, int len) {
   int i;
-  sprintf(saveto, "%d ", len);
-  saveto += strlen(saveto);
-  for(i = 0; i < len; i++) {
-    sprintf(saveto,"%02x", str[i]);
-    saveto = saveto + 2;
+  if (str != NULL) {
+    sprintf(saveto, "%d ", len);
+    saveto += strlen(saveto);
+    for(i = 0; i < len; i++) {
+      sprintf(saveto,"%02x", str[i]);
+      saveto = saveto + 2;
+    }
+    return saveto;
+  } else {
+    sprintf(saveto, "0 ");
+    return saveto+strlen(saveto);
   }
-  return saveto;
 }
 
 /* read_config_read_octet_string(): reads an octet string that was
