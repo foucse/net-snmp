@@ -502,9 +502,6 @@ struct snmp_session *
 snmp_open(session)
     struct snmp_session *session;
 {
-  struct snmp_pdu *pdu, *response;
-  int status;
-  int i;
     struct session_list *slp;
     slp = (struct session_list *)snmp_sess_open(session);
     if (!slp) return NULL;
@@ -513,48 +510,6 @@ snmp_open(session)
 	slp->next = Sessions;
 	Sessions = slp;
     }
-    /* if we are opening a V3 session and we don't know engineID
-       we must probe it - this must be done after the session is
-       created and inserted in the list so that the response can
-       handled correctly */
-    if (session->version == SNMP_VERSION_3 &&
-	session->contextEngineIDLen == 0) {
-      DEBUGP("probing for engineID...\n");
-      snmpv3_build_probe_pdu(&pdu);
-      status = snmp_synch_response(slp->session,pdu,&response);
-
-      if ((response == NULL) && (status == STAT_SUCCESS)) status = STAT_ERROR;
-
-      switch (status) {
-      case STAT_SUCCESS:
-	switch (response->errstat) {
-	case SNMP_ERR_NOERROR:
-	  break;
-	default:
-	  DEBUGP("remote engine returned an error: %s (%d)\n",
-		 snmp_errstring(response->errstat), response->errstat);
-	}
-	break;
-      case STAT_TIMEOUT:
-      case STAT_ERROR:
-      default:
-	DEBUGP("unable to connect with remote engine: %s (%d)\n",
-	       snmp_api_errstring(snmp_get_errno()),
-	       snmp_get_errno());
-	break;
-      }
-      if (slp->session->contextEngineIDLen == 0) {
-	DEBUGP("unable to determine remote engine ID\n");
-	return NULL;
-      }
-      if (snmp_get_do_debugging()) {
-        DEBUGP("  probe found engineID:  ");
-        for(i = 0; i < slp->session->contextEngineIDLen; i++)
-          DEBUGP("%x", slp->session->contextEngineID[i]);
-        DEBUGP("\n");
-      }
-    }
-
     return (slp->session);
 }
 
@@ -572,10 +527,8 @@ snmp_sess_open(in_session)
     in_addr_t addr;
     struct sockaddr_in	me;
     struct hostent *hp;
-
-/*    if (Reqid == 0)
-      init_snmp(); */
-
+    struct snmp_pdu *pdu, *response;
+    int status, i;
 
     if (! servp)
       servp = getservbyname("snmp", "udp");
@@ -823,6 +776,49 @@ snmp_sess_open(in_session)
 	snmp_sess_close(slp);
 	return 0;
     }
+
+    /* if we are opening a V3 session and we don't know engineID
+       we must probe it - this must be done after the session is
+       created and inserted in the list so that the response can
+       handled correctly */
+    if (session->version == SNMP_VERSION_3 &&
+	session->contextEngineIDLen == 0) {
+      DEBUGP("probing for engineID...\n");
+      snmpv3_build_probe_pdu(&pdu);
+      status = snmp_sess_synch_response(slp, pdu, &response);
+
+      if ((response == NULL) && (status == STAT_SUCCESS)) status = STAT_ERROR;
+
+      switch (status) {
+      case STAT_SUCCESS:
+	switch (response->errstat) {
+	case SNMP_ERR_NOERROR:
+	  break;
+	default:
+	  DEBUGP("remote engine returned an error: %s (%d)\n",
+		 snmp_errstring(response->errstat), response->errstat);
+	}
+	break;
+      case STAT_TIMEOUT:
+      case STAT_ERROR:
+      default:
+	DEBUGP("unable to connect with remote engine: %s (%d)\n",
+	       snmp_api_errstring(snmp_get_errno()),
+	       snmp_get_errno());
+	break;
+      }
+      if (slp->session->contextEngineIDLen == 0) {
+	DEBUGP("unable to determine remote engine ID\n");
+	return NULL;
+      }
+      if (snmp_get_do_debugging()) {
+        DEBUGP("  probe found engineID:  ");
+        for(i = 0; i < slp->session->contextEngineIDLen; i++)
+          DEBUGP("%x", slp->session->contextEngineID[i]);
+        DEBUGP("\n");
+      }
+    }
+
     return (void *)slp;
 }
 
