@@ -65,6 +65,8 @@ PERFORMANCE OF THIS SOFTWARE.
 #endif
 
 #include "mibincl.h"
+#include "snmpv3.h"
+#include "snmpusm.h"
 #include "m2m.h"
 #include "snmp_vars_m2m.h"
 #include "../snmplib/system.h"
