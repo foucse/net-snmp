@@ -258,6 +258,11 @@ search_enginetime_list_quit:
  * Use a cheap hash to build an index into the etimelist.  Method is 
  * to hash the engineID, then split the hash into u_int's and add them up
  * and modulo the size of the list.
+ *
+ * XXX	Devolves and returns always 0 if HAVE_LIBKMT is not defined.
+ *	(Thus the etimelist hash table devolves to a linked list from
+ *	index 0.)
+ * XXX	Retrofit "internal" MD5 routines?
  */
 int
 hash_engineID(u_char *engineID, u_int engineID_len)
@@ -283,6 +288,7 @@ EM(-1); /* */
 	/*
 	 * Hash engineID into a list index.
 	 */
+#ifdef								HAVE_LIBKMT
 	SET_HASH_TRANSFORM(kmt_s_md5);
 
 	bufp = (u_int8_t *) buf;
@@ -294,6 +300,10 @@ EM(-1); /* */
 	for ( bufp = buf; (bufp-buf) < buf_len; bufp += 4 ) {
 		additive += (u_int) *bufp;
 	}
+
+#else
+	rval = 0;
+#endif							/* HAVE_LIBKMT */
 
 
 hash_engineID_quit:

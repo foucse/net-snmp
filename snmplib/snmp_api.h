@@ -189,8 +189,9 @@ extern void snmp_set_detail __P((char *));
 #define SNMPERR_BAD_SEC_LEVEL 		(-28)
 #define SNMPERR_SC_GENERAL_FAILURE	(-29)
 #define SNMPERR_SC_NOT_CONFIGURED	(-30)
+#define SNMPERR_KT_NOT_AVAILABLE	(-31)
 
-#define SNMPERR_MAX			(-30)
+#define SNMPERR_MAX			(-31)
 
 #define non_repeaters	errstat
 #define max_repetitions errindex

@@ -43,9 +43,28 @@ SOFTWARE.
 /*
  * Globals.
  */
-#ifdef USE_INTERNAL_MD5
+#ifdef	USE_V2PARTY_PROTOCOL
+
+#	ifdef			USE_INTERNAL_MD5
 static void md5Digest __P((u_char *, int, u_char *));
-#endif
+
+#	elif			HAVE_LIBKMT
+/* No problem.  SCAPI and KMT stuff defined elsewhere... */
+
+#	else
+#	error \
+	"
+
+	***  Lacking MD5 transform.  ***
+
+	SNMP v2p requires an MD5 transform to create message hashes.
+	Be sure that KMT is available or compile with the implementation 
+	bundled with UCD SNMP (See configure option --enable-internal-md5).
+
+	"
+#	endif
+
+#endif	/* USE_V2PARTY_PROTOCOL */
 
 
 

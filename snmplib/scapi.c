@@ -9,11 +9,11 @@
  * from use to use.  Partial hashes/crypts are not allowed, and IVs must
  * be reset each time.  XXX -- tragic error?
  *
+ * Functions specific to KMT, per se, are listed at the end of the file.
+ *
+ *
  * XXX	Decide whether to return SNMPERR_* codes, or whether to pass through
  *	KMT_ERR_* codes.  Must be all of one or the other...
- *
- * XXX	Bound all functions with HAVE_LIBKMT?
- * XXX	Put "determine transform type" into a function?
  */
 
 #include "all_system.h"
@@ -99,6 +99,7 @@ sc_shutdown(void)
  */
 int
 sc_random(u_char *buf, u_int *buflen)
+#ifdef								HAVE_LIBKMT
 {
 	int		rval = SNMPERR_SUCCESS;
 
@@ -117,6 +118,10 @@ EM(-1); /* */
 
 }  /* end sc_random() */
 
+#else
+_SCAPI_NOT_CONFIGURED
+#endif							/* HAVE_LIBKMT */
+
 
 
 /*******************************************************************-o-******
@@ -130,7 +135,8 @@ EM(-1); /* */
  *	*message	Pointer to the message to hash.
  *	 msglen		Length of the message.
  *	*MAC		Will be returned with allocated bytes containg hash.
- *	*maclen		Length of the hash buffer in bytes.
+ *	*maclen		Length of the hash buffer in bytes; also indicates
+ *				whether the MAC should be truncated.
  *      
  * Returns:
  *	SNMPERR_SUCCESS			Success.
@@ -150,6 +156,7 @@ sc_generate_keyed_hash(	oid	*authtype,	int    authtypelen,
 			u_char	*key,		u_int  keylen,
 			u_char	*message,	u_int  msglen,
 			u_char	*MAC,		u_int *maclen)
+#ifdef								HAVE_LIBKMT
 {
 	int		 rval	 = SNMPERR_SUCCESS,
 			 buf_len = SNMP_MAXBUF_SMALL;
@@ -190,7 +197,7 @@ EM(-1); /* */
 		QUITFUN(SNMPERR_GENERR, sc_generate_keyed_hash_quit);
 	}
 
-	if ( (*maclen < properlength) || (keylen < properlength) ) {
+	if ( (keylen < properlength) ) {
 		QUITFUN(SNMPERR_GENERR, sc_generate_keyed_hash_quit);
 	}
 
@@ -225,6 +232,9 @@ sc_generate_keyed_hash_quit:
 
 }  /* end sc_generate_keyed_hash() */
 
+#else
+_SCAPI_NOT_CONFIGURED
+#endif							/* HAVE_LIBKMT */
 
 
 
@@ -238,8 +248,9 @@ sc_generate_keyed_hash_quit:
  *	*message	Message for which to check the hash.
  *	 msglen		Length of message.
  *	*MAC		Given hash.
- *	 maclen		Length of given hash.
- *      
+ *	 maclen		Length of given hash; indicates truncation if it is
+ *				shorter than the normal size of output for
+ *				given hash transform.
  * Returns:
  *	SNMPERR_SUCCESS		Success.
  *	SNMP_SC_GENERAL_FAILURE	Any error, including KMT errs.
@@ -255,11 +266,10 @@ sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
 			u_char	*key,		u_int keylen,
 			u_char	*message,	u_int msglen,
 			u_char	*MAC,		u_int maclen)
+#ifdef								HAVE_LIBKMT
 {
 	int		 rval	 = SNMPERR_SUCCESS,
 			 buf_len = SNMP_MAXBUF_SMALL;
-	u_int		 transform,
-			 properlength;
 
 	u_int8_t	 buf[SNMP_MAXBUF_SMALL];
 
@@ -306,6 +316,9 @@ sc_check_keyed_hash_quit:
 
 }  /* end sc_check_keyed_hash() */
 
+#else
+_SCAPI_NOT_CONFIGURED
+#endif							/* HAVE_LIBKMT */
 
 
 
@@ -340,6 +353,7 @@ sc_encrypt(	oid    *privtype,	int    privtypelen,
 		u_char *iv,		u_int  ivlen,
 		u_char *plaintext,	u_int  ptlen,
 		u_char *ciphertext,	u_int *ctlen)
+#ifdef								HAVE_LIBKMT
 {
 	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
@@ -406,6 +420,9 @@ sc_encrypt_quit:
 
 }  /* end sc_encrypt() */
 
+#else
+_SCAPI_NOT_CONFIGURED
+#endif							/* HAVE_LIBKMT */
 
 
 
@@ -440,6 +457,7 @@ sc_decrypt(	oid    *privtype,	int    privtypelen,
 		u_char *iv,		u_int  ivlen,
 		u_char *ciphertext,	u_int  ctlen,
 		u_char *plaintext,	u_int *ptlen)
+#ifdef								HAVE_LIBKMT
 {
 	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
@@ -506,8 +524,13 @@ sc_decrypt_quit:
 
 }  /* end sc_decrypt() */
 
+#else
+_SCAPI_NOT_CONFIGURED
+#endif							/* HAVE_LIBKMT */
 
 	
+
+#ifdef								HAVE_LIBKMT
 
 /*******************************************************************-o-******
  * sc_internal_kmtlookup
@@ -588,4 +611,6 @@ EM(-1); /* */
 	return rval;
 
 }  /* end sc_internal_kmtlookup() */
+
+#endif							/* HAVE_LIBKMT */
 

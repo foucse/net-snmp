@@ -84,9 +84,12 @@ static u_int snmp_debug =	DF(ON) | DF(EM)		/* */
 /* ------------------------------------ -o- 
  * FIX	Another KMT broken API problem...
  */
+#ifdef								HAVE_LIBKMT
 void	kmt_s_dump_keylist(KMT_KEY_LIST *keylist, char *name);
 
 #define	kmt_dump_keylist	kmt_s_dump_keylist
+
+#endif							/* HAVE_LIBKMT */
 
 
 #endif /* _DEBUG_H */

@@ -223,37 +223,38 @@ struct session_list {
 };
 
 static char *api_errors[-SNMPERR_MAX+1] = {
-    "No error",				/* SNMPERR_SUCCESS */
-    "Generic error",			/* SNMPERR_GENERR */
-    "Invalid local port",		/* SNMPERR_BAD_LOCPORT */
-    "Unknown host",			/* SNMPERR_BAD_ADDRESS */
-    "Unknown session",			/* SNMPERR_BAD_SESSION */
-    "Too long",				/* SNMPERR_TOO_LONG */
-    "No socket",			/* SNMPERR_NO_SOCKET */
-    "Cannot send V2 PDU on V1 session",	/* SNMPERR_V2_IN_V1 */
-    "Cannot send V1 PDU on V2 session",	/* SNMPERR_V1_IN_V2 */
-    "Bad value for non-repeaters",	/* SNMPERR_BAD_REPEATERS */
-    "Bad value for max-repetitions",	/* SNMPERR_BAD_REPETITIONS */
+    "No error",					/* SNMPERR_SUCCESS */
+    "Generic error",				/* SNMPERR_GENERR */
+    "Invalid local port",			/* SNMPERR_BAD_LOCPORT */
+    "Unknown host",				/* SNMPERR_BAD_ADDRESS */
+    "Unknown session",				/* SNMPERR_BAD_SESSION */
+    "Too long",					/* SNMPERR_TOO_LONG */
+    "No socket",				/* SNMPERR_NO_SOCKET */
+    "Cannot send V2 PDU on V1 session",		/* SNMPERR_V2_IN_V1 */
+    "Cannot send V1 PDU on V2 session",		/* SNMPERR_V1_IN_V2 */
+    "Bad value for non-repeaters",		/* SNMPERR_BAD_REPEATERS */
+    "Bad value for max-repetitions",		/* SNMPERR_BAD_REPETITIONS */
     "Error building ASN.1 representation",	/* SNMPERR_BAD_ASN1_BUILD */
-    "Failure in sendto",		/* SNMPERR_BAD_SENDTO */
-    "Bad parse of ASN.1 type",		/* SNMPERR_BAD_PARSE */
-    "Bad version specified",		/* SNMPERR_BAD_VERSION */
-    "Bad source party specified",	/* SNMPERR_BAD_SRC_PARTY */
-    "Bad destination party specified",	/* SNMPERR_BAD_DST_PARTY */
-    "Bad context specified",		/* SNMPERR_BAD_CONTEXT */
-    "Bad community specified",		/* SNMPERR_BAD_COMMUNITY */
-    "Cannot send noAuth/desPriv",	/* SNMPERR_NOAUTH_DESPRIV */
-    "Bad ACL definition",		/* SNMPERR_BAD_ACL */
-    "Bad Party definition",		/* SNMPERR_BAD_PARTY */
-    "Session abort failure",		/* SNMPERR_ABORT */
-    "Unknown PDU type",			/* SNMPERR_UNKNOWN_PDU */
-    "Timeout",				/* SNMPERR_TIMEOUT */
-    "Failure in recvfrom",		/* SNMPERR_BAD_RECVFROM */
+    "Failure in sendto",			/* SNMPERR_BAD_SENDTO */
+    "Bad parse of ASN.1 type",			/* SNMPERR_BAD_PARSE */
+    "Bad version specified",			/* SNMPERR_BAD_VERSION */
+    "Bad source party specified",		/* SNMPERR_BAD_SRC_PARTY */
+    "Bad destination party specified",		/* SNMPERR_BAD_DST_PARTY */
+    "Bad context specified",			/* SNMPERR_BAD_CONTEXT */
+    "Bad community specified",			/* SNMPERR_BAD_COMMUNITY */
+    "Cannot send noAuth/desPriv",		/* SNMPERR_NOAUTH_DESPRIV */
+    "Bad ACL definition",			/* SNMPERR_BAD_ACL */
+    "Bad Party definition",			/* SNMPERR_BAD_PARTY */
+    "Session abort failure",			/* SNMPERR_ABORT */
+    "Unknown PDU type",				/* SNMPERR_UNKNOWN_PDU */
+    "Timeout",					/* SNMPERR_TIMEOUT */
+    "Failure in recvfrom",			/* SNMPERR_BAD_RECVFROM */
     "Unable to determine contextEngineID",	/* SNMPERR_BAD_ENG_ID */
-    "Unable to determine contextName",	/* SNMPERR_BAD_SEC_NAME */
-    "Unable to determine securityLevel",/* SNMPERR_BAD_SEC_LEVEL */
-    "SCAPI general failure",		/* SNMPERR_SC_GENERAL_FAILURE */
-    "SCAPI sub-system not configured",	/* SNMPERR_SC_NOT_CONFIGURED */
+    "Unable to determine contextName",		/* SNMPERR_BAD_SEC_NAME */
+    "Unable to determine securityLevel",	/* SNMPERR_BAD_SEC_LEVEL */
+    "SCAPI general failure",			/* SNMPERR_SC_GENERAL_FAILURE */
+    "SCAPI sub-system not configured",		/* SNMPERR_SC_NOT_CONFIGURED */
+    "Key tools not available",			/* SNMPERR_KT_NOT_AVAILABLE */
 };
 
 static char * usmSecLevelName[] = { "BAD_SEC_LEVEL", "noAuthNoPriv", "authNoPriv", "authPriv" };

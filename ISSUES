@@ -120,3 +120,8 @@
 + hardaker/Oct 12 1998
 	in variable_list, only string is ever malloced?
 	(snmp_free_var only frees a string, but everything is a pointer?)
+
+- dreeder/Oct 28 1998
+	Create snmp_hash() under which *all* hash implementations can live.
+	Notably, "internal" MD5 and KMT.
+

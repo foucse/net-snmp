@@ -11,7 +11,7 @@ AC_ARG_ENABLE(privacy,[  --disable-privacy               Don't compile in suppor
 if test "x$enable_privacy" != "xno"; then
   AC_DEFINE(SCAPI_AUTHPRIV)
 fi
-AC_ARG_ENABLE(internal-md5, [  --enable-internal-md5                Use the old MD5 code from the v2party code.], AC_DEFINE(USE_INTERNAL_MD5))
+AC_ARG_ENABLE(internal-md5, [  --enable-internal-md5           Use the old MD5 code from the v2party code.], AC_DEFINE(USE_INTERNAL_MD5))
 AC_ARG_WITH(defaults,[  --with-defaults                 Use defaults for prompted values.],defaults="yes",defaults="no")
 AC_ARG_WITH(root-access,[  --without-root-access           Agent won't require root access.])
 AC_ARG_WITH(opaque-special-types,[  --without-opaque-special-types  Don't use special opaque encodings.])

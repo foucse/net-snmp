@@ -1,7 +1,7 @@
 /*
  * scapitest.c
  *
- * Expected SUCCESSes:	2 + 2 + 1 for all tests.
+ * Expected SUCCESSes:	2 + 10 + 1 for all tests.
  *
  * Returns:
  *	Number of FAILUREs.
@@ -16,7 +16,7 @@
  * Test of sc_random.						SUCCESSes: 2.
  *	REQUIRES a human to spot check for obvious non-randomness...
  *
- * Test of sc_generate_keyed_hash and sc_check_keyed_hash.	SUCCESSes: 2.
+ * Test of sc_generate_keyed_hash and sc_check_keyed_hash.	SUCCESSes: 10.
  *
  * Test of sc_encrypt and sc_decrypt.				SUCCESSes: 1.
  */
@@ -98,6 +98,7 @@ int	doalltests	= 0,
 #define BIGSECRET	"Shhhh... Don't tell *anyone* about this.  Not a soul."
 #define BKWDSECRET	".luos a toN  .siht tuoba *enoyna* llet t'noD ...hhhhS"
 
+#define MLCOUNT_MAX	6	/* MAC Length Count Maximum. */
 
 
 
@@ -311,6 +312,10 @@ EM(-1); /* */
  * Returns:
  *	Number of failures.
  *
+ *
+ * Test keyed hashes with a variety of MAC length requests.
+ *
+ *
  * NOTE Both tests intentionally use the same secret; this tests whether
  *	we can store the same keybits in the KMT cache but label
  *	each set with a different transform type.
@@ -321,41 +326,65 @@ EM(-1); /* */
 int
 test_dokeyedhash(void)
 {
-	int		 rval		 = SNMPERR_SUCCESS,
-			 failcount	 = 0,
-			 bigstring_len	 = strlen(BIGSTRING),
-			 secret_len	 = strlen(BIGSECRET),
-			 properlength;
+	int		 rval		= SNMPERR_SUCCESS,
+			 failcount	= 0,
+			 bigstring_len	= strlen(BIGSTRING),
+			 secret_len	= strlen(BIGSECRET),
+			 properlength,
+			 mlcount	= 0,	/* MAC Length count.   */
+			 hblen;			/* Hash Buffer length. */
 
-	u_int		 hashbuf_len     = LOCAL_MAXBUF;
+	u_int		 hashbuf_len[MLCOUNT_MAX] = {
+				LOCAL_MAXBUF,
+				BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1),
+				BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5),
+				BYTESIZE(SNMP_TRANS_AUTHLEN_HMAC96),
+				7,
+				0, };
 
 	u_char		 hashbuf[LOCAL_MAXBUF];
+	char		*s;
 
 EM(-1); /* */
 
 
+
+test_dokeyedhash_again:
+
 	OUTPUT("Keyed hash test using MD5 --");
 
 	memset(hashbuf, 0, LOCAL_MAXBUF);
+	hblen		 = hashbuf_len[mlcount];
+	properlength	 = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
 
 	rval = sc_generate_keyed_hash(
 		usmHMACMD5AuthProtocol, USM_LENGTH_OID_TRANSFORM,
 		BIGSECRET, secret_len,
 		BIGSTRING, bigstring_len,
-		hashbuf, &hashbuf_len);
+		hashbuf, &hblen);
 	FAILED(rval, "sc_generate_keyed_hash().");
 
-	properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
-	if (hashbuf_len != properlength) {
-		FAILED(SNMPERR_GENERR, "Wrong MD5 hash length returned.");
+	if ( hashbuf_len[mlcount] > properlength ) {
+		if ( hblen != properlength ) {
+			FAILED(	SNMPERR_GENERR,
+				"Wrong MD5 hash length returned.  (1)");
+		}
+
+	} else if ( hblen != hashbuf_len[mlcount] ) {
+		FAILED(SNMPERR_GENERR, "Wrong MD5 hash length returned.  (2)");
 	}
 
 	rval = sc_check_keyed_hash(
 		usmHMACMD5AuthProtocol, USM_LENGTH_OID_TRANSFORM,
 		BIGSECRET, secret_len,
 		BIGSTRING, bigstring_len,
-		hashbuf, hashbuf_len);
+		hashbuf, hblen);
 	FAILED(rval, "sc_check_keyed_hash().");
+
+	binary_to_hex(hashbuf, hblen, &s);
+	fprintf(stdout, "hash buffer (len=%d, request=%d):   %s\n",
+						hblen, hashbuf_len[mlcount], s);
+	SNMP_FREE(s);
 
 	SUCCESS("Keyed hash test using MD5.");
 
@@ -364,30 +393,48 @@ EM(-1); /* */
 	OUTPUT("Keyed hash test using SHA1 --");
 
 	memset(hashbuf, 0, LOCAL_MAXBUF);
-	hashbuf_len = LOCAL_MAXBUF;
-
+	hblen		 = hashbuf_len[mlcount];
+	properlength	 = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
 
 	rval = sc_generate_keyed_hash(
 		usmHMACSHA1AuthProtocol, USM_LENGTH_OID_TRANSFORM,
 		BIGSECRET, secret_len,
 		BIGSTRING, bigstring_len,
-		hashbuf, &hashbuf_len);
+		hashbuf, &hblen);
 	FAILED(rval, "sc_generate_keyed_hash().");
 
-	properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
-	if (hashbuf_len != properlength) {
-		FAILED(SNMPERR_GENERR, "Wrong SHA1 hash length returned.");
+	if ( hashbuf_len[mlcount] > properlength ) {
+		if ( hblen != properlength ) {
+			FAILED(	SNMPERR_GENERR,
+				"Wrong SHA1 hash length returned.  (1)");
+		}
+
+	} else if (hblen != hashbuf_len[mlcount]) {
+		FAILED(SNMPERR_GENERR, "Wrong SHA1 hash length returned.  (2)");
 	}
 
 	rval = sc_check_keyed_hash(
 		usmHMACSHA1AuthProtocol, USM_LENGTH_OID_TRANSFORM,
 		BIGSECRET, secret_len,
 		BIGSTRING, bigstring_len,
-		hashbuf, hashbuf_len);
+		hashbuf, hblen);
 	FAILED(rval, "sc_check_keyed_hash().");
+
+	binary_to_hex(hashbuf, hblen, &s);
+	fprintf(stdout, "hash buffer (len=%d, request=%d):   %s\n",
+						hblen, hashbuf_len[mlcount], s);
+	SNMP_FREE(s);
 
 	SUCCESS("Keyed hash test using SHA1.");
 
+
+
+	/*
+	 * Run the basic hash tests but vary the size MAC requests.
+	 */
+	if ( hashbuf_len[++mlcount] != 0 ) {
+		goto test_dokeyedhash_again;
+	}
 
 
 	return failcount;

@@ -20,6 +20,9 @@
  *
  * FIX  Resolve the broken KMT API issue.
  * 	kmt_s_* prototypes stolen from KMT/algs/kmt_hash.h.
+ *
+ * FIX	Offer an snmp_hash() function to hide away differences between
+ *	this an "internal" MD5 (& whatever else might come...)?
  */
 int (*kmt_hash) __P((
 	const int	  mode,		void  	 **context,
@@ -63,6 +66,15 @@ int	decode_keychange __P((	oid	*hashtype,	u_int  hashtype_len,
 				u_char	*oldkey,	u_int  oldkey_len,
 				u_char	*kcstring,	u_int  kcstring_len,
 				u_char	*newkey,	u_int *newkey_len));
+
+
+/*
+ * All functions devolve to the following block if HAVE_LIBKMT is not defined.
+ */
+#define	_KEYTOOLS_NOT_AVAILABLE			\
+{						\
+	return SNMPERR_KT_NOT_AVAILABLE;	\
+}
 
 #endif /* _KEYTOOLS_H */
 

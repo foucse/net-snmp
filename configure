@@ -24,7 +24,7 @@ ac_help="$ac_help
 ac_help="$ac_help
   --disable-privacy               Don't compile in support for privacy."
 ac_help="$ac_help
-  --enable-internal-md5                Use the old MD5 code from the v2party code."
+  --enable-internal-md5           Use the old MD5 code from the v2party code."
 ac_help="$ac_help
   --with-defaults                 Use defaults for prompted values."
 ac_help="$ac_help

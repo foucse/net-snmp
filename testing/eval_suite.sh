@@ -69,7 +69,7 @@ BLIK
 exit 0
 }
 
-[ "$1" = -h ] && usage
+[ "x$1" = "x-h" ] && usage
 
 
 

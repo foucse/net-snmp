@@ -3,6 +3,9 @@
  *
  * FIX	Decide how to publicize simple (currently internal) hash functions
  *	from KMT.  Otherwise they must be pulled from the package directly.
+ *
+ * XXX	Should this be retro-fitted with the "internal" MD5 transform?
+ *	Thus keeping Ku/kul/KeyChange functionality for usmHMACMD5AuthProtocol.
  */
 
 #include "all_system.h"
@@ -23,8 +26,9 @@
  *	*kulen		Length of Ku buffer.
  *      
  * Returns:
- *	SNMPERR_SUCCESS		Success.
- *	SNMPERR_GENERR		All errors, including KMT errs.
+ *	SNMPERR_SUCCESS			Success.
+ *	SNMPERR_GENERR			All errors, including KMT errs.
+ *	SNMPERR_KT_NOT_AVAILABLE	When kmt_hash cannot be instantiated.
  *
  *
  * Convert a passphrase into a master user key, Ku, according to the
@@ -46,6 +50,7 @@ int
 generate_Ku(	oid	*hashtype,	u_int  hashtype_len,
 		u_char	*P,		u_int  pplen,
 		u_char	*Ku,		u_int *kulen)
+#ifdef								HAVE_LIBKMT
 {
 	int		 rval   = SNMPERR_SUCCESS,
 			 nbytes = USM_LENGTH_EXPANDED_PASSPHRASE;
@@ -122,6 +127,10 @@ generate_Ku_quit:
 
 }  /* end generate_Ku() */
 
+#else
+_KEYTOOLS_NOT_AVAILABLE
+#endif							/* HAVE_LIBKMT */
+
 
 
 
@@ -139,8 +148,9 @@ generate_Ku_quit:
  *	*kullen		Length of Kul buffer (IN); Length of Kul key (OUT).
  *      
  * Returns:
- *	SNMPERR_SUCCESS		Success.
- *	SNMPERR_GENERR		All errors, including KMT errs.
+ *	SNMPERR_SUCCESS			Success.
+ *	SNMPERR_GENERR			All errors, including KMT errs.
+ *	SNMPERR_KT_NOT_AVAILABLE	When kmt_hash cannot be instantiated.
  *
  *
  * Ku MUST be the proper length (currently fixed) for the given hashtype.
@@ -165,6 +175,7 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 		u_char	*engineID,	u_int  engineID_len,
 		u_char	*Ku,		u_int  ku_len,
 		u_char	*Kul,		u_int *kul_len)
+#ifdef								HAVE_LIBKMT
 {
 	int		 rval    = SNMPERR_SUCCESS;
 	u_int		 transform,
@@ -235,6 +246,10 @@ generate_kul_quit:
 
 }  /* end generate_kul() */
 
+#else
+_KEYTOOLS_NOT_AVAILABLE
+#endif							/* HAVE_LIBKMT */
+
 
 
 
@@ -252,8 +267,9 @@ generate_kul_quit:
  *	*kcstring_len	Length of kcstring buffer.
  *      
  * Returns:
- *	SNMPERR_SUCCESS		Success.
- *	SNMPERR_GENERR		All errors, including KMT errs.
+ *	SNMPERR_SUCCESS			Success.
+ *	SNMPERR_GENERR			All errors, including KMT errs.
+ *	SNMPERR_KT_NOT_AVAILABLE	When kmt_hash cannot be instantiated.
  *
  *
  * Uses oldkey and acquired random bytes to encode newkey into kcstring
@@ -278,6 +294,7 @@ encode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 			u_char	*oldkey,	u_int  oldkey_len,
 			u_char	*newkey,	u_int  newkey_len,
 			u_char	*kcstring,	u_int *kcstring_len)
+#ifdef								HAVE_LIBKMT
 {
 	int		 rval    = SNMPERR_SUCCESS;
 	u_int		 transform,
@@ -387,6 +404,10 @@ encode_keychange_quit:
 
 }  /* end encode_keychange() */
 
+#else
+_KEYTOOLS_NOT_AVAILABLE
+#endif							/* HAVE_LIBKMT */
+
 
 
 
@@ -404,8 +425,9 @@ encode_keychange_quit:
  *	*newkey_len	Length of newkey in bytes.
  *      
  * Returns:
- *	SNMPERR_SUCCESS		Success.
- *	SNMPERR_GENERR		All errors, including KMT errs.
+ *	SNMPERR_SUCCESS			Success.
+ *	SNMPERR_GENERR			All errors, including KMT errs.
+ *	SNMPERR_KT_NOT_AVAILABLE	When kmt_hash cannot be instantiated.
  *
  *
  * Decodes a string of bits encoded according to the KeyChange TC described
@@ -425,6 +447,7 @@ decode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 			u_char	*oldkey,	u_int  oldkey_len,
 			u_char	*kcstring,	u_int  kcstring_len,
 			u_char	*newkey,	u_int *newkey_len)
+#ifdef								HAVE_LIBKMT
 {
 	int		 rval    = SNMPERR_SUCCESS;
 	u_int		 transform,
@@ -521,4 +544,8 @@ decode_keychange_quit:
 	return rval;
 
 }  /* end decode_keychange() */
+
+#else
+_KEYTOOLS_NOT_AVAILABLE
+#endif							/* HAVE_LIBKMT */
 
