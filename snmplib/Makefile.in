@@ -49,7 +49,8 @@ CSRCS=	snmp_client.c               snmp_api.c snmp.c 		\
 	varbind/oid.c varbind/value.c varbind/value_output.c	\
 	varbind/varbind.c varbind/vblist.c			\
 	utils/util_buffer.c utils/util_list.c			\
-	ucd/ucd_mib_api.c ucd/ucd_varbind.c
+	ucd/ucd_mib_api.c ucd/ucd_varbind.c			\
+        community/packet.c
 
 OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	snmp_auth.o asn1.o md5.o snmp_parse_args.o	  	\
@@ -66,7 +67,8 @@ OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	varbind/oid.o varbind/value.o varbind/value_output.o	\
 	varbind/varbind.o varbind/vblist.o			\
 	utils/util_buffer.o utils/util_list.o			\
-	ucd/ucd_mib_api.o ucd/ucd_varbind.o
+	ucd/ucd_mib_api.o ucd/ucd_varbind.o			\
+        community/packet.o
 
 LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	snmp_auth.lo asn1.lo md5.lo snmp_parse_args.lo		\
@@ -83,7 +85,8 @@ LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	varbind/oid.lo varbind/value.lo varbind/value_output.lo	\
 	varbind/varbind.lo varbind/vblist.lo			\
 	utils/util_buffer.lo utils/util_list.lo			\
-	ucd/ucd_mib_api.lo ucd/ucd_varbind.lo
+	ucd/ucd_mib_api.lo ucd/ucd_varbind.lo			\
+        community/packet.lo
 
 # just in case someone wants to remove libtool, change this to OBJS.
 TOBJS=$(LOBJS)

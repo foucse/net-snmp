@@ -43,6 +43,17 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 ******************************************************************/
 
+/* enterprises.cmu.systems.cmuSNMP */
+extern oid default_enterprise[];
+extern int default_enterprise_length;
+
+#define DEFAULT_COMMUNITY   "public"
+#define DEFAULT_RETRIES     5
+#define DEFAULT_TIMEOUT     1000000L
+#define DEFAULT_REMPORT     SNMP_PORT
+#define DEFAULT_ENTERPRISE  default_enterprise
+#define DEFAULT_TIME        0
+
 
 struct variable_list;
 struct timeval;

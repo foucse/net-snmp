@@ -9,6 +9,36 @@
 extern "C" {
 #endif
 
+#define DEBUGPRINTPDUTYPE(token, type) \
+    switch(type) { \
+      case SNMP_MSG_GET: \
+        DEBUGDUMPSECTION(token, "PDU-GET"); \
+        break; \
+      case SNMP_MSG_GETNEXT: \
+        DEBUGDUMPSECTION(token, "PDU-GETNEXT"); \
+        break; \
+      case SNMP_MSG_RESPONSE: \
+        DEBUGDUMPSECTION(token, "PDU-RESPONSE"); \
+        break; \
+      case SNMP_MSG_SET: \
+        DEBUGDUMPSECTION(token, "PDU-SET"); \
+        break; \
+      case SNMP_MSG_GETBULK: \
+        DEBUGDUMPSECTION(token, "PDU-GETBULK"); \
+        break; \
+      case SNMP_MSG_INFORM: \
+        DEBUGDUMPSECTION(token, "PDU-INFORM"); \
+        break; \
+      case SNMP_MSG_TRAP2: \
+        DEBUGDUMPSECTION(token, "PDU-TRAP2"); \
+        break; \
+      case SNMP_MSG_REPORT: \
+        DEBUGDUMPSECTION(token, "PDU-REPORT"); \
+        break; \
+      default: \
+        DEBUGDUMPSECTION(token, "PDU-UNKNOWN"); \
+        break; \
+    }
 
 
 /* 
