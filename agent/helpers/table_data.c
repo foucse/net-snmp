@@ -26,7 +26,7 @@ table_data_generate_index_oid(table_row *row)
 }
 
 /**
- * Adds a row of data to a given table.
+ * Adds a row of data to a given table (in proper lexographical order)
  *
  * returns SNMPERR_SUCCESS on successful addition.
  *      or SNMPERR_GENERR  on failure (E.G., indexes already existed)
