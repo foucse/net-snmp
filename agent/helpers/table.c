@@ -160,6 +160,9 @@ table_helper_handler(mib_handler * handler,
         return SNMP_ERR_GENERR;
     }
 
+    DEBUGMSGTL(("helper:table", "Got request for handler %s:\n",
+                handler->handler_name));
+
     /*
      * if the agent request info has a state reference, then this is a 
      * later pass of a set request and we can skip all the lookup stuff.
@@ -168,7 +171,7 @@ table_helper_handler(mib_handler * handler,
      * at a time... those handlers should not save data by their handler_name
      * in the agent_request_info. 
      */
-    if (agent_get_list_data(reqinfo, handler->handler_name)) {
+    if (agent_get_list_data(reqinfo,handler->next->handler_name)) {
         if (MODE_IS_SET(reqinfo->mode)) {
             return call_next_handler(handler, reginfo, reqinfo, requests);
         } else {
@@ -182,7 +185,6 @@ table_helper_handler(mib_handler * handler,
      * loop through requests
      */
 
-    DEBUGMSGTL(("helper:table", "Got request:\n"));
     for (request = requests; request; request = request->next) {
         struct variable_list *var = request->requestvb;
 
