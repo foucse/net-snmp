@@ -675,10 +675,6 @@ dnl
 dnl Check for /dev/random as well
 dnl
 
-dnl
-dnl Check for kernel location
-dnl
-
 AC_CACHE_CHECK(if /dev/random exists,ac_cv_HAVE_DEV_RANDOM,
 [ac_cv_HAVE_DEV_RANDOM="no"
 dnl First determine if test expects a -f or a -c (character device (SYSV))
