@@ -791,7 +791,7 @@ snmp_sess_open(in_session)
         DEBUGP("\n");
       }
       if (create_user_from_session(slp->session) != SNMPERR_SUCCESS)
-        DEBUGP("snmp_sess_open(): failed(2) to create a new user from session");
+        DEBUGP("snmp_sess_open(): failed(2) to create a new user from session\n");
     }
     return (void *)slp;
 }

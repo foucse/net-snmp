@@ -72,7 +72,7 @@ EM(-1); /* */
 	*enginetime = *engineboot = 0;
 
 	if ( !engineID || (engineID_len<=0) ) {
-		return rval;
+		QUITFUN(SNMPERR_GENERR, get_enginetime_quit);
 	}
 
 	if ( !(e = search_enginetime_list(engineID, engineID_len)) ) {

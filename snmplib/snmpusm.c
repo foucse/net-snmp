@@ -627,42 +627,13 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 
 	/* Retrieve the engine information */
 
-	if (theSecLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
-	    || theSecLevel == SNMP_SEC_LEVEL_AUTHPRIV || secStateRef != NULL)
+	if (get_enginetime (theEngineID, theEngineIDLength, 
+			    &boots_uint, &time_uint, FALSE) == -1)
 	{
-		if (get_enginetime (theEngineID, theEngineIDLength, 
-				    &boots_uint, &time_uint, FALSE) == -1)
-
-		/* RFC 2274, section 3.1, step 6a is unclear here */
-
-#ifdef USM_ASSUME_ERROR
-		{
-			DEBUGP ("usm_generate_out_msg():%s,%d: %s\n",
-				__FILE__,__LINE__, "Failed to find engine data");
-
-			if (secStateRef)
-				usm_free_usmStateReference (secStateRef);
-
-			return USM_ERR_GENERIC_ERROR;
-		}
-#else
-		{
-			DEBUGP ("usm_generate_out_msg():%s,%d: %s\n",
-				__FILE__,__LINE__, "Warning: Failed to find engine data");
-                        if (secStateRef) {
-			  boots_uint = snmpv3_local_snmpEngineBoots();
-			  time_uint = snmpv3_local_snmpEngineTime();
-			} else {
-			  boots_uint = 0;
-			  time_uint = 0;
-			}
-		}
-#endif
-	}
-	else
-	{
-		boots_uint = 0;
-		time_uint = 0;
+	  /* no error is declared in the EoP when sending messages to
+             unknown engines, processing continues w/ boots/time == (0,0) */
+		DEBUGP ("usm_generate_out_msg():%s,%d: %s\n",
+			__FILE__,__LINE__, "Failed to find engine data");
 	}
 
 	boots_long = boots_uint;
