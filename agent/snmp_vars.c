@@ -465,19 +465,16 @@ search_subtree_vars(tp, name, namelen, type, len, acl, exact, write_method, pi,
 		    cvp->magic = vp->magic;
 		    cvp->acl = vp->acl;
 		    cvp->findVar = vp->findVar;
+                    *write_method = NULL;
 		    access = (*(vp->findVar))(cvp, name, namelen, exact,
 						  len, write_method);
-		    if (write_method)
+		    if (*write_method)
 			*acl = cvp->acl;
                     /* check for permission to view this part of the OID tree */
-		    if (access && !in_a_view(name, namelen, pi, cvp)) {
+		    if ((access != NULL || (*write_method != NULL && exact)) &&
+                        !in_a_view(name, namelen, pi, cvp)) {
                         access = NULL;
 			*write_method = NULL;
-			/*
-			  if (in_view(vp->name, vp->namelen,
-			      pi->dstParty, pi->dstPartyLength)
-			      found = TRUE;
-			 */
 		    } else if (exact){
 			found = TRUE;
 		    }
@@ -485,7 +482,7 @@ search_subtree_vars(tp, name, namelen, type, len, acl, exact, write_method, pi,
 		       a view configuration that exludes a particular
 		       instance of a variable.  It would return noSuchObject,
 		       which would be an error */
-		    if (access != NULL)
+		    if (access != NULL || (*write_method != NULL && exact))
 			break;
 		}
 		/* if exact and result <= 0 */
@@ -499,7 +496,7 @@ search_subtree_vars(tp, name, namelen, type, len, acl, exact, write_method, pi,
 		    return NULL;
 		}
 	    }
-	    if (access != NULL) {
+	    if (access != NULL || (exact && *write_method != NULL)) {
 	        *type = cvp->type;
 		*acl = cvp->acl;
 		return access;
@@ -565,7 +562,7 @@ search_subtree(sub_tp, name, namelen, type, len, acl, exact, write_method, pi,
 	while ( tp != NULL ) {
 	    child_return = search_subtree( tp, name, namelen,
 			type, len, acl, exact, write_method, pi, noSuchObject);
-	    if ( child_return != NULL )
+	    if ( child_return != NULL || (exact && write_method != NULL))
 		return child_return;
 	    else
 		tp = tp->next;
@@ -610,7 +607,7 @@ search_subtree(sub_tp, name, namelen, type, len, acl, exact, write_method, pi,
 
 			/* Ask the children until we get an answer */
 	child_return=NULL;
-	while ( child_return == NULL ) {
+	while ( child_return == NULL) {
 	    child_return = search_subtree( tp,
 		child_name, &child_namelen,
 		&child_type, &child_len, &child_acl, exact,
@@ -704,7 +701,7 @@ getStatPtr(name, namelen, type, len, acl, exact, write_method, pi,
     for (tp = subtrees; tp != NULL ; tp = tp->next ) {
 	search_return = search_subtree( tp, name, namelen, &result_type,
 		len, &result_acl, exact, write_method, pi, noSuchObject);
-	if ( search_return != NULL )
+	if ( search_return != NULL || (*write_method != NULL && exact))
 	    break;
     }
     if ( tp == NULL ) {
