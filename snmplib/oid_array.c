@@ -30,7 +30,7 @@ typedef struct oid_array_table_s {
     void           *data;       /* The table itself */
 } oid_array_table;
 
-#define TABLE_ADD( x, y )	((oid_header*)((char*)(x) + y))
+#define TABLE_ADD( x, y )	((oid_array_header*)((char*)(x) + y))
 #define TABLE_INDEX(t, i)	(TABLE_ADD(t->data, i * t->data_size))
 #define TABLE_START(t)		(TABLE_INDEX(t, 0))
 #define TABLE_NEXT(t)		(TABLE_INDEX(t, t->count))
@@ -38,10 +38,10 @@ typedef struct oid_array_table_s {
 int
 array_compare(const void *lhs, const void *rhs)
 {
-    return snmp_oid_compare(((const oid_header *) lhs)->idx,
-                            ((const oid_header *) lhs)->idx_len,
-                            ((const oid_header *) rhs)->idx,
-                            ((const oid_header *) rhs)->idx_len);
+    return snmp_oid_compare(((const oid_array_header *) lhs)->idx,
+                            ((const oid_array_header *) lhs)->idx_len,
+                            ((const oid_array_header *) rhs)->idx,
+                            ((const oid_array_header *) rhs)->idx_len);
 }
 
 static int
@@ -60,12 +60,16 @@ Sort_Array(oid_array_table * table)
 }
 
 static int
-binary_search(oid_header * val, oid_array_table * t, int exact)
+binary_search(oid_array_header * val, oid_array_table * t, int exact)
 {
     int             len = t->count;
     int             half;
     int             middle;
+    int             result = 0;
     int             first = 0;
+
+    if (!len)
+        return -1;
 
     if (t->dirty)
         Sort_Array(t);
@@ -74,7 +78,7 @@ binary_search(oid_header * val, oid_array_table * t, int exact)
         half = len >> 1;
         middle = first;
         middle += half;
-        if (array_compare(TABLE_INDEX(t, middle), val)) {
+        if ((result = array_compare(TABLE_INDEX(t, middle), val)) < 0) {
             first = middle;
             ++first;
             len = len - half - 1;
@@ -83,12 +87,20 @@ binary_search(oid_header * val, oid_array_table * t, int exact)
     }
 
     if (exact) {
-        if (first != t->count
-            && !array_compare(TABLE_INDEX(t, first), val))
+        if (first != t->count && !result)
             return first;
         else
             return -1;
     }
+
+    /*
+     * GETNEXT search - if result == 0, we want the next item
+     */
+    if (result)
+        ++first;
+
+    if (first >= t->count)
+        return -1;
 
     return first;
 }
@@ -111,25 +123,56 @@ Initialise_oid_array(int size)
     return (oid_array) t;
 }
 
-void           *
-get_oid_data(oid_array t, void *key, int exact)
+void
+Release_oid_array(oid_array a)
 {
-    oid_array_table *table = (oid_array_table *) t;
-    int             index;
+    free(a);
+}
 
-    if (table->dirty)
-        Sort_Array(t);
+void           *
+Get_oid_data(oid_array a, void *key, int exact)
+{
+    oid_array_table *t = (oid_array_table *) a;
+    int             index = 0;
 
-    index = binary_search(key, table, exact);
-
-    if (exact && index == -1)
+    /*
+     * if there is no data, return NULL;
+     */
+    if (!t->count)
         return 0;
 
-    return TABLE_INDEX(table, index);
+    /*
+     * if the table is dirty, sort it.
+     */
+    if (t->dirty)
+        Sort_Array(t);
+
+    /*
+     * if there is a key, search. Otherwise default is 0;
+     */
+    if (key) {
+        if ((index = binary_search(key, t, exact)) == -1)
+            return 0;
+    }
+
+    return TABLE_INDEX(t, index);
+}
+
+void
+For_each_oid_data(oid_array a, ForEach fe, int sort)
+{
+    int             i;
+    oid_array_table *t = (oid_array_table *) a;
+
+    if (sort && t->dirty)
+        Sort_Array(t);
+
+    for (i = 0; i < t->count; ++i)
+        (*fe) (TABLE_INDEX(t, i));
 }
 
 int
-Add_Entry(oid_array t, void *entry)
+Add_oid_data(oid_array t, void *entry)
 {
     oid_array_table *table = (oid_array_table *) t;
     int             new_max;
@@ -168,11 +211,11 @@ Add_Entry(oid_array t, void *entry)
 }
 
 void           *
-Retrieve_Table_Data(oid_array t, int *max_idx)
+Retrieve_oid_array(oid_array t, int *max_idx, int sort)
 {
     oid_array_table *table = (oid_array_table *) t;
 
-    if (table->dirty)
+    if (sort && table->dirty)
         Sort_Array(t);
 
     *max_idx = table->count;

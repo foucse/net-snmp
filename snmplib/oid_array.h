@@ -9,6 +9,12 @@
  *
  * Inspired by agent/mibgroup/util_funcs.c
  *
+ *
+ * Note: These arrays are sorted lazily. Thus, some methods
+ * have a sort parameter in case you don't care is the array
+ * has been sorted since it was last changed.
+ *
+ *
  * EXAMPLE:
  * ------------------------------------------------------------
  * typedef struct my_row_s {
@@ -55,18 +61,19 @@ extern          "C" {
      * structure must start with this header. (Ok, not really, but
      * the first two elements of your data structure better be a
      * pointer to the index oid and the lenght of the index!)
-     *
-     * if you can't modify your data type, try:
-     *   typedef oid_wrapper_s {
-     *     oid*           idx;
-     *     int            idx_len;
-     *     my_data_type * data;
-     *   } oid_wrapper;
      */
-    typedef struct oid_header_s {
+    typedef struct oid_array_header_s {
         oid            *idx;
         int             idx_len;
-    } oid_header;
+    } oid_array_header;
+
+    typedef struct oid_array_header_wrapper_s {
+        oid            *idx;
+        int             idx_len;
+        void           *data;
+    } oid_array_header_wrapper;
+
+    typedef void    (ForEach) (oid_array_header *, void *context);
 
     /*
      * compare to entries. Nothing fancy, just a wrapper around
@@ -83,8 +90,10 @@ extern          "C" {
 
     /*
      * add an entry to an array.
+     *
+     * returns 0 on success, -1 on failure
      */
-    void            Add_oid_data(oid_array a, void *);
+    int             Add_oid_data(oid_array a, void *);
 
     /*
      * find the entry in the array with the same index
@@ -101,14 +110,39 @@ extern          "C" {
     void           *Remove_oid_data(oid_array a, void *);
 
     /*
+     * release memory used by a table.
+     *
+     * Note: if your data structure contained allcoated
+     * memory, you are responsible for releasing that
+     * memory before calling this function!
+     */
+    void            Release_oid_array(oid_array a);
+
+    /*
+     * call a function for each entry (useful for cleanup).
+     *
+     * The ForEach function will be called with a pointer
+     * to an entry and the context pointer.
+     *
+     * If sort = 1, entries will be in sorted order. Otherwise
+     * the order is not defined.
+     */
+    void            For_each_oid_data(oid_array a, ForEach *,
+                                      void *context, int sort);
+
+    /*
      * get internal pointer to array (DANGER WILL ROBINSON!)
      *
      * standard disclaimer: DO NOT USE THIS METHOD!
      *
      * Ok, you can use it. Just don't muck about with the
      * ordering or indexes and expect anything to still work.
+     *
+     * size will be set to the number of elements. If sort is set,
+     * the table will be sorted. If sort is not set, the order is
+     * not defined.
      */
-    void           *Retrieve_oid_array(oid_array a, int *size);
+    void           *Retrieve_oid_array(oid_array a, int *size, int sort);
 
 #ifdef __cplusplus
 }
