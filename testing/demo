@@ -448,7 +448,7 @@ TITLE "Set the agent 200 seconds behind the client." \
       "snmpget and trace/demonstrate lack of time synchronization" \
       "and failure of the get."
 
-OKORFAIL "sysUpTime.*Timeticks" snmpget -T $boots `expr $time + 200 ` -s -R $AuthArgs $host $sysUpTime
+OKORFAIL "Timeout.*Response" snmpget -T $boots `expr $time + 200 ` -s -R $AuthArgs $host $sysUpTime
 
 TITLE "Reboot the agent." \
       "snmpget and trace the 4 message exchange."
