@@ -84,6 +84,7 @@ struct usmUser {
 /* Note: Any changes made to this structure need to be reflected in
    the following functions: */
 
+void set_reportErrorOnUnknownID __P((int value));
 int usm_generate_out_msg __P((int, u_char *, int, int, int, u_char *,int,
 			      u_char *, int, int, u_char *, int, void *,
 			      u_char *, int *, u_char **, int *));
