@@ -90,6 +90,7 @@ SOFTWARE.
 #include "snmpv3.h"
 #include "read_config.h"
 #include "snmpusm.h"
+#include "tools.h"
 
 #define PACKET_LENGTH	8000
 
@@ -523,6 +524,7 @@ snmp_sess_open(in_session)
     struct hostent *hp;
     struct snmp_pdu *pdu, *response;
     int status, i;
+    struct usmUser *user;
 
     if (! servp)
       servp = getservbyname("snmp", "udp");
@@ -839,6 +841,79 @@ snmp_sess_open(in_session)
           DEBUGP("%x", slp->session->contextEngineID[i]);
         DEBUGP("\n");
       }
+    }
+
+    /* now that we have the engineID, create an entry in the USM list
+       for this user using the information in the session */
+    user = usm_get_user(slp->session->contextEngineID,
+                        slp->session->contextEngineIDLen,
+                        slp->session->securityName);
+    if (user == NULL) {
+      /* user doesn't exist so we create and add it */
+      user = (struct usmUser *) SNMP_MALLOC(sizeof(struct usmUser));
+      if (user == NULL)
+        return (void *)slp;
+
+      /* copy in the securityName */
+      if (slp->session->securityName) {
+        user->name = strdup(slp->session->securityName);
+        user->secName = strdup(slp->session->securityName);
+        if (user->name == NULL || user->secName == NULL) {
+          usm_free_user(user);
+          return (void *)slp;
+        }
+      }
+
+      /* copy in the engineID */
+      if (memdup(&user->engineID, slp->session->contextEngineID,
+                 slp->session->contextEngineIDLen) != SNMPERR_SUCCESS) {
+        usm_free_user(user);
+        return (void *)slp;
+      }
+      user->engineIDLen = slp->session->contextEngineIDLen;
+      
+      /* copy the auth protocol */
+      if (slp->session->securityAuthProto != NULL) {
+        user->authProtocol =
+          snmp_duplicate_objid(slp->session->securityAuthProto,
+                               slp->session->securityAuthProtoLen);
+        if (user->authProtocol == NULL) {
+          usm_free_user(user);
+          return (void *)slp;
+        }
+        user->authProtocolLen = slp->session->securityAuthProtoLen;
+      }
+
+      /* copy the priv protocol */
+      if (slp->session->securityPrivProto != NULL) {
+        user->privProtocol =
+          snmp_duplicate_objid(slp->session->securityPrivProto,
+                               slp->session->securityPrivProtoLen);
+        if (user->privProtocol == NULL) {
+          usm_free_user(user);
+          return (void *)slp;
+        }
+        user->privProtocolLen = slp->session->securityPrivProtoLen;
+      }
+      
+      /* copy in the authentication Key */
+      if (memdup(&user->authKey, slp->session->securityAuthKey,
+                 slp->session->securityAuthKeyLen) != SNMPERR_SUCCESS) {
+        usm_free_user(user);
+        return (void *)slp;
+      }
+      user->authKeyLen = slp->session->securityAuthKeyLen;
+
+      /* copy in the privacy Key */
+      if (memdup(&user->privKey, slp->session->securityPrivKey,
+                 slp->session->securityPrivKeyLen) != SNMPERR_SUCCESS) {
+        usm_free_user(user);
+        return (void *)slp;
+      }
+      user->privKeyLen = slp->session->securityPrivKeyLen;
+
+      /* add the user into the database */
+      usm_add_user(user);
     }
 
     return (void *)slp;
@@ -1178,13 +1253,16 @@ snmpv3_packet_build(struct snmp_pdu *pdu, u_char *packet, int *out_length,
     /* call the security module to possibly encrypt and authenticate the
        message - the entire message to transmitted on the wire is returned */
     cp = NULL; *out_length = SNMP_MAX_MSG_SIZE;
-    usm_generate_out_msg(SNMP_VERSION_3, global_data, global_data_len,
-			 SNMP_MAX_MSG_SIZE, SNMP_SEC_MODEL_USM,
-			 pdu->contextEngineID, pdu->contextEngineIDLen,
-			 pdu->securityName, pdu->securityNameLen,
-			 pdu->securityLevel, spdu_buf, spdu_len, NULL,
-			 sec_params, &sec_params_len,
-			 &cp, out_length);
+    snmp_errno =
+      usm_generate_out_msg(SNMP_VERSION_3, global_data, global_data_len,
+                           SNMP_MAX_MSG_SIZE, SNMP_SEC_MODEL_USM,
+                           pdu->contextEngineID, pdu->contextEngineIDLen,
+                           pdu->securityName, pdu->securityNameLen,
+                           pdu->securityLevel, spdu_buf, spdu_len, NULL,
+                           sec_params, &sec_params_len,
+                           &cp, out_length);
+    if (snmp_errno != 0)
+      return -1;
 
     snmp_errno = 0;
     return 0;
