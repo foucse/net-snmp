@@ -96,3 +96,6 @@
 
 - hardaker/Oct 05
     snmptrapd still doesn't handle informs...  it should...
+
++ hardaker/Oct 06
+    fix all asn_parse/build_int() to use longs. 
