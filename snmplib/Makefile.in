@@ -34,7 +34,7 @@ INSTALLHEADERS=\
 	ucd-snmp-includes.h \
 	@security_hdr_list@
 
-CSRCS=	snmp_client.c mib.c parse.c snmp_api.c snmp.c 		\
+CSRCS=	snmp_client.c               snmp_api.c snmp.c 		\
 	snmp_auth.c asn1.c md5.c snmp_parse_args.c		\
 	system.c vacm.c int64.c read_config.c 			\
 	snmp_debug.c tools.c  snmp_logging.c			\
@@ -43,9 +43,12 @@ CSRCS=	snmp_client.c mib.c parse.c snmp_api.c snmp.c 		\
 	mt_support.c snmp_enum.c				\
 	snprintf.c strtol.c strtoul.c				\
 	snmp_transport.c @transport_src_list@                   \
-	snmp_secmod.c @security_src_list@
+	snmp_secmod.c @security_src_list@			\
+	mib/mib_api.c mib/mib_conf.c				\
+	mib/mib_dir.c mib/mib_module.c mib/mib_object.c		\
+	ucd/ucd_mib_api.c ucd/ucd_print_value.c
 
-OBJS=	snmp_client.o mib.o parse.o snmp_api.o snmp.o 		\
+OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	snmp_auth.o asn1.o md5.o snmp_parse_args.o	  	\
 	system.o vacm.o int64.o read_config.o 		  	\
 	snmp_debug.o tools.o  snmp_logging.o	   	  	\
@@ -54,9 +57,12 @@ OBJS=	snmp_client.o mib.o parse.o snmp_api.o snmp.o 		\
 	mt_support.o snmp_enum.o				\
 	snprintf.o strtol.o strtoul.o				\
 	snmp_transport.o @transport_obj_list@                   \
-	snmp_secmod.o @security_obj_list@
+	snmp_secmod.o @security_obj_list@			\
+	mib/mib_api.o mib/mib_conf.o				\
+	mib/mib_dir.o mib/mib_module.o mib/mib_object.o		\
+	ucd/ucd_mib_api.o ucd/ucd_print_value.o
 
-LOBJS=	snmp_client.lo mib.lo parse.lo snmp_api.lo snmp.lo 	\
+LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	snmp_auth.lo asn1.lo md5.lo snmp_parse_args.lo		\
 	system.lo vacm.lo int64.lo read_config.lo 		\
 	snmp_debug.lo tools.lo  snmp_logging.lo	   	  	\
@@ -65,7 +71,10 @@ LOBJS=	snmp_client.lo mib.lo parse.lo snmp_api.lo snmp.lo 	\
 	mt_support.lo snmp_enum.lo				\
 	snprintf.lo strtol.lo strtoul.lo			\
 	snmp_transport.lo @transport_lobj_list@                 \
-        snmp_secmod.lo @security_lobj_list@
+        snmp_secmod.lo @security_lobj_list@			\
+	mib/mib_api.lo mib/mib_conf.lo				\
+	mib/mib_dir.lo mib/mib_module.lo mib/mib_object.lo	\
+	ucd/ucd_mib_api.lo ucd/ucd_print_value.lo
 
 # just in case someone wants to remove libtool, change this to OBJS.
 TOBJS=$(LOBJS)
