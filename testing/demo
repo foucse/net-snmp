@@ -1,7 +1,6 @@
 #!/bin/sh
 
-defpass="hi_there"
-engineID="9 800007E501D0D6A623"         # example for comments, never used.
+defpass="my_passphrase"
 
 # Assumptions;
 #
@@ -9,27 +8,66 @@ engineID="9 800007E501D0D6A623"         # example for comments, never used.
 #
 #  - some snmpd.conf file contains (using the correct engineIDs):
 #
-#      userSetAuthPass initial 	   $engineID $defpass
-#      userSetPrivPass initial 	   $engineID $defpass
-#      userSetAuthPass templateMD5 $engineID $defpass
-#      userSetPrivPass templateMD5 $engineID $defpass
-#      userSetAuthPass templateSHA $engineID $defpass
-#      userSetPrivPass templateSHA $engineID $defpass
-#      group local any initial
-#      group local any templateMD5
-#      group local any templateSHA
-#      group local any dolphin
-#      group local any shark
-#      group local any shark2
-#      group local any stingray
-#      group local any stingray2
-#      group local any whale
-#      view all    included  .1                               80
-#      access local   ""      any       noauth    0      all    all   all
+#    # Setup the engineID using a string to initialize it:
+#    #
+#    # Format:
+#    #   engineID STRING
 #
+#        engineID testit
+#   
+#    # Set the passwords for the initial and template users to our
+#    # chosen default ("my_passphrase").  The engineID settings must
+#    # be that for the string chosen by the line above.  The example
+#    # below uses:
+#    #
+#    #     12 800007e50474657374697400
+#    #
+#    # as the engineID.  The 12 is the length of the hex string in
+#    # bytes. (warning: this could change in format in the future to
+#    # remove the length requirement).
+#    #
+#    # Format:
+#    #   userSetAuthPass  USER        LEN EID                      PASSPHRASE
+#    #                  
+#        userSetAuthPass  initial     12  800007e50474657374697400 my_passphrase
+#        userSetPrivPass  initial     12  800007e50474657374697400 my_passphrase
+#        userSetAuthPass  templateMD5 12  800007e50474657374697400 my_passphrase
+#        userSetPrivPass  templateMD5 12  800007e50474657374697400 my_passphrase
+#        userSetAuthPass  templateSHA 12  800007e50474657374697400 my_passphrase
+#        userSetPrivPass  templateSHA 12  800007e50474657374697400 my_passphrase
+#  
+#    # Add the users we're going to need into a group ("local").
+#    #   (this is documented in the snmpd.conf(5) manual page)
+#    #
+#    # Format:
+#    #   group NAME  MODEL  SECNAME
+#    #
+#        group local any    initial
+#        group local any    templateMD5
+#        group local any    templateSHA
+#        group local any    dolphin
+#        group local any    shark
+#        group local any    shark2
+#        group local any    stingray
+#        group local any    stingray2
+#        group local any    whale
+#  
+#    # Create a view "all" that includes the entire mib tree (.1...)
+#    #   (this is documented in the snmpd.conf(5) manual page)
+#    #
+#    # Format:
+#    #   view NAME  TYPE      SUBTREE  [MASK]
+#    #
+#        view all   included  .1       80
+#  
+#    # Give the "local" group r/w access to all of the "all" view above.
+#    #   (this is documented in the snmpd.conf(5) manual page)
+#    #
+#    # Format:
+#    #   access GROUP CONTEXT MODEL LEVEL  PREFIX READ WRITE NOTIFY
+#    #                               
+#        access local ""      any   noauth 0      all  all   all
 #
-
-# -u: don't create users, they already exist.
 #
 
 createUsers=1
@@ -37,6 +75,7 @@ autoread=1
 autodoit=1
 autotest=1
 runcommands=1
+autoconfig=0
 host=localhost
 handleagent=1
 dosleep=0
@@ -54,6 +93,8 @@ do
     runcommands=0
   elif test $arg = "-a"; then
     handleagent=0
+  elif test $arg = "-C"; then
+    autoconf=0
   elif test $arg = "-T"; then
     autotest=0
   elif test $arg = "-s"; then
@@ -61,6 +102,7 @@ do
   elif test $arg = "-h"; then
     echo "$0 [-t] [-c] [-u] [host]"
     echo "    -t:    pause at section titles"
+    echo "    -C:    automatically configure the agent for you"
     echo "    -T:    pause at section titles"
     echo "    -c:    pause before running commands"
     echo "    -u:    do not create the users, assume they are already created."
