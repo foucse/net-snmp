@@ -93,6 +93,7 @@ typedef long    fd_mask;
 #include "snmp.h"
 #include "mib.h"
 #include "m2m.h"
+#include "snmpv3.h"
 
 #ifdef USING_V2PARTY_ALARM_MODULE
 #include "mibgroup/v2party/alarm.h"
@@ -471,28 +472,16 @@ char *prog;
   exit(1);
 }
 
-static int agentBoots=0;
-
-void
-agentBoots_conf(word, cptr)
-  char *word;
-  char *cptr;
-{
-  agentBoots = atoi(cptr)+1;
-  DEBUGP("agentBoots: %d\n",agentBoots);
-}
-
 RETSIGTYPE
 SnmpdShutDown(a)
   int a;
 {
-  char line[512];
   /* We've received a sigTERM.  Shutdown by calling mib-module
      functions and sending out a shutdown trap. */
-  fprintf(stderr, "Received TERM or STOP signal...  shutting down...\n");
+  fprintf(stderr, "Received TERM or INT signal...  shutting down...\n");
+  snmp_clean_persistent("snmpd");
+  shutdown_snmpv3("snmpd");
 #include "mib_module_shutdown.h"
-  sprintf(line, "agentBoots %d", agentBoots);
-  snmpd_store_config(line);
   DEBUGP("sending shutdown trap\n");
   SnmpTrapNodeDown(a);
   DEBUGP("Bye...\n");
@@ -520,7 +509,7 @@ main(argc, argv)
     int ret;
     u_short dest_port = 161;
     int dont_fork = 0;
-    char logfile[300];
+    char logfile[300], file[512];
     char *cptr, **argvptr;
 
     logfile[0] = 0;
@@ -635,15 +624,16 @@ main(argc, argv)
     if (!dont_fork && fork() != 0)   /* detach from shell */
       exit(0);
     init_agent();            /* register our .conf handlers */
+    init_snmpv3("snmpd");    /* register the v3 handlers */
     register_mib_handlers(); /* snmplib .conf handlers */
     read_premib_configs();   /* read pre-mib-reading .conf handlers */
     init_mib();              /* initialize the mib structures */
     update_config(0);        /* read in config files and register HUP */
-#ifdef PERSISTENTFILE
-    /* read in the persistent information cache */
-    read_config_with_type(PERSISTENTFILE, "snmpd");
-    unlink(PERSISTENTFILE);  /* nuke it now that we've read it */
+#ifdef PERSISTENTDIR
+    sprintf(file,"%s/snmpd.persistent.conf",PERSISTENTDIR);
+    read_config_with_type(file, "snmpd");
 #endif
+    /* read in the persistent information cache */
     init_snmp2p( dest_port );
     
     printf("Opening port(s): "); 
