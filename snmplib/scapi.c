@@ -13,6 +13,7 @@
  *	KMT_ERR_* codes.  Must be all of one or the other...
  *
  * XXX	Bound all functions with HAVE_LIBKMT?
+ * XXX	Put "determine transform type" into a function?
  */
 
 #include "all_system.h"
@@ -134,8 +135,7 @@ sc_generate_keyed_hash(	oid	*authtype,	int    authtypelen,
 			u_char	*message,	u_int  msglen,
 			u_char	*MAC,		u_int *maclen)
 {
-	int		rval	= SNMPERR_SUCCESS,
-			oidlen	= MIN(authtypelen, USM_LENGTH_OID_TRANSFORM);
+	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
 			properlength;
 
@@ -147,8 +147,9 @@ sc_generate_keyed_hash(	oid	*authtype,	int    authtypelen,
 	/*
 	 * Sanity check.
 	 */
-	if ( !authtype || !key || !message || !MAC || !maclen ||
-		(authtypelen<=0) || (keylen<=0) || (msglen<=0) || (*maclen<=0) )
+	if ( !authtype || !key || !message || !MAC || !maclen
+		|| (keylen<=0) || (msglen<=0) || (*maclen<=0)
+		|| (authtypelen != USM_LENGTH_OID_TRANSFORM) )
 	{
 		QUITFUN(SNMPERR_GENERR, sc_generate_keyed_hash_quit);
 	}
@@ -157,15 +158,11 @@ sc_generate_keyed_hash(	oid	*authtype,	int    authtypelen,
 	/*
 	 * Determine transform type.
 	 */
-	if ( !strncmp((char *) authtype,
-				(char *) usmHMACMD5AuthProtocol, oidlen) )
-	{
+	if ( ISTRANSFORM(authtype, HMACMD5Auth) ) {
 		transform    = KMT_ALG_HMAC_MD5;	
 		properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
 
-	} else if ( !strncmp((char *) authtype,
-				(char *) usmHMACSHA1AuthProtocol, oidlen) )
-	{
+	} else if ( ISTRANSFORM(authtype, HMACSHA1Auth) ) {
 		transform    = KMT_ALG_HMAC_SHA1;	
 		properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
 
@@ -227,8 +224,7 @@ sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
 			u_char	*message,	u_int msglen,
 			u_char	*MAC,		u_int maclen)
 {
-	int		rval	= SNMPERR_SUCCESS,
-			oidlen	= MIN(authtypelen, USM_LENGTH_OID_TRANSFORM);
+	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
 			properlength;
 
@@ -240,8 +236,9 @@ sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
 	/*
 	 * Sanity check.
 	 */
-	if ( !authtype || !key || !message || !MAC || 
-		(authtypelen<=0) || (keylen<=0) || (msglen<=0) || (maclen<=0) )
+	if ( !authtype || !key || !message || !MAC 
+		|| (keylen<=0) || (msglen<=0) || (maclen<=0)
+		|| (authtypelen != USM_LENGTH_OID_TRANSFORM) )
 	{
 		QUITFUN(SNMPERR_GENERR, sc_check_keyed_hash_quit);
 	}
@@ -250,15 +247,11 @@ sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
 	/*
 	 * Determine transform type.
 	 */
-	if ( !strncmp((char *) authtype,
-				(char *) usmHMACMD5AuthProtocol, oidlen) )
-	{
+	if ( ISTRANSFORM(authtype, HMACMD5Auth) ) {
 		transform    = KMT_ALG_HMAC_MD5;	
 		properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
 
-	} else if ( !strncmp((char *) authtype,
-				(char *) usmHMACSHA1AuthProtocol, oidlen) )
-	{
+	} else if ( ISTRANSFORM(authtype, HMACSHA1Auth) ) {
 		transform    = KMT_ALG_HMAC_SHA1;	
 		properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
 
@@ -329,23 +322,22 @@ sc_encrypt(	oid    *privtype,	int   privtypelen,
 		u_char *plaintext,	u_int ptlen,
 		u_char *ciphertext,	u_int *ctlen)
 {
-	int		rval	= SNMPERR_SUCCESS,
-			oidlen	= MIN(privtypelen, USM_LENGTH_OID_TRANSFORM);
+	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
 			properlength,
 			properlength_iv;
 
 	KMT_KEY_LIST	*kmtkeylist = NULL;
 
-EM(1); /* */
+/* EM(1); /* */
 
 
 	/*
 	 * Sanity check.
 	 */
 	if ( !privtype || !key || !iv || !plaintext || !ciphertext || !ctlen
-		|| (privtypelen<=0) || (keylen<=0) || (ivlen<=0)
-		|| (ptlen<=0) || (*ctlen<=0) )
+		|| (keylen<=0) || (ivlen<=0) || (ptlen<=0) || (*ctlen<=0)
+		|| (privtypelen != USM_LENGTH_OID_TRANSFORM) )
 	{
 		QUITFUN(SNMPERR_GENERR, sc_encrypt_quit);
 	}
@@ -354,9 +346,7 @@ EM(1); /* */
 	/*
 	 * Determine privacy transform.
 	 */
-	if ( !strncmp((char *) privtype,
-				(char *) usmDESPrivProtocol, oidlen) )
-	{
+	if ( ISTRANSFORM(privtype, DESPriv) ) {
 		transform	= KMT_ALG_DES;	
 		properlength	= BYTESIZE(SNMP_TRANS_PRIVLEN_1DES);
 		properlength_iv	= BYTESIZE(SNMP_TRANS_PRIVLEN_1DES_IV);
@@ -427,23 +417,22 @@ sc_decrypt(	oid    *privtype,	int   privtypelen,
 		u_char *ciphertext,	u_int ctlen,
 		u_char *plaintext,	u_int *ptlen)
 {
-	int		rval	= SNMPERR_SUCCESS,
-			oidlen	= MIN(privtypelen, USM_LENGTH_OID_TRANSFORM);
+	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
 			properlength,
 			properlength_iv;
 
 	KMT_KEY_LIST	*kmtkeylist = NULL;
 
-EM(1); /* */
+/* EM(1); /* */
 
 
 	/*
 	 * Sanity check.
 	 */
 	if ( !privtype || !key || !iv || !plaintext || !ciphertext || !ptlen
-		|| (privtypelen<=0) || (keylen<=0) || (ivlen<=0)
-		|| (ctlen<=0) || (*ptlen<=0) )
+		|| (ctlen<=0) || (*ptlen<=0)
+		|| (privtypelen != USM_LENGTH_OID_TRANSFORM) )
 	{
 		QUITFUN(SNMPERR_GENERR, sc_decrypt_quit);
 	}
@@ -452,9 +441,7 @@ EM(1); /* */
 	/*
 	 * Determine privacy transform.
 	 */
-	if ( !strncmp((char *) privtype,
-				(char *) usmDESPrivProtocol, oidlen) )
-	{
+	if ( ISTRANSFORM(privtype, DESPriv) ) {
 		transform	= KMT_ALG_DES;	
 		properlength	= BYTESIZE(SNMP_TRANS_PRIVLEN_1DES);
 		properlength_iv	= BYTESIZE(SNMP_TRANS_PRIVLEN_1DES_IV);
@@ -556,7 +543,8 @@ sc_internal_kmtlookup(	u_int 	 transform,
 	}
 
 	if (ISDF(KMTDUMP1) && *kmtkeylist) {
-		kmt_s_dump_keylist(*kmtkeylist, "In sc_internal_kmtlookup()");
+		fprintf(stdout, "\n");
+		kmt_dump_keylist(*kmtkeylist, "In sc_internal_kmtlookup()");
 	}
 
 

@@ -6,7 +6,7 @@ TARG		=	bin/snmpget bin/snmpgetnext bin/snmpset 	\
 			bin/snmptranslate bin/snmpwalk bin/snmpbulkwalk \
 			bin/snmptest bin/snmptrapd bin/snmpnetstat bin/snmpd
 
-SUBDIRS		= snmplib agent apps local ov man #testing
+SUBDIRS		= snmplib agent apps local ov man testing
 INSTALLDIRS	= snmplib agent apps local man mibs
 
 CPP		= @CPP@ 						\
@@ -56,19 +56,19 @@ depend:
 	cd snmplib; make depend
 	cd apps; make depend
 	cd agent; make depend
-#	cd testing; make depend
+	cd testing; make depend
 
 nosysdepend:
 	cd snmplib; make nosysdepend
 	cd apps; make nosysdepend
 	cd agent; make nosysdepend
-#	cd testing; make nosysdepend
+	cd testing; make nosysdepend
 
 makefileindepend:
 	cd snmplib; make makefileindepend
 	cd apps; make makefileindepend
 	cd agent; make makefileindepend
-#	cd testing; make makefileindepend
+	cd testing; make makefileindepend
 
 
 clean:

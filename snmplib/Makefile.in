@@ -94,8 +94,8 @@ int64.o: ../config.h ../mib_module_config.h
 int64.o:   ../s/linux.h
 int64.o: ../s/sysv.h ../s/generic.h ../m/generic.h 
 int64.o:   asn1.h int64.h
-keytools.o:	keytools.h
-lcd_time.o:	lcd_time.h
+keytools.o:	keytools.h tools.h debug.h
+lcd_time.o:	lcd_time.h tools.h debug.h
 md5.o: ../config.h ../mib_module_config.h 
 md5.o:   ../s/linux.h
 md5.o: ../s/sysv.h ../s/generic.h ../m/generic.h 
@@ -119,7 +119,7 @@ party_parse.o:   ../s/linux.h
 party_parse.o: ../s/sysv.h ../s/generic.h ../m/generic.h
 party_parse.o:  asn1.h mib.h party.h system.h
 party_parse.o: snmp_api.h snmp_impl.h snmp.h
-scapi.o:	scapi.h
+scapi.o:	scapi.h tools.h debug.h
 snmp.o: ../config.h ../mib_module_config.h 
 snmp.o:   ../s/linux.h
 snmp.o: ../s/sysv.h ../s/generic.h ../m/generic.h 
@@ -145,7 +145,7 @@ system.o: ../config.h ../mib_module_config.h
 system.o:   ../s/linux.h
 system.o: ../s/sysv.h ../s/generic.h ../m/generic.h 
 system.o:  asn1.h snmp_api.h system.h
-tools.o:	tools.h
+tools.o:	tools.h debug.h
 vacm.o: ../config.h ../mib_module_config.h 
 vacm.o:   ../s/linux.h
 vacm.o: ../s/sysv.h ../s/generic.h ../m/generic.h 

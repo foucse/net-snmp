@@ -1,7 +1,7 @@
 /*
  * scapitest.c
  *
- * Expected SUCCESSes:	2 + 2 + XXX for all tests.
+ * Expected SUCCESSes:	2 + 2 + 1 for all tests.
  *
  * Returns:
  *	Number of FAILUREs.
@@ -10,12 +10,15 @@
  * XXX	Split into individual modules?
  * XXX	Error/fringe conditions should be tested.
  *
- * Test of sc_random.			SUCCESSes == 2.
- * Test of sc_generate_keyed_hash and sc_check_keyed_hash.
- *					SUCCESSes == 2.
+ * Test of sc_random.						SUCCESSes: 2.
+ *	REQUIRES a human to spot check for obvious non-randomness...
+ *
+ * Test of sc_generate_keyed_hash and sc_check_keyed_hash.	SUCCESSes: 2.
+ *
+ * Test of sc_encrypt and sc_decrypt.				SUCCESSes: 1.
  */
 
-static char *rcsid = "$Id";	/* */
+static char *rcsid = "$Id$";	/* */
 
 
 #include "all_system.h"
@@ -30,6 +33,8 @@ extern int      optind, optopt, opterr;
 extern int	optreset;
 #endif
 
+#define DEBUG	/* */
+
 
 
 /*
@@ -37,18 +42,20 @@ extern int	optreset;
  */
 char *local_progname;
 
-#define USAGE	"Usage: %s [-h][-aHr]"
-#define OPTIONLIST	"ahHr"
+#define USAGE	"Usage: %s [-h][-acHr]"
+#define OPTIONLIST	"achHr"
 
 int	doalltests	= 0,
+	docrypt		= 0,
 	dokeyedhash	= 0,
 	dorandom	= 0;
 
-#define	ALLOPTIONS	(doalltests + dokeyedhash + dorandom)
+#define	ALLOPTIONS	(doalltests + docrypt + dokeyedhash + dorandom)
 
 
 
 #define LOCAL_MAXBUF	(1024 * 8)
+#define NL		"\n"
 
 #define OUTPUT(o)	fprintf(stdout, "\n\n%s\n\n", o);
 
@@ -95,8 +102,12 @@ int	doalltests	= 0,
  * Prototypes.
  */
 void	usage(FILE *ofp);
-int	test_dorandom(void);
+void	dump_chunk(char *buf, int size);
+
+
+int	test_docrypt(void);
 int	test_dokeyedhash(void);
+int	test_dorandom(void);
 
 
 
@@ -119,6 +130,7 @@ main(int argc, char **argv)
 	{
 		switch(ch) {
 		case 'a':	doalltests = 1;		break;
+		case 'c':	docrypt = 1;		break;
 		case 'H':	dokeyedhash = 1;	break;
 		case 'r':	dorandom = 1;		break;
 		case 'h':
@@ -152,11 +164,15 @@ main(int argc, char **argv)
 	rval = sc_init();
 	FAILED(rval, "sc_init().");
 
-	if (dorandom || doalltests) {
-		failcount += test_dorandom();
+
+	if (docrypt || doalltests) {
+		failcount += test_docrypt();
 	}
 	if (dokeyedhash || doalltests) {
 		failcount += test_dokeyedhash();
+	}
+	if (dorandom || doalltests) {
+		failcount += test_dorandom();
 	}
 
 
@@ -179,13 +195,14 @@ usage(FILE *ofp)
 {
 	fprintf(ofp,
 
-	USAGE								"\n"
-	""								"\n"
-	"	-a		All tests."				"\n"
-	"	-h		Help."					"\n"
-	"	-H              Test sc_{generate,check}_keyed_hash()." "\n"
-	"	-r              Test sc_random()." 			"\n"
-	""								"\n"
+	USAGE								
+	""								NL
+	"	-a		All tests."				NL
+	"	-c		Test of sc_encrypt()/sc_decrypt()."	NL
+	"	-h		Help."					NL
+	"	-H              Test sc_{generate,check}_keyed_hash()." NL
+	"	-r              Test sc_random()." 			NL
+	""								NL
 		, local_progname);
 
 }  /* end usage() */
@@ -236,14 +253,11 @@ test_dorandom(void)
 	int	rval		= SNMPERR_SUCCESS,
 		failcount	= 0,
 		origrequest	= (1024 * 2),
-		origrequest_short = 16,
+		origrequest_short = 19,
 		nbytes		= origrequest,
-		shortcount	= 8,
-		printunit	= 64,
+		shortcount	= 7,
 		i;
-	char	*s, *sp,
-		buf[LOCAL_MAXBUF],
-		chunk[LOCAL_MAXBUF];
+	char	buf[LOCAL_MAXBUF];
 
 EM(1); /* */
 
@@ -258,24 +272,7 @@ EM(1); /* */
 		    "sc_random() returned different than requested.");
 	}
 
-	binary_to_hex(buf, nbytes, &s);
-	sp = s;
-	nbytes *= 2;
-
-	while (nbytes > 0)
-	{
-		if (nbytes > printunit) {
-			strncpy(chunk, sp, printunit);	
-			chunk[printunit] = '\0';
-			fprintf(stdout, "\t%s\n", chunk);
-		} else {
-			fprintf(stdout, "\t%s\n", sp);
-		}
-
-		sp	+= printunit;
-		nbytes	-= printunit;
-	}
-	SNMP_FREE(s);
+	dump_chunk(buf, nbytes);
 
 	SUCCESS("Random test -- large request.");
 
@@ -295,9 +292,7 @@ EM(1); /* */
 				"than requested.");
 		}
 
-		binary_to_hex(buf, nbytes, &s);
-		fprintf(stdout, "    %s\n", s);
-		SNMP_FREE(s);
+		dump_chunk(buf, nbytes);
 	}  /* endfor */
 
 	SUCCESS("Random test -- short requests.");
@@ -312,12 +307,15 @@ EM(1); /* */
 /*******************************************************************-o-******
  * test_dokeyedhash
  *
- * FIX	Get input or output from some other package which hashes...
- *
- * XXX	Could cut this in half with a little indirection...
- *
  * Returns:
  *	Number of failures.
+ *
+ * NOTE Both tests intentionally use the same secret; this tests whether
+ *	we can store the same keybits in the KMT cache but label
+ *	each set with a different transform type.
+ *
+ * FIX	Get input or output from some other package which hashes...
+ * XXX	Could cut this in half with a little indirection...
  */
 int
 test_dokeyedhash(void)
@@ -366,12 +364,12 @@ test_dokeyedhash(void)
 
 	memset(hashbuf, 0, LOCAL_MAXBUF);
 	hashbuf_len = LOCAL_MAXBUF;
-	secret_len  = strlen(BKWDSECRET);
+	/* secret_len  = strlen(BKWDSECRET);	/* */
 
 
 	rval = sc_generate_keyed_hash(
 		usmHMACSHA1AuthProtocol, USM_LENGTH_OID_TRANSFORM,
-		BKWDSECRET, secret_len,
+		BIGSECRET, secret_len,
 		BIGSTRING, bigstring_len,
 		hashbuf, &hashbuf_len);
 	FAILED(rval, "sc_generate_keyed_hash().");
@@ -383,7 +381,7 @@ test_dokeyedhash(void)
 
 	rval = sc_check_keyed_hash(
 		usmHMACSHA1AuthProtocol, USM_LENGTH_OID_TRANSFORM,
-		BKWDSECRET, secret_len,
+		BIGSECRET, secret_len,
 		BIGSTRING, bigstring_len,
 		hashbuf, hashbuf_len);
 	FAILED(rval, "sc_check_keyed_hash().");
@@ -395,4 +393,119 @@ test_dokeyedhash(void)
 	return failcount;
 
 }  /* end test_dokeyedhash() */
+
+
+
+
+
+/*******************************************************************-o-******
+ * dump_chunk
+ *
+ * Parameters:
+ *	*buf
+ *	 size
+ */
+void
+dump_chunk(char *buf, int size)
+{
+	int		printunit = 64;		/* XXX  Make global. */
+	char		chunk[LOCAL_MAXBUF],
+			*s, *sp;
+	FILE		*fp = stdout;
+
+/* EM(1); /* */
+
+
+	memset(chunk, 0, LOCAL_MAXBUF);
+
+	size = binary_to_hex(buf, size, &s);
+	sp = s;
+
+	while (size > 0)
+	{
+		if (size > printunit) {
+			strncpy(chunk, sp, printunit);	
+			chunk[printunit] = '\0';
+			fprintf(fp, "\t%s\n", chunk);
+		} else {
+			fprintf(fp, "\t%s\n", sp);
+		}
+
+		sp	+= printunit;
+		size	-= printunit;
+	}
+
+
+	SNMP_FREE(s);
+
+}  /* end dump_chunk() */
+
+
+
+
+
+/*******************************************************************-o-******
+ * test_docrypt
+ *
+ * Returns:
+ *	Number of failures.
+ */
+int
+test_docrypt(void)
+{
+	int		 rval = SNMPERR_SUCCESS,
+			 failcount = 0,
+			 bigstring_len	 = strlen(BIGSTRING),
+			 secret_len	 = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES),
+			 iv_len		 = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES_IV);
+
+	u_int		 buf_len = LOCAL_MAXBUF,
+			 cryptbuf_len = LOCAL_MAXBUF;
+
+	char		 buf[LOCAL_MAXBUF],
+			 cryptbuf[LOCAL_MAXBUF],
+			 secret[LOCAL_MAXBUF],
+			 iv[LOCAL_MAXBUF];
+/* EM(1); /* */
+
+
+	OUTPUT("Test 1DES-CBC --");
+
+
+	memset(buf, 0, LOCAL_MAXBUF);
+
+	memcpy(secret,	BIGSECRET,	secret_len);
+	memcpy(iv,	BKWDSECRET,	iv_len);
+
+
+	rval = sc_encrypt(
+		usmDESPrivProtocol, USM_LENGTH_OID_TRANSFORM,
+		secret, secret_len,
+		iv, iv_len,
+		BIGSTRING, bigstring_len,
+		cryptbuf, &cryptbuf_len);
+	FAILED(rval, "sc_encrypt().");
+
+	rval = sc_decrypt(
+		usmDESPrivProtocol, USM_LENGTH_OID_TRANSFORM,
+		secret, secret_len,
+		iv, iv_len,
+		cryptbuf, cryptbuf_len,
+		buf, &buf_len);
+	FAILED(rval, "sc_decrypt().");
+
+	if (buf_len != bigstring_len) {
+		FAILED(SNMPERR_GENERR, "Decrypted buffer is the wrong length.");
+	}
+	if ( memcmp(buf, BIGSTRING, bigstring_len) ) {
+		FAILED(	SNMPERR_GENERR,
+			"Decrypted buffer is not equal to original plaintext.");
+	}
+
+
+	SUCCESS("Test 1DES-CBC --");
+
+	return failcount;
+
+}  /* end test_docrypt() */
 

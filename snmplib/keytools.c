@@ -75,7 +75,6 @@ generate_Ku(	oid	*hashtype,	u_int  hashtype_len,
 		u_char	*Ku,		u_int *kulen)
 {
 	int		 rval   = SNMPERR_SUCCESS,
-			 oidlen = MIN(hashtype_len, USM_LENGTH_OID_TRANSFORM),
 			 nbytes = USM_LENGTH_EXPANDED_PASSPHRASE;
 
 	u_int		 transform,
@@ -92,8 +91,9 @@ EM(1); /* */
 	/*
 	 * Sanity check.
 	 */
-	if ( !hashtype || !P || !Ku || !kulen ||
-		(hashtype_len<=0) || (pplen<=0) || (*kulen<=0) )
+	if ( !hashtype || !P || !Ku || !kulen
+		|| (pplen<=0) || (*kulen<=0)
+		|| (hashtype_len != USM_LENGTH_OID_TRANSFORM) )
 	{
 		QUITFUN(SNMPERR_GENERR, generate_Ku_quit);
 	}
@@ -102,15 +102,11 @@ EM(1); /* */
 	/*
 	 * Determine transform type.
 	 */
-	if ( !strncmp((char *) hashtype,
-				(char *) usmHMACMD5AuthProtocol, oidlen) )
-	{
+	if ( ISTRANSFORM(hashtype, HMACMD5Auth) ) {
 		transform = KMT_ALG_HMAC_MD5;	
 		kmt_hash  = kmt_s_md5;
 
-	} else if ( !strncmp((char *) hashtype,
-				(char *) usmHMACSHA1AuthProtocol, oidlen) )
-	{
+	} else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
 		transform = KMT_ALG_HMAC_SHA1;	
 		kmt_hash  = kmt_s_sha1;
 
@@ -141,7 +137,7 @@ EM(1); /* */
 		nbytes -= USM_LENGTH_KU_HASHBLOCK;
 	}
 
-	rval = kmt_hash(KMT_CRYPT_MODE_FINAL, &context, NULL, NULL, &Ku, kulen);
+	rval = kmt_hash(KMT_CRYPT_MODE_FINAL, &context, NULL, 0, &Ku, kulen);
 	QUITFUN(rval, generate_Ku_quit);
 
 
@@ -193,8 +189,7 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 		u_char	*Ku,		u_int  ku_len,
 		u_char	*Kul,		u_int *kul_len)
 {
-	int		 rval    = SNMPERR_SUCCESS,
-			 oidlen  = MIN(hashtype_len, USM_LENGTH_OID_TRANSFORM);
+	int		 rval    = SNMPERR_SUCCESS;
 	u_int		 transform,
 			 properlength,
 			 nbytes  = 0;
@@ -208,9 +203,9 @@ EM(1); /* */
 	/*
 	 * Sanity check.
 	 */
-	if ( !hashtype || !engineID || !Ku || *Kul || !kul_len ||
-		(hashtype_len<=0) || (engineID_len<=0) ||
-		(ku_len<=0) || (*kul_len<=0))
+	if ( !hashtype || !engineID || !Ku || *Kul || !kul_len
+		|| (engineID_len<=0) || (ku_len<=0) || (*kul_len<=0)
+		|| (hashtype_len != USM_LENGTH_OID_TRANSFORM) )
 	{
 		QUITFUN(SNMPERR_GENERR, generate_kul_quit);
 	}
@@ -219,16 +214,12 @@ EM(1); /* */
 	/*
 	 * Determine transform type.
 	 */
-	if ( !strncmp((char *) hashtype,
-				(char *) usmHMACMD5AuthProtocol, oidlen) )
-	{
+	if ( ISTRANSFORM(hashtype, HMACMD5Auth) ) {
 		transform	= KMT_ALG_HMAC_MD5;	
 		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
 		kmt_hash	= kmt_s_md5;
 
-	} else if ( !strncmp((char *) hashtype,
-				(char *) usmHMACSHA1AuthProtocol, oidlen) )
-	{
+	} else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
 		transform	= KMT_ALG_HMAC_SHA1;	
 		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
 		kmt_hash	= kmt_s_sha1;
@@ -308,8 +299,7 @@ encode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 			u_char	*newkey,	u_int  newkey_len,
 			u_char	*kcstring,	u_int *kcstring_len)
 {
-	int		 rval    = SNMPERR_SUCCESS,
-			 oidlen  = MIN(hashtype_len, USM_LENGTH_OID_TRANSFORM);
+	int		 rval    = SNMPERR_SUCCESS;
 	u_int		 transform,
 			 properlength,
 			 nbytes  = 0;
@@ -323,8 +313,8 @@ EM(1); /* */
 	 * Sanity check.
 	 */
 	if ( !hashtype || !oldkey || !newkey || !kcstring || !kcstring_len
-		|| (hashtype_len<=0) || (oldkey_len<=0) || (newkey_len<=0)
-		|| (*kcstring_len<=0) )
+		|| (oldkey_len<=0) || (newkey_len<=0) || (*kcstring_len<=0)
+		|| (hashtype_len != USM_LENGTH_OID_TRANSFORM) )
 	{
 		QUITFUN(SNMPERR_GENERR, encode_keychange_quit);
 	}
@@ -333,16 +323,12 @@ EM(1); /* */
 	/*
 	 * Determine transform type.
 	 */
-	if ( !strncmp((char *) hashtype,
-				(char *) usmHMACMD5AuthProtocol, oidlen) )
-	{
+	if ( ISTRANSFORM(hashtype, HMACMD5Auth) ) {
 		transform	= KMT_ALG_HMAC_MD5;	
 		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
 		kmt_hash	= kmt_s_md5;
 
-	} else if ( !strncmp((char *) hashtype,
-				(char *) usmHMACSHA1AuthProtocol, oidlen) )
-	{
+	} else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
 		transform	= KMT_ALG_HMAC_SHA1;	
 		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
 		kmt_hash	= kmt_s_sha1;
@@ -449,8 +435,7 @@ decode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 			u_char	*kcstring,	u_int  kcstring_len,
 			u_char	*newkey,	u_int *newkey_len)
 {
-	int		 rval    = SNMPERR_SUCCESS,
-			 oidlen  = MIN(hashtype_len, USM_LENGTH_OID_TRANSFORM);
+	int		 rval    = SNMPERR_SUCCESS;
 	u_int		 transform,
 			 properlength,
 			 nbytes  = 0;
@@ -465,8 +450,8 @@ EM(1); /* */
 	 * Sanity check.
 	 */
 	if ( !hashtype || !oldkey || !kcstring || !newkey || !newkey_len
-		|| (hashtype_len<=0) || (oldkey_len<=0) || (kcstring_len<=0)
-		|| (*newkey_len<=0) )
+		|| (oldkey_len<=0) || (kcstring_len<=0) || (*newkey_len<=0)
+		|| (hashtype_len != USM_LENGTH_OID_TRANSFORM) )
 	{
 		QUITFUN(SNMPERR_GENERR, decode_keychange_quit);
 	}
@@ -475,16 +460,12 @@ EM(1); /* */
 	/*
 	 * Determine transform type.
 	 */
-	if ( !strncmp((char *) hashtype,
-				(char *) usmHMACMD5AuthProtocol, oidlen) )
-	{
+	if ( ISTRANSFORM(hashtype, HMACMD5Auth) ) {
 		transform	= KMT_ALG_HMAC_MD5;	
 		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
 		kmt_hash	= kmt_s_md5;
 
-	} else if ( !strncmp((char *) hashtype,
-				(char *) usmHMACSHA1AuthProtocol, oidlen) )
-	{
+	} else if ( ISTRANSFORM(hashtype, HMACSHA1Auth) ) {
 		transform	= KMT_ALG_HMAC_SHA1;	
 		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
 		kmt_hash	= kmt_s_sha1;

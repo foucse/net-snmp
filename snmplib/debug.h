@@ -20,10 +20,12 @@
 
 #define DEBUG_ON	0x00000001	/* General ON/OFF switch.	*/
 #define DEBUG_EM	0x00000002	/* Print entry mark messages.	*/
-#define DEBUG_KMTDUMP1	0x00000004	/* Dump keylists in
-					 *  sc_internal_kmtlookup().	*/
+#define DEBUG_KMTDUMP1	0x00000004	/* Dump keylists from
+					 *   sc_internal_kmtlookup().	*/
 
-static u_int snmp_debug = DF(ON) | DF(EM);	/* | DF(KMTDUMP1);	/* */
+static u_int snmp_debug =	DF(ON) | DF(EM)		/* */
+				/* | DF(KMTDUMP1)	/* */
+	;
 
 
 
@@ -46,7 +48,7 @@ static u_int snmp_debug = DF(ON) | DF(EM);	/* | DF(KMTDUMP1);	/* */
 
 #define em_printClause(em, printfargs)					\
 {									\
-	if (ISDF(ON) && ISDF(EM) && (_EM_LEVEL <= em)) {		\
+	if (ISDF(EM) && (_EM_LEVEL <= em)) {		\
 		fprintf(_EM_FD, "EM %s(%d).  ", __FUNCTION__, __LINE__);\
 		fprintf printfargs ;					\
 		fprintf(_EM_FD, "\n");					\
@@ -81,7 +83,8 @@ static u_int snmp_debug = DF(ON) | DF(EM);	/* | DF(KMTDUMP1);	/* */
  */
 void	kmt_s_dump_keylist(KMT_KEY_LIST *keylist, char *name);
 
+#define	kmt_dump_keylist	kmt_s_dump_keylist
+
 
 #endif /* _DEBUG_H */
-
 
