@@ -424,7 +424,9 @@ EM(-1); /* */
 
 	case 4:					/* Text. */
 
-		s += snprintf(s, remaining_len+3, "\"%s\"", esp);
+                /* Doesn't exist on all (many) architectures */
+                /* s += snprintf(s, remaining_len+3, "\"%s\"", esp); */
+		s += sprintf(s, "\"%s\"", esp);
 		goto dump_snmpEngineID_quit;
 		break;	/*NOTREACHED*/
 
