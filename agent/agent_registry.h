@@ -7,6 +7,10 @@
 
 #include "snmp_agent.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct handler_registration_s;
 
 typedef struct mib_handler_s {
@@ -197,5 +201,9 @@ extern void (* external_signal_handler[NUM_EXTERNAL_SIGS])(int);
 
 int register_signal(int, void (*func)(int));
 int unregister_signal(int);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif /* AGENT_REGISTRY_H */
