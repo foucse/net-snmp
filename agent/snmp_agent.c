@@ -1344,7 +1344,7 @@ add_varbind_to_cache(struct agent_snmp_session  *asp,
             asp->treecache[tp->cacheid]->subtree == tp) {
             /* we have already added a request to this tree
                    pointer before */
-            cacheid = tp->cacheid;
+					cacheid = tp->cacheid;
 
         } else {
             cacheid = ++(asp->treecache_num);
@@ -2088,4 +2088,34 @@ statp_loop:
 
 	return SNMP_ERR_NOERROR;
 	
+}
+
+
+extern struct timeval starttime;
+
+		/* Return the value of 'sysUpTime' at the given marker */
+int
+marker_uptime( marker_t pm )
+{
+    int res;
+    marker_t start = (marker_t)&starttime;
+
+    res = atime_diff( start, pm );
+    return res/10;      /* atime_diff works in msec, not csec */
+}
+
+			/* struct timeval equivalents of these */
+int timeval_uptime( struct timeval *tv )
+{
+    return marker_uptime((marker_t)tv);
+}
+
+		/* Return the current value of 'sysUpTime' */
+int
+get_agent_uptime( void ) {
+
+	struct timeval now;
+	gettimeofday(&now, NULL);
+
+	return timeval_uptime( &now );
 }

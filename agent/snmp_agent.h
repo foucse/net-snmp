@@ -8,6 +8,7 @@
 #define SNMP_AGENT_H
 
 #include "snmp_impl.h"
+#include "tools.h"
 
 #define SNMP_MAX_PDU_SIZE 64000 /* local constraint on PDU size sent by agent
                                   (see also SNMP_MAX_MSG_SIZE in snmp_api.h) */
@@ -121,6 +122,10 @@ int init_master_agent(void);
 int agent_check_and_process(int block);
 struct agent_snmp_session  *get_current_agent_session(void);
 void check_outstanding_agent_requests(int status);
+
+int marker_uptime( marker_t pm );
+int timeval_uptime( struct timeval *tv );
+int get_agent_uptime(void);
 
 /*  Register and de-register agent NSAPs.  */
  
