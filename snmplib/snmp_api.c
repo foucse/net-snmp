@@ -145,74 +145,6 @@ struct request_list {
 			       (saved so it can be retransmitted */
 };
 
-struct internal_variable_list {
-    struct variable_list *next_variable;    /* NULL for last variable */
-    oid     *name;  /* Object identifier of variable */
-    int     name_length;    /* number of subid's in name */
-    u_char  type;   /* ASN type of variable */
-    union { /* value of variable */
-        long    *integer;
-        u_char  *string;
-        oid     *objid;
-        u_char  *bitstring;
-        struct counter64 *counter64;
-#ifdef OPAQUE_SPECIAL_TYPES
-	float   *floatVal;
-	double  *doubleVal;
-#endif /* OPAQUE_SPECIAL_TYPES */
-    } val;
-    int     val_len;
-    oid name_loc[MAX_NAME_LEN];
-    u_char buf[32];
-    int usedBuf;
-};
-
-struct internal_snmp_pdu {
-    int     version;
-
-    snmp_ipaddr  address;    /* Address of peer */
-    u_char  *contextEngineID;	/* authoritative snmpEngineID */
-    int	    contextEngineIDLen;  /* Length of contextEngineID */
-    u_char  *contextName;	/* authoritative contextName */
-    int	    contextNameLen;  /* Length of contextName */
-    u_char  *securityName;	/* on behalf of this principal */
-    int	    securityNameLen;  /* Length of securityName. */
-    int	    securityModel;
-    int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
-    oid     *srcParty;
-    int     srcPartyLen;
-    oid     *dstParty;
-    int     dstPartyLen;
-    oid     *context;
-    int     contextLen;
-
-    u_char  *community; /* community for outgoing requests. */
-    int     community_len;  /* Length of community name. */
-
-    int     command;    /* Type of this PDU */
-
-    long  reqid;        /* Request id */
-    long  errstat;      /* Error status (non_repeaters in GetBulk) */
-    long  errindex;     /* Error index (max_repetitions in GetBulk) */
-
-    /* Trap information */
-    oid     *enterprise;/* System OID */
-    int     enterprise_length;
-    snmp_ipaddr  agent_addr; /* address of object generating trap */
-    long     trap_type;  /* trap type */
-    long     specific_type;  /* specific type */
-    u_long  time;       /* Uptime */
-
-    void * secStateRef;
-
-    struct variable_list *variables;
-    oid srcPartyBuf[MAX_NAME_LEN];
-    oid dstPartyBuf[MAX_NAME_LEN];
-    oid contextBuf[MAX_NAME_LEN];
-    /* XXX do community later */
-
-};
-
 /*
  * The list of active/open sessions.
  */
@@ -250,7 +182,7 @@ static char *api_errors[-SNMPERR_MAX+1] = {
     "Timeout",					/* SNMPERR_TIMEOUT */
     "Failure in recvfrom",			/* SNMPERR_BAD_RECVFROM */
     "Unable to determine contextEngineID",	/* SNMPERR_BAD_ENG_ID */
-    "Unable to determine contextName",		/* SNMPERR_BAD_SEC_NAME */
+    "Unable to determine securityName",		/* SNMPERR_BAD_SEC_NAME */
     "Unable to determine securityLevel",	/* SNMPERR_BAD_SEC_LEVEL */
     "SCAPI general failure",			/* SNMPERR_SC_GENERAL_FAILURE */
     "SCAPI sub-system not configured",		/* SNMPERR_SC_NOT_CONFIGURED */
@@ -284,7 +216,7 @@ static void snmpv3_calc_msg_flags __P((int, int, u_char *));
 static int snmpv3_build_probe_pdu __P((struct snmp_pdu **));
 static int snmpv3_build __P((struct snmp_session *, struct snmp_pdu *, u_char *, int *));
 static int snmp_build __P((struct snmp_session *, struct snmp_pdu *, u_char *, int *));
-static int snmp_parse __P((struct snmp_session *, struct internal_snmp_pdu *, u_char *, int));
+static int snmp_parse __P((struct snmp_session *, struct snmp_pdu *, u_char *, int));
 static int snmp_parse_version __P((u_char *, int));
 static void snmp_free_internal_pdu __P((struct snmp_pdu *));
 
@@ -642,18 +574,14 @@ snmp_sess_open(in_session)
       session->contextEngineID = cp;
     }
 
-    if (session->contextNameLen > 0) {
-      cp = (u_char*)malloc((unsigned)session->contextNameLen *
-			   sizeof(u_char));
+    if (session->contextName) {
+      session->contextName = strdup(session->contextName);
       if (cp == NULL) {
 	snmp_errno = SNMPERR_GENERR;
 	in_session->s_snmp_errno = SNMPERR_GENERR;
 	snmp_sess_close(slp);
 	return(NULL);
       }
-      memmove(cp, session->contextName,
-	      session->contextNameLen * sizeof(u_char));
-      session->contextName = cp;
     } else if ((cp = get_default_context()) != NULL) {
       cp = strdup(cp);
       if (cp == NULL) {
@@ -666,18 +594,14 @@ snmp_sess_open(in_session)
       session->contextNameLen = strlen(cp);
     }
 
-    if (session->securityNameLen > 0) {
-      cp = (u_char*)malloc((unsigned)session->securityNameLen *
-			   sizeof(u_char));
-      if (cp == NULL) {
+    if (session->securityName) {
+      session->securityName = strdup(session->securityName);
+      if (session->securityName == NULL) {
 	snmp_errno = SNMPERR_GENERR;
 	in_session->s_snmp_errno = SNMPERR_GENERR;
 	snmp_sess_close(slp);
 	return(NULL);
       }
-      memmove(cp, session->securityName,
-	      session->securityNameLen * sizeof(u_char));
-      session->securityName = cp;
     } else if ((cp = get_default_secName()) != NULL) {
       cp = strdup(cp);
       if (cp == NULL) {
@@ -810,18 +734,6 @@ snmp_sess_open(in_session)
     if (session->version == SNMP_VERSION_3 &&
 	session->contextEngineIDLen == 0) {
       snmpv3_build_probe_pdu(&pdu);
-      /* create a USM user with a null engineID first */
-      if (usm_get_user(session->contextEngineID, session->contextEngineIDLen,
-                       pdu->securityName) == NULL) {
-        cp = session->securityName;
-        i = session->securityNameLen;
-        session->securityName = pdu->securityName;
-        session->securityNameLen = pdu->securityNameLen;
-        if (create_user_from_session(session) != SNMPERR_SUCCESS)
-          DEBUGP("snmp_sess_open(): failed to create a new user from session");
-        session->securityName = cp;
-        session->securityNameLen = i;
-      }
       DEBUGP("probing for engineID...\n");
       status = snmp_sess_synch_response(slp, pdu, &response);
 
@@ -1307,8 +1219,8 @@ snmpv3_packet_build(struct snmp_pdu *pdu, u_char *packet, int *out_length,
                            SNMP_MAX_MSG_SIZE, SNMP_SEC_MODEL_USM,
                            pdu->contextEngineID, pdu->contextEngineIDLen,
                            pdu->securityName, pdu->securityNameLen,
-                           pdu->securityLevel, spdu_buf, spdu_len, NULL,
-                           sec_params, &sec_params_len,
+                           pdu->securityLevel, spdu_buf, spdu_len, 
+			   pdu->securityStateRef, sec_params, &sec_params_len,
                            &cp, out_length);
     if (snmp_errno != 0)
       return -1;
@@ -1726,13 +1638,15 @@ snmpv3_parse(pdu, data, length, after_header)
     pdu->contextName = malloc(tmp_buf_len);
     pdu->contextNameLen = tmp_buf_len;
     memcpy(pdu->contextName, tmp_buf, tmp_buf_len);
+  } else {
+    pdu->contextName = strdup("");
+    pdu->contextNameLen = 0;
   }
-
   if (after_header != NULL) {
     tmp_buf_len = *length;
     *after_header = data;
   }
-  ret = snmp_pdu_parse((struct internal_snmp_pdu *)pdu, data, length);
+  ret = snmp_pdu_parse((struct snmp_pdu *)pdu, data, length);
   if (after_header != NULL)
     *length = tmp_buf_len;
   return ret;
@@ -1746,7 +1660,7 @@ snmpv3_parse(pdu, data, length, after_header)
 static int
 snmp_parse(session, pdu, data, length)
     struct snmp_session *session;
-    struct internal_snmp_pdu *pdu;
+    struct snmp_pdu *pdu;
     u_char  *data;
     int	    length;
 {
@@ -1847,7 +1761,7 @@ snmp_parse(session, pdu, data, length)
 
 int
 snmp_pdu_parse(pdu, data, length)
-    struct internal_snmp_pdu *pdu;
+    struct snmp_pdu *pdu;
     u_char  *data;
     int	    *length;
 {
@@ -1856,7 +1770,7 @@ snmp_pdu_parse(pdu, data, length)
   u_char  *var_val;
   int      badtype;
   int	    four, len;
-  struct internal_variable_list *vp = NULL;
+  struct variable_list *vp = NULL;
   oid objid[MAX_NAME_LEN];
   char err[256];
 
@@ -1943,11 +1857,11 @@ snmp_pdu_parse(pdu, data, length)
     /* get each varBind sequence */
   while((int)*length > 0){
     if (vp == NULL){
-      vp = (struct internal_variable_list *)malloc(sizeof(struct internal_variable_list));
+      vp = (struct variable_list *)malloc(sizeof(struct variable_list));
       pdu->variables = (struct variable_list *)vp;
     } else {
-      vp->next_variable = (struct variable_list *)malloc(sizeof(struct internal_variable_list));
-      vp = (struct internal_variable_list *)vp->next_variable;
+      vp->next_variable = (struct variable_list *)malloc(sizeof(struct variable_list));
+      vp = (struct variable_list *)vp->next_variable;
     }
 
     vp->next_variable = NULL;
@@ -2330,21 +2244,17 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
       }
 
       if (pdu->contextNameLen < 0) {
-	if (session->contextNameLen == 0){
+	if (!session->contextName){
 	  snmp_errno = SNMPERR_BAD_CONTEXT;
 	  session->s_snmp_errno = SNMPERR_BAD_CONTEXT;
 	  return 0;
 	}
-	pdu->contextName =
-          (u_char*)SNMP_MALLOC(((unsigned)session->contextNameLen + 1) *
-                          sizeof(u_char));
+	pdu->contextName = strdup(session->contextName);
 	if (pdu->contextName == NULL) {
 	  snmp_errno = SNMPERR_GENERR;
 	  session->s_snmp_errno = SNMPERR_GENERR;
 	  return 0;
 	}
-	memmove(pdu->contextName, session->contextName,
-		session->contextNameLen * sizeof(u_char));
 	pdu->contextNameLen = session->contextNameLen;
       }
 
@@ -2354,16 +2264,12 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	  session->s_snmp_errno = SNMPERR_BAD_SEC_NAME;
 	  return 0;
 	}
-	pdu->securityName =
-	  (u_char*)SNMP_MALLOC(((unsigned)session->securityNameLen + 1) *
-                               sizeof(u_char));
+	pdu->securityName = strdup(session->securityName);
 	if (pdu->securityName == NULL) {
 	  snmp_errno = SNMPERR_GENERR;
 	  session->s_snmp_errno = SNMPERR_GENERR;
 	  return 0;
 	}
-	memmove(pdu->securityName, session->securityName,
-		session->securityNameLen * sizeof(u_char));
 	pdu->securityNameLen = session->securityNameLen;
       }
       if (pdu->securityLevel == 0) {
@@ -2479,42 +2385,25 @@ snmp_free_pdu(pdu)
 
     vp = pdu->variables;
     while(vp){
-	if (vp->name)
+	if (vp->name && vp->name != vp->name_loc)
 	    free((char *)vp->name);
-	if (vp->val.string)
+	if (vp->val.string && vp->val.string != vp->buf)
 	    free((char *)vp->val.string);
 	ovp = vp;
 	vp = vp->next_variable;
 	free((char *)ovp);
     }
     if (pdu->enterprise) free((char *)pdu->enterprise);
-    if (pdu->community) free((char *) pdu->community);
-    if (pdu->srcParty) free((char *)pdu->srcParty);
-    if (pdu->dstParty) free((char *)pdu->dstParty);
-    if (pdu->context) free((char *)pdu->context);
-    free((char *)pdu);
-}
-
-
-/*
- * Frees the pdu and any malloc'd data associated with it.
- */
-void
-snmp_free_internal_pdu(pdu)
-    struct snmp_pdu *pdu;
-{
-    struct internal_variable_list *vp, *ovp;
-
-    vp = (struct internal_variable_list *)pdu->variables;
-    while(vp){
-	if (vp->val.string && !vp->usedBuf)
-	    free((char *)vp->val.string);
-	ovp = vp;
-	vp = (struct internal_variable_list *)vp->next_variable;
-	free(ovp);
-    }
-    if (pdu->enterprise) free(pdu->enterprise);
-    if (pdu->community) free(pdu->community);
+    if (pdu->community) free((char *)pdu->community);
+    if (pdu->contextEngineID) free((char*)pdu->contextEngineID);
+    if (pdu->contextName) free((char*)pdu->contextName);
+    if (pdu->securityName) free((char*)pdu->securityName);
+    if (pdu->srcParty && pdu->srcParty != pdu->srcPartyBuf) 
+      free((char *)pdu->srcParty);
+    if (pdu->dstParty && pdu->dstParty != pdu->dstPartyBuf) 
+      free((char *)pdu->dstParty);
+    if (pdu->context && pdu->context != pdu->contextBuf) 
+      free((char *)pdu->context);
     free((char *)pdu);
 }
 
@@ -2575,27 +2464,13 @@ snmp_sess_read(sessp)
                 printf("\n");
     }
 
-    pdu = (struct snmp_pdu *)malloc(sizeof(struct internal_snmp_pdu));
+    pdu = (struct snmp_pdu *)malloc(sizeof(struct snmp_pdu));
     memset (pdu, 0, sizeof(*pdu));
     pdu->address = from;
-    /* XXX: special hack to deal with report pdu type (we think)
-       for returning an engineID discovery, which doesn't have a
-       corresponding USM entry */
-    if (snmp_parse(sp, (struct internal_snmp_pdu *)pdu, packet, length)
-        != SNMP_ERR_NOERROR &&
-        !(snmp_errno == USM_ERR_UNKNOWN_SECURITY_NAME && pdu->command == 0)){
-	snmp_free_internal_pdu(pdu);
-	return;
-    }
 
-    if (snmp_errno == USM_ERR_UNKNOWN_SECURITY_NAME &&
-        pdu->command == 0) {
-      /* XXX: special hack to deal with report pdu type (we think)
-         for returning an engineID discovery, which doesn't have a
-         corresponding USM entry */
-      /* the pdu type is never set to report by the parse, so we must
-         force it */
-      pdu->command = SNMP_MSG_REPORT;
+    if (snmp_parse(sp, pdu, packet, length) != SNMP_ERR_NOERROR){
+	snmp_free_pdu(pdu);
+	return;
     }
 
     if (pdu->command == SNMP_MSG_RESPONSE || pdu->command == SNMP_MSG_REPORT){
@@ -2608,6 +2483,11 @@ snmp_sess_read(sessp)
             sp->contextEngineIDLen = pdu->contextEngineIDLen;
           }
         }
+	/* call USM to free any securityStateRef supplied with the message */
+	if (pdu->securityStateRef) {
+	  usm_free_usmStateReference(pdu->securityStateRef);
+	  pdu->securityStateRef = NULL;
+	}
 	for(rp = isp->requests; rp; rp = rp->next_request){
 	    if (rp->request_id == pdu->reqid){
 		callback = sp->callback;
@@ -2647,7 +2527,12 @@ snmp_sess_read(sessp)
 	    sp->callback(RECEIVED_MESSAGE, sp, pdu->reqid, pdu,
 		     sp->callback_magic);
     }
-    snmp_free_internal_pdu(pdu);
+    /* call USM to free any securityStateRef supplied with the message */
+    if (pdu->securityStateRef && pdu->command == SNMP_MSG_TRAP2) {
+      usm_free_usmStateReference(pdu->securityStateRef);
+      pdu->securityStateRef = NULL;
+    }
+    snmp_free_pdu(pdu);
 }
 
 

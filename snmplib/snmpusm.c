@@ -51,7 +51,9 @@
 
 static u_int salt_integer = 4985517;
 
-int    reportErrorOnUnknownID = 0; /* Should be configurable item */
+int    reportErrorOnUnknownID = 0; /* Should be determined based on msg type */
+
+static struct usmUser *initialUser = NULL;
 
 void
 usm_set_reportErrorOnUnknownID (value)
@@ -537,8 +539,8 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	if (secStateRef != NULL)
 	{
 		/* To hush the compiler for now */
-		struct usmStateReference *ref = (struct usmStateReference *)secStateRef;
-
+		struct usmStateReference *ref = 
+		  (struct usmStateReference *)secStateRef;
 		theName = ref->usr_name;
 		theNameLength = ref->usr_name_length;
 		theEngineID = ref->usr_engine_id;
@@ -609,10 +611,10 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	/* Retrieve the engine information */
 
 	if (theSecLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
-		|| theSecLevel == SNMP_SEC_LEVEL_AUTHPRIV)
+	    || theSecLevel == SNMP_SEC_LEVEL_AUTHPRIV || secStateRef != NULL)
 	{
-		if (get_enginetime (theEngineID, theEngineIDLength, &time_uint,
-			&boots_uint) == -1)
+		if (get_enginetime (theEngineID, theEngineIDLength, 
+							&boots_uint, &time_uint) == -1)
 		{
 			DEBUGP ("usm_generate_out_msg():%s,%d: %s\n",
 				__FILE__,__LINE__, "Failed to find engine data");
@@ -1011,7 +1013,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 		/* RETURN parse error, but it's really a parameter error */ return -1;
 	}
 
-	secName[*secNameLen++] = '\0';
+	secName[*secNameLen] = '\0';
 
 	if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR))
 	{
@@ -1135,7 +1137,7 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 		u_int theirBoots, theirTime;
 		u_int time_difference;
 
-		if (get_enginetime(secEngineID,secEngineIDLen,&theirTime,&theirBoots)
+		if (get_enginetime(secEngineID,secEngineIDLen,&theirBoots,&theirTime)
 			!= SNMPERR_SUCCESS)
 		{
 			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
@@ -1603,6 +1605,7 @@ usm_get_user_from_list(char *engineID, int engineIDLen,
           memcmp(ptr->engineID, engineID, engineIDLen) == 0)))
       return ptr;
   }
+  if (!strcmp(name, "initial")) return initialUser;
   return NULL;
 }
 
@@ -1922,7 +1925,6 @@ usm_clone_user(struct usmUser *from)
 
 /* create_initial_user: creates an initial user, filled with the
    defaults defined in the USM document. */
-
 struct usmUser *
 usm_create_initial_user(void)
 {
@@ -1934,9 +1936,10 @@ usm_create_initial_user(void)
   if ((newUser->secName = strdup("initial")) == NULL)
     return usm_free_user(newUser);
 
-  if ((newUser->engineID = snmpv3_generate_engineID(&newUser->engineIDLen))
-      == NULL)
-    return usm_free_user(newUser);
+  /* leave null to signify wildcard on engineID entry
+  if ((newUser->engineID = snmpv3_generate_engineID(&newUser->engineIDLen)) == NULL)
+      return usm_free_user(newUser); 
+   */
 
   if ((newUser->cloneFrom = (oid *) malloc(sizeof(oid)*2)) == NULL)
     return usm_free_user(newUser);
@@ -1963,6 +1966,8 @@ usm_create_initial_user(void)
 
   newUser->userStatus = RS_ACTIVE;
   newUser->userStorageType = ST_READONLY;
+  
+  initialUser = newUser;
 
   return newUser;
 }

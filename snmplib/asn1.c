@@ -370,10 +370,13 @@ asn_build_string(data, datalength, type, string, strlength)
 	return NULL;
     if (*datalength < strlength)
 	return NULL;
-    if (string == NULL)
-      memset(data, 0, strlength);
-    else
-      memmove(data, string, strlength);
+    if (strlength) {
+      if (string == NULL) {
+	memset(data, 0, strlength);
+      } else {
+	memmove(data, string, strlength);
+      }
+    }
     *datalength -= strlength;
     return data + strlength;
 }

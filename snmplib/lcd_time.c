@@ -46,8 +46,8 @@ static Enginetime etimelist[ETIMELIST_SIZE];
 int
 get_enginetime(	u_char	*engineID,	
 		u_int	 engineID_len,
-		u_int	*enginetime,	
-		u_int	*engineboot)
+		u_int	*engineboot,
+		u_int	*enginetime)
 {
 	int		rval	 = SNMPERR_SUCCESS;
 	time_t		timediff = 0;
@@ -71,7 +71,7 @@ EM(-1); /* */
 	*enginetime = *engineboot = 0;
 
 	if ( !engineID || *engineID == '\0' || (engineID_len<=0) ) {
-		return rval;
+	        QUITFUN(SNMPERR_GENERR, get_enginetime_quit);
 	}
 
 	if ( !(e = search_enginetime_list(engineID, engineID_len)) ) {
@@ -126,8 +126,8 @@ get_enginetime_quit:
 int
 set_enginetime(	u_char	*engineID,
 		u_int	 engineID_len,
-		u_int  	 enginetime,
-		u_int	 engineboot)
+		u_int	 engineboot,
+		u_int  	 enginetime)
 {
 	int		rval = SNMPERR_SUCCESS,
 			index;

@@ -37,7 +37,7 @@ struct timeval;
 struct synch_state;
 
 typedef struct sockaddr_in  snmp_ipaddr;
-
+#define MAX_NAME_LEN	    128  /* number of subid's in a objid */
 #define USM_AUTH_KU_LEN     32
 #define USM_PRIV_KU_LEN     32
 
@@ -77,10 +77,15 @@ struct snmp_pdu {
     long    specific_type;  /* specific type */
     u_long  time;	/* Uptime */
 
-    void * secStateRef;
+    void * securityStateRef;
 
     struct variable_list *variables;
+    oid srcPartyBuf[MAX_NAME_LEN];
+    oid dstPartyBuf[MAX_NAME_LEN];
+    oid contextBuf[MAX_NAME_LEN];
+    /* XXX do community later */
 };
+
 struct snmp_session {
     u_char  *community;	/* community for outgoing requests. */
     int	    community_len;  /* Length of community name. */
@@ -215,6 +220,9 @@ struct variable_list {
 #endif /* OPAQUE_SPECIAL_TYPES */
     } val;
     int	    val_len;
+    oid name_loc[MAX_NAME_LEN];
+    u_char buf[32];
+    int usedBuf;
 };
 
 /*
@@ -390,8 +398,7 @@ u_char * snmp_pdu_build __P((struct snmp_pdu *, u_char *, int *));
 int snmpv3_parse(struct snmp_pdu *, u_char *, int *, u_char  **);
 int snmpv3_packet_build(struct snmp_pdu *pdu, u_char *packet, int *out_length, u_char *pdu_data, int pdu_data_len);
 
-struct internal_snmp_pdu;
-int snmp_pdu_parse(struct internal_snmp_pdu *pdu, u_char *data, int *length);
+int snmp_pdu_parse(struct snmp_pdu *pdu, u_char *data, int *length);
 
 void snmp_pdu_add_variable __P((struct snmp_pdu *, oid *, int, u_char, u_char *, int));
 int hex_to_binary __P((u_char *, u_char *));
