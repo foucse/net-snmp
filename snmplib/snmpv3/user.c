@@ -87,15 +87,15 @@ user_create(char *name, int len, netsnmp_engine *engine)
     if (NULL == user) {
         return NULL;
     }
-    user->sec_name   = buffer_new(name, len, 0);
-    if (NULL == user->sec_name) {
+    user->user_name   = buffer_new(name, len, 0);
+    if (NULL == user->user_name) {
         free(user);
         return NULL;
     }
     if (NULL != engine) {
         user->sec_engine = engine_copy( engine );
         if (NULL == user->sec_engine) {
-            buffer_free(user->sec_name);
+            buffer_free(user->user_name);
             free(user);
             return NULL;
         }
@@ -132,7 +132,7 @@ user_copy(netsnmp_user *info)
     }
 
     info_copy->user_name   = buffer_copy( info->user_name);
-    info_copy->sec_name    = buffer_copy( info->sec_name);
+    info_copy->user_name   = buffer_copy( info->user_name);
     info_copy->sec_engine  = engine_copy( info->sec_engine);
 
     info_copy->auth_protocol    = info->auth_protocol;
@@ -176,7 +176,7 @@ user_free(netsnmp_user *info)
     }
 
     buffer_free(info->user_name);
-    buffer_free(info->sec_name);
+    buffer_free(info->user_name);
     engine_free(info->sec_engine);
     buffer_free(info->auth_key);
     buffer_free(info->priv_key);
@@ -204,7 +204,7 @@ user_bprint(netsnmp_buf *buf, netsnmp_user *info)
     __B(buffer_append_string(buf, "UsmSecurity Parameters:\n"))
     __B(engine_bprint(buf, info->sec_engine))
     __B(buffer_append_string(buf, " msgUserName = "))
-    __B(buffer_append_bufstr(buf, info->sec_name))	/* XXX  user_name ? */
+    __B(buffer_append_bufstr(buf, info->user_name))	/* XXX  user_name ? */
 /*
     __B(buffer_append_string(buf, "\n msgAuthParameters = "))
     __B(buffer_append_hexstr(buf, info->auth_parameters))
@@ -297,13 +297,28 @@ user_encode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
 {
     int start_len;
 
-    if ((NULL == buf ) || (NULL == v3info) || (NULL == userinfo)) {
+    if ((NULL == buf ) || (NULL == v3info)) {
         return -1;
     }
     if (!(buf->flags & NETSNMP_BUFFER_REVERSE)) {
         return -1;	/* XXX - or set the flag ? */
     }
+    if (NULL == userinfo) {
+        if (NULL == v3info->sec_name) {
+            userinfo = user_create("", 0, v3info->sec_engine);
+        } else {
+            userinfo = user_create(v3info->sec_name->string,
+                                   v3info->sec_name->cur_len,
+                                   v3info->sec_engine);
+        }
+    }
 
+    if (NETSNMP_AUTH_PROTOCOL_DEFAULT == userinfo->auth_protocol) {
+        userinfo->auth_protocol = NETSNMP_AUTH_PROTOCOL_MD5;
+    }
+    if (NETSNMP_PRIV_PROTOCOL_DEFAULT == userinfo->priv_protocol) {
+        userinfo->priv_protocol = NETSNMP_PRIV_PROTOCOL_DES;
+    }
 
     start_len = buf->cur_len;	/* Remember the length before we start */
 
@@ -341,7 +356,7 @@ user_encode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
          * We therefore need to remember the appropriate location
          *   in the encoded PDU, and fill in the real value later.
          */
-        v3info->auth_saved_len = buf->cur_len;
+        userinfo->auth_saved_len = buf->cur_len;
         __B(auth_stamp_pre(buf, v3info, userinfo))
     }
     else {
@@ -351,7 +366,7 @@ user_encode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
     /*
      * Now encode the rest of the UsmSecurityParameters header...
      */
-    __B(encode_bufstr( buf, userinfo->sec_name))
+    __B(encode_bufstr( buf, userinfo->user_name))
     __B(engine_encode( buf, userinfo->sec_engine))
     __B(encode_sequence(buf, (buf->cur_len - start_len)))
 
@@ -380,7 +395,7 @@ user_decode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
     netsnmp_buf    *user_params = NULL;
     netsnmp_buf    *seq      = NULL;
     netsnmp_engine *sec_eng  = NULL;
-    netsnmp_buf    *sec_name = NULL;
+    netsnmp_buf    *user_name = NULL;
     netsnmp_user   *user     = NULL;
     char *cp;
 
@@ -407,8 +422,8 @@ user_decode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
     if (NULL == sec_eng ) {
         goto fail;
     }
-    sec_name   = decode_string( seq, NULL );
-    if (NULL == sec_name ) {
+    user_name   = decode_string( seq, NULL );
+    if (NULL == user_name ) {
         goto fail;
     }
 
@@ -417,9 +432,9 @@ user_decode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
      * This can legitimately fail for non-authenticated requests
      *    (e.g. engine probes)
      */
-    user = user_create( sec_name->string, sec_name->cur_len, sec_eng);
+    user = user_create( user_name->string, user_name->cur_len, sec_eng);
     if (NULL == user) {
-        if (NULL != sec_name->string) {
+        if (NULL != user_name->string) {
             goto fail;
         }
 
@@ -436,7 +451,7 @@ user_decode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
         } else {
             user = userinfo;
         }
-        user->sec_name = sec_name;
+        user->user_name = user_name;
         user->sec_engine = sec_eng;
         user->ref_count++;
     }
@@ -486,12 +501,13 @@ user_decode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
             goto fail;
         }
     }
+    v3info->sec_engine = engine_copy(user->sec_engine);
     return user;
 
 fail:
     buffer_free( user_params );
     buffer_free( seq );
-    buffer_free( sec_name );
+    buffer_free( user_name );
     engine_free( sec_eng );
     user_free( user );
     return NULL;
@@ -513,8 +529,8 @@ user_find(char *name, int len, netsnmp_engine *engine)
 
     for (user = user_head; NULL != user; user = user->next ) {
         if ((user->sec_engine == engine) &&
-            (user->sec_name->cur_len == len) &&
-            (0 == memcmp(name, user->sec_name->string, len))) {
+            (user->user_name->cur_len == len) &&
+            (0 == memcmp(name, user->user_name->string, len))) {
             return user;
         }
     }
@@ -535,7 +551,7 @@ user_insert(netsnmp_user *user)
 {
     netsnmp_user *u;
 
-    if ((NULL == user) || (NULL == user->sec_name)) {
+    if ((NULL == user) || (NULL == user->user_name)) {
         return;
     }
 
@@ -554,7 +570,7 @@ user_insert(netsnmp_user *user)
          *   and just check the security name.
          */
         while (u && (NULL == u->sec_engine) &&
-            (0 < buffer_compare(u->sec_name, user->sec_name))) {
+            (0 < buffer_compare(u->user_name, user->user_name))) {
             u = u->next;
         }
     } else {
@@ -581,7 +597,7 @@ user_insert(netsnmp_user *user)
             u = u->next;
         }
         while (u && (u->sec_engine == user->sec_engine) &&
-            (0 < buffer_compare(u->sec_name, user->sec_name))) {
+            (0 < buffer_compare(u->user_name, user->user_name))) {
             u = u->next;
         }
     }
@@ -591,7 +607,7 @@ user_insert(netsnmp_user *user)
      * Shouldn't happen, but check anyway.
      */
     if (u && (u->sec_engine == user->sec_engine) &&
-        (0 == buffer_compare(u->sec_name, user->sec_name))) {
+        (0 == buffer_compare(u->user_name, user->user_name))) {
         return;
     }
  
@@ -631,7 +647,7 @@ user_insert(netsnmp_user *user)
      *   but it feels safer to reference it explicitly.
      */
     if ((NULL == user->sec_engine) &&
-        ('\0' == *(user->sec_name->string))) {
+        ('\0' == *(user->user_name->string))) {
         user->ref_count++;
         user_anon = user;
     }
@@ -655,8 +671,8 @@ user_session_defaults(struct snmp_session *session, netsnmp_user *info)
         }
     }
 
-    if (NULL == info->sec_name) {
-        info->sec_name = buffer_new(session->securityName,
+    if (NULL == info->user_name) {
+        info->user_name = buffer_new(session->securityName,
                                     session->securityNameLen, 0);
     }
 }

@@ -389,7 +389,6 @@ engine_probe_build(void)
     }
 
     pdu->v3info   = v3info_create();
-    pdu->userinfo = user_create("", 0, NULL);
     return pdu;
 }
 

@@ -519,16 +519,15 @@ session_handle_report(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_request *
     /*
      * Handle engineID discovery
      */
-    if ((NULL == sess->userinfo)  ||
-        (NULL == sess->v3info)    ||
-        (NULL == pdu->userinfo)) {
+    if ((NULL == sess->v3info) ||
+        (NULL == pdu->v3info)) {
         return;		/* XXX - is this right? */
     }
 
-    if (NULL == sess->userinfo->sec_engine) {
-        sess->userinfo->sec_engine = engine_copy(pdu->userinfo->sec_engine);
+    if (NULL == sess->v3info->sec_engine) {
+        sess->v3info->sec_engine = engine_copy(pdu->v3info->sec_engine);
         if (NULL == sess->v3info->context_engine) {
-            sess->v3info->context_engine = engine_copy(pdu->userinfo->sec_engine);
+            sess->v3info->context_engine = engine_copy(pdu->v3info->sec_engine);
         }
     }
 }

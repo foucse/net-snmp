@@ -99,11 +99,12 @@ typedef struct netsnmp_v3info_s {
     u_char               v3_flags;
     long                 sec_level;
     long                 sec_model;
+    netsnmp_buf         *sec_name;
+    netsnmp_engine      *sec_engine;
+
 	/* Scoped PDU context data */
     netsnmp_engine      *context_engine;
     netsnmp_buf         *context_name;
-
-    int                  auth_saved_len;
 } netsnmp_v3info;
 
 
@@ -112,7 +113,6 @@ struct netsnmp_user_s {
     int                  ref_count;
 
     netsnmp_buf         *user_name;
-    netsnmp_buf         *sec_name;
     netsnmp_engine      *sec_engine;
 
     int                  auth_protocol;
@@ -123,6 +123,7 @@ struct netsnmp_user_s {
     netsnmp_buf         *priv_key;
     netsnmp_buf         *priv_params;
     
+    int                  auth_saved_len;
 };
 
 

@@ -141,7 +141,7 @@ snmpv3_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
      *  XXX - Are we sure that this should be done here, not earlier ?
      */
     if ( pdu->v3info->v3_flags & AUTH_FLAG ) {
-        __B(auth_stamp_post(buf, pdu->v3info, pdu->userinfo, pdu->v3info->auth_saved_len))
+        __B(auth_stamp_post(buf, pdu->v3info, pdu->userinfo, pdu->userinfo->auth_saved_len))
     }
 
     return 0;
@@ -174,8 +174,8 @@ snmpv3_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
     if (NULL == pdu->userinfo) {
         pdu->userinfo = user_copy(sess->userinfo);
     }
-    if (NULL == pdu->userinfo->sec_engine) {
-        pdu->userinfo->sec_engine = engine_copy(pdu->v3info->context_engine);
+    if (NULL == pdu->v3info->sec_engine) {
+        pdu->v3info->sec_engine = engine_copy(pdu->v3info->context_engine);
     }
 
     /*
@@ -187,14 +187,6 @@ snmpv3_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
     }
     if (NETSNMP_SEC_LEVEL_DEFAULT == pdu->v3info->sec_level) {
         pdu->v3info->sec_level = NETSNMP_SEC_LEVEL_NOAUTH;
-    }
-    if (NETSNMP_SEC_MODEL_USM == pdu->v3info->sec_model) {
-        if (NETSNMP_AUTH_PROTOCOL_DEFAULT == pdu->userinfo->auth_protocol) {
-            pdu->userinfo->auth_protocol = NETSNMP_AUTH_PROTOCOL_MD5;
-        }
-        if (NETSNMP_PRIV_PROTOCOL_DEFAULT == pdu->userinfo->priv_protocol) {
-            pdu->userinfo->priv_protocol = NETSNMP_PRIV_PROTOCOL_DES;
-        }
     }
 
     /*
@@ -273,6 +265,7 @@ snmpv3_decode_pdu(netsnmp_buf *buf)
         v3info_free( v3info );
         return NULL;
     }
+    v3info->sec_name = buffer_copy(user->user_name);
 
     seq = decode_sequence( buf );
     if (NULL == seq) {
@@ -330,10 +323,10 @@ snmpv3_verify_msg(netsnmp_request *rp, netsnmp_pdu *pdu)
                               pdu->v3info->context_engine)) ||
         (0 != buffer_compare(rpdu->v3info->context_name,
                               pdu->v3info->context_name))   ||
-        (0 != engine_compare(rpdu->userinfo->sec_engine,
-                              pdu->userinfo->sec_engine))   ||
-        (0 != buffer_compare(rpdu->userinfo->sec_name,
-                              pdu->userinfo->sec_name))) {
+        (0 != engine_compare(rpdu->v3info->sec_engine,
+                              pdu->v3info->sec_engine))   ||
+        (0 != buffer_compare(rpdu->v3info->sec_name,
+                              pdu->v3info->sec_name))) {
         return -1;
     }
 
