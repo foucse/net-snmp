@@ -3,6 +3,9 @@
 #if STDC_HEADERS
 #include <string.h>
 #endif
+#if HAVE_STRINGS_H
+#include <strings.h>
+#endif
 #include <sys/types.h>
 #include <sys/socket.h>
 #if HAVE_SYS_SOCKIO_H
@@ -162,6 +165,7 @@
 #if solaris2
 #include "kernel_sunos5.h"
 #endif
+#include "kernel.h"
 #include "var_struct.h"
 
 #ifdef hpux
@@ -171,3 +175,6 @@
 #undef  OBJID
 #define OBJID                   ASN_OBJECT_ID
 #endif hpux
+
+void init_nlist __P((struct nlist *));
+int compare __P((oid *, int, oid *, int));

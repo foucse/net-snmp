@@ -5,8 +5,9 @@
 #ifndef _MIBGROUP_SYSTEM_H
 #define _MIBGROUP_SYSTEM_H
 
-extern void	init_system();
-extern u_char	*var_system();
+struct variable;
+extern void	init_system __P((void));
+extern u_char	*var_system __P((struct variable *, oid *, int *, int, int *, int (**write) __P((int, u_char *, u_char, int, u_char *, oid *, int)) ));
 
 #define	VERSION_DESCR		1
 #define	VERSIONID		2
