@@ -38,7 +38,9 @@ PERFORMANCE OF THIS SOFTWARE.
 #include <sys/user.h>
 #include <sys/proc.h>
 #include <sys/types.h>
-#include <machine/pte.h>
+/*
+  #include <machine/pte.h>
+  */
 #include <sys/vm.h>
 #include <netinet/in.h>
 #include <syslog.h>
@@ -102,53 +104,76 @@ extern char *Lookup_Device_Annotation();
 #define  KNLookup(nl_which, buf, s)   (klookup((int) nl[nl_which].n_value, buf, s))
 
 
-static struct nlist nl[] = {
-
 #define N_IPSTAT	0
-	{ "_ipstat"},
 #define N_IPFORWARDING	1
-	{ "_ipforwarding" },
 #define N_TCP_TTL	2
-	{ "_tcp_ttl"},
 #define N_UDPSTAT	3
-	{ "_udpstat" },
 #define N_IN_INTERFACES 4
-	{ "_in_interfaces" },
 #define N_ICMPSTAT	5
-	{ "_icmpstat" },
 #define N_IFNET		6
-	{ "_ifnet" },
 #define N_TCPSTAT	7
-	{ "_tcpstat" },
 #define N_TCB		8
-	{ "_tcb" },
 #define N_ARPTAB_SIZE	9
-	{ "_arptab_size" },
 #define N_ARPTAB        10
-	{ "_arptab" },
 #define N_IN_IFADDR     11
-	{ "_in_ifaddr" },
 #define N_BOOTTIME	12
-	{ "_boottime" },
 #define N_PROC		13
-	{ "_proc" },
 #define N_NPROC		14
-	{ "_nproc" },
 #define N_DMMIN		15
-	{ "_dmmin" },
 #define N_DMMAX		16
-	{ "_dmmax" },
 #define N_NSWAP		17
-	{ "_nswap" },
 #define N_USRPTMAP	18
- 	{ "_Usrptmap" },
 #define N_USRPT		19
+
+static struct nlist nl[] = {
+#ifndef hpux
+	{ "_ipstat"},  
+	{ "_ipforwarding" },
+	{ "_tcp_ttl"},
+	{ "_udpstat" },
+	{ "_in_interfaces" },
+	{ "_icmpstat" },
+	{ "_ifnet" },
+	{ "_tcpstat" },
+	{ "_tcb" },
+	{ "_arptab_size" }, 
+	{ "_arptab" },      
+	{ "_in_ifaddr" },
+	{ "_boottime" },
+	{ "_proc" },
+	{ "_nproc" },
+	{ "_dmmin" },
+	{ "_dmmax" },
+	{ "_nswap" },
+ 	{ "_Usrptmap" },
 	{ "_usrpt" },
+#else
+	{ "ipstat"},  
+	{ "ipforwarding" },
+	{ "tcp_ttl"},
+	{ "udpstat" },
+	{ "in_interfaces" },
+	{ "icmpstat" },
+	{ "ifnet" },
+	{ "tcpstat" },
+	{ "tcb" },
+	{ "arptab_size" }, 
+	{ "arptab" },      
+	{ "in_ifaddr" },
+	{ "boottime" },
+	{ "proc" },
+	{ "nproc" },
+	{ "dmmin" },
+	{ "dmmax" },
+	{ "nswap" },
+        { "mpid" },
+        { "hz"},
+#endif
 #ifdef ibm032
 #define N_USERSIZE	20
 	{ "_userSIZE" },
 #endif
-	0,
+	{ 0 },
 };
 
 /*
@@ -203,16 +228,29 @@ static struct nlist nl[] = {
 
 long		long_return;
 #ifndef ibm032
-u_char		return_buf[CLSIZE*NBPG];  
+u_char		return_buf[258];  
 #else
 u_char		return_buf[256]; /* nee 64 */
 #endif
  
 init_snmp()
 {
-	nlist("/vmunix",nl);
-	init_kmem("/dev/kmem");
-	init_routes();
+  int ret;
+#ifdef hpux
+  if ((ret = nlist("/hp-ux",nl)) == -1) {
+    ERROR("nlist");
+    exit(1);
+  }
+  for(ret = 0; nl[ret].n_name != NULL; ret++) {
+    if (nl[ret].n_type == 0) {
+      fprintf(stderr, "nlist err:  %s not found\n",nl[ret].n_name);
+    }
+  }
+#else
+  nlist("/vmunix",nl);
+#endif
+  init_kmem("/dev/kmem"); 
+  init_routes();
 }
 
 #define CMUMIB 1, 3, 6, 1, 4, 1, 3
@@ -522,12 +560,14 @@ struct variable2 udp_variables[] = {
     {UDPOUTDATAGRAMS, COUNTER, RONLY, var_udp, 1, {4}}
 };
 
+#ifndef hpux
 #ifndef sparc
 struct variable2 process_variables[] = {
     {PROCESSSLOTINDEX, INTEGER, RONLY, var_process, 1, {1}},
-    {PROCESSID, INTEGER, RONLY, var_proces, 1, {2}},
+    {PROCESSID, INTEGER, RONLY, var_process, 1, {2}},
     {PROCESSCOMMAND, STRING, RONLY, var_process, 1, {3}}
 };
+#endif
 #endif
 
 /*
@@ -657,7 +697,12 @@ struct variable2 eventnotifytab_variables[] = {
         {EVENTNOTIFYTABSTATUS, INTEGER, RWRITE, var_eventnotifytab, 1, {4 }},
 };
 
+#include "wes/wes.c"
+
 struct subtree subtrees[] = {
+  {{WESMIB,1}, 8, (struct variable *)wes_proc_variables,
+   sizeof(wes_proc_variables)/sizeof(*wes_proc_variables),
+   sizeof(wes_proc_variables)},
     {{MIB, 1}, 7, (struct variable *)system_variables,
 	 sizeof(system_variables)/sizeof(*system_variables),
 	 sizeof(*system_variables)},
@@ -1012,8 +1057,9 @@ var_hosttimetab(vp, name, length, exact, var_len, write_method)
 
         switch (vp->magic) {
                 case HOSTTIMETABADDRESS:
-                        *var_len = sizeof(struct ether_addr);
-                        return (u_char *) "RMONRULES";
+/*                  *var_len = sizeof(struct ether_addr); */
+                  *var_len = 6*sizeof(u_char);
+                  return (u_char *) "RMONRULES";
                 case HOSTTIMETABCREATIONORDER:
 			long_return = creationOrder;
 			return (u_char *) &long_return;
@@ -1064,7 +1110,7 @@ var_system(vp, name, length, exact, var_len, write_method)
 	    *var_len = sizeof(version_id);
 	    return (u_char *)version_id;
 	case UPTIME:
-	    (u_long)long_return = sysUpTime();
+	    long_return = (u_long)  sysUpTime();
 	    return (u_char *)&long_return;
 	case IFNUMBER:
 	    long_return = Interface_Scan_Get_Count();
@@ -1303,7 +1349,7 @@ var_ifEntry(vp, name, length, exact, var_len, write_method)
 	    if (cp) long_return = atoi(cp);
 	    else
 #endif
-	    (u_long)long_return = 1;	/* OTHER */
+	    long_return = (u_long)  1;	/* OTHER */
 	    return (u_char *) &long_return;
 	case IFPHYSADDRESS:
 #if 0
@@ -1329,30 +1375,30 @@ var_ifEntry(vp, name, length, exact, var_len, write_method)
 	    long_return = 0; /* XXX */
 	    return (u_char *) &long_return;
 	case IFINOCTETS:
-	    (u_long)long_return = ifnet.if_ipackets * 308; /* XXX */
+	    long_return = (u_long)  ifnet.if_ipackets * 308; /* XXX */
 	    return (u_char *) &long_return;
 	case IFINUCASTPKTS:
-	    (u_long)long_return = ifnet.if_ipackets;
+	    long_return = (u_long)  ifnet.if_ipackets;
 	    return (u_char *) &long_return;
 	case IFINNUCASTPKTS:
-	    (u_long)long_return = 0; /* XXX */
+	    long_return = (u_long)  0; /* XXX */
 	    return (u_char *) &long_return;
 	case IFINDISCARDS:
-	    (u_long)long_return = 0; /* XXX */
+	    long_return = (u_long)  0; /* XXX */
 	    return (u_char *) &long_return;
 	case IFINERRORS:
 	    return (u_char *) &ifnet.if_ierrors;
 	case IFINUNKNOWNPROTOS:
-	    (u_long)long_return = 0; /* XXX */
+	    long_return = (u_long)  0; /* XXX */
 	    return (u_char *) &long_return;
 	case IFOUTOCTETS:
-	    (u_long)long_return = ifnet.if_opackets * 308; /* XXX */
+	    long_return = (u_long)  ifnet.if_opackets * 308; /* XXX */
 	    return (u_char *) &long_return;
 	case IFOUTUCASTPKTS:
-	    (u_long)long_return = ifnet.if_opackets;
+	    long_return = (u_long)  ifnet.if_opackets;
 	    return (u_char *) &long_return;
 	case IFOUTNUCASTPKTS:
-	    (u_long)long_return = 0; /* XXX */
+	    long_return = (u_long)  0; /* XXX */
 	    return (u_char *) &long_return;
 	case IFOUTDISCARDS:
 	    return (u_char *) &ifnet.if_snd.ifq_drops;
@@ -1463,7 +1509,7 @@ var_ip(vp, name, length, exact, var_len, write_method)
 {
     static struct ipstat ipstat;
     oid newname[MAX_NAME_LEN];
-    int result;
+    int result, i;
 
     bcopy((char *)vp->name, (char *)newname, (int)vp->namelen * sizeof(oid));
     newname[8] = 0;
@@ -2345,7 +2391,7 @@ u_char *EtherAddr;
 
 
 
-#if defined(mips) || defined(ibm032) || defined(sunV3)
+#if defined(mips) || defined(ibm032) || defined(sunV3) || defined(hpuxx)
 
 
 /*
@@ -2356,8 +2402,7 @@ u_char *EtherAddr;
 struct proc procbuf[PROCBLOC];
 
 
-u_char *
-var_process(vp, name, length, exact, var_len, write_method)
+u_char *var_process(vp, name, length, exact, var_len, write_method)
     register struct variable *vp;   /* IN - pointer to variable entry that points here */
     register oid	*name;	    /* IN/OUT - input name requested, output name found */
     register int	*length;    /* IN/OUT - length of input and output oid's */
