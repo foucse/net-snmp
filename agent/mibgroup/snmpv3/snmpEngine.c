@@ -21,6 +21,10 @@
 
 void init_snmpEngine __P((void)) {
 /* place any initialization routines needed here */
+#ifdef USING_MIBII_SYSORTABLE_MODULE
+  static oid reg[] = {1,3,6,1,6,3,10,3,1,1};
+  register_sysORTable(reg,10,"The SNMP Management Architecture MIB.");
+#endif
 }
 
 extern struct timeval starttime;

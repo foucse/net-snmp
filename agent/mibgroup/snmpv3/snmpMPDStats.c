@@ -10,6 +10,10 @@ static int MPDErrors[3];
 
 void init_snmpMPDStats(void) {
   int i;
+#ifdef USING_MIBII_SYSORTABLE_MODULE
+  static oid reg[] = {1,3,6,1,6,3,11,3,1,1};
+  register_sysORTable(reg,10,"The MIB for Message Processing and Dispatching.");
+#endif
   
   for(i=0; i < 3; i++)
     MPDErrors[i] = 0;
