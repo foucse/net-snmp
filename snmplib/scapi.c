@@ -571,7 +571,7 @@ sc_encrypt(	oid    *privtype,	size_t privtypelen,
 
 	if ( ISTRANSFORM(privtype, DESPriv) ) {
                 memcpy(key_struct, key, sizeof(key_struct));
-		(void) des_key_sched(&key_struct, key_sch);
+		(void) des_key_sched(key_struct, key_sch);
 
 		memcpy(my_iv, iv, ivlen);
 		/* encrypt the data */
@@ -690,7 +690,7 @@ sc_decrypt(	oid    *privtype,	size_t privtypelen,
 	memset(my_iv, 0, sizeof(my_iv));
 	if (ISTRANSFORM(privtype, DESPriv)) {
                 memcpy(key_struct, key, sizeof(key_struct));
-		(void) des_key_sched(&key_struct, key_sch);
+		(void) des_key_sched(key_struct, key_sch);
 	
 		memcpy(my_iv, iv, ivlen);
 		des_cbc_encrypt(ciphertext, plaintext, ctlen, key_sch, 
