@@ -203,7 +203,7 @@ var_system(vp, name, length, exact, var_len, write_method)
             return (u_char *)version_id;
         case UPTIME:
             gettimeofday(&now, NULL);
-            long_return = calculate_time_diff(now,starttime);
+            long_return = calculate_time_diff(&now, &starttime);
             return ((u_char *) &long_return);
         case SYSCONTACT:
             *var_len = strlen(sysContact);
