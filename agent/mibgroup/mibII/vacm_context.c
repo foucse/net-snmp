@@ -126,6 +126,7 @@ vacm_context_handler(mib_handler               *handler,
         switch(reqinfo->mode) {
             case MODE_GET:
                 /* if here we should have a context_ptr passed in already */
+                /* only one column should ever reach us, so don't check it */
                 snmp_set_var_typed_value(var, ASN_OCTET_STR,
                                          context_ptr->context_name,
                                          strlen(context_ptr->context_name));
