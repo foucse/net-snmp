@@ -27,13 +27,6 @@
 #include "dlmod.h"
 #include "dlmod_mib.h"
 
-#if defined(MATCH_FAILED) || defined(MATCH_SUCCEEDED)
-#undef MATCH_FAILED 
-#undef MATCH_SUCCEEDED
-#	define MATCH_FAILED	0
-#	define MATCH_SUCCEEDED	1
-#endif
-
 static oid      dlmod_name[16] = {1, 3, 6, 1, 4, 1, 2021, 14};
 static int      dlmod_name_len = 8;
 
