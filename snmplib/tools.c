@@ -116,7 +116,7 @@ binary_to_hex(char *input, u_long len, char **output)
 		*op	= s,
 		*ip	= input;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 	while (ip-input < len) {
 		*op++ = VAL2HEX( (*ip >> 4) & 0xf );
@@ -129,6 +129,63 @@ binary_to_hex(char *input, u_long len, char **output)
 	return olen;
 
 }  /* end binary_to_hex() */
+
+
+
+
+/*******************************************************************-o-******
+ * hex_to_binary2
+ *
+ * Parameters:
+ *	*input		Printable data in base16.
+ *	len		Length in bytes of data.
+ *	**output	Binary data equivalent to input.
+ *      
+ * Returns:
+ *	SNMPERR_GENERR	Failure.
+ *	<len>		Otherwise, Length of allocated string.
+ *
+ *
+ * Input of an odd length is right aligned.
+ *
+ * FIX	Another version of "hex-to-binary" which takes odd length input
+ *	strings.  It also allocates the memory to hold the binary data.
+ *	Should be integrated with the official hex_to_binary() function.
+ */
+int
+hex_to_binary2(char *input, u_long len, char **output)
+{
+	u_int	olen	= (len/2) + (len%2);
+	char	*s	= (char *) malloc_zero(olen),
+		*op	= s,
+		*ip	= input;
+
+EM(-1); /* */
+
+	*output = NULL;
+	*op = 0;
+	if (len%2) {
+		if(!isxdigit(*ip)) goto hex_to_binary2_quit;
+		*op++ = HEX2VAL( *ip );		ip++;
+	}
+
+	while (ip-input < len) {
+		if(!isxdigit(*ip)) goto hex_to_binary2_quit;
+		*op = HEX2VAL( *ip ) << 4;	ip++;
+
+		if(!isxdigit(*ip)) goto hex_to_binary2_quit;
+		*op++ += HEX2VAL( *ip );	ip++;
+	}
+
+	*output = s;	
+	return olen;
+
+hex_to_binary2_quit:
+	free_zero(s, olen);
+	return -1;
+
+}  /* end hex_to_binary2() */
+
 
 
 
@@ -147,7 +204,7 @@ dump_chunk(char *buf, int size)
 			*s, *sp;
 	FILE		*fp = stdout;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	memset(chunk, 0, SNMP_MAXBUF);

@@ -7,7 +7,6 @@
 
 
 
-
 /* 
  * Macros and constants.
  */
@@ -27,6 +26,7 @@
 #define HEX2VAL(s) \
 	((isalpha(s) ? (TOLOWER(s)-'a'+10) : (TOLOWER(s)-'0')) & 0xf)
 #define VAL2HEX(s)	( (s) + (((s) >= 10) ? ('a'-10) : '0') )
+
 
 
 /* XXX	Got these two somewhere already?
@@ -60,6 +60,8 @@ char   *malloc_random __P((int *size));
 char   *malloc_zero __P((u_long size));
 
 u_int	binary_to_hex __P((char *input, u_long len, char **output));
+int	hex_to_binary2 __P((char *input, u_long len, char **output));
+
 void	dump_chunk __P((char *buf, int size));
 
 

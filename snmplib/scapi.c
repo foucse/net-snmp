@@ -86,7 +86,7 @@ sc_random(u_char *buf, u_int *buflen)
 {
 	int		rval = SNMPERR_SUCCESS;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 	rval = kmt_random(KMT_RAND_DEFAULT, buf, *buflen);
 	if (rval < 0) {
@@ -141,7 +141,7 @@ sc_generate_keyed_hash(	oid	*authtype,	int    authtypelen,
 
 	KMT_KEY_LIST	*kmtkeylist	= NULL;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -230,7 +230,7 @@ sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
 
 	KMT_KEY_LIST	*kmtkeylist	= NULL;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -329,7 +329,7 @@ sc_encrypt(	oid    *privtype,	int   privtypelen,
 
 	KMT_KEY_LIST	*kmtkeylist = NULL;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -424,7 +424,7 @@ sc_decrypt(	oid    *privtype,	int   privtypelen,
 
 	KMT_KEY_LIST	*kmtkeylist = NULL;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -519,7 +519,7 @@ sc_internal_kmtlookup(	u_int 	 transform,
 	KMT_ATTRIBUTE	kmt_attribute = { KMT_ATTR_ALG, transform };
 
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	*kmtkeylist = NULL;

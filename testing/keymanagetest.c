@@ -1,7 +1,7 @@
 /*
  * keymanagetest.c
  *
- * Expected SUCCESSes:	2 + 2 + XXX for all tests.
+ * Expected SUCCESSes:	2 + 2 + 3 for all tests.
  *
  * Returns:
  *	Number of FAILUREs.
@@ -17,6 +17,7 @@
  *
  * Test of generate_Ku().			SUCCESSes: 2
  * Test of generate_kul().			SUCCESSes: 2
+ * Test of {encode,decode}_keychange().		SUCCESSes: 3
  */
 
 static char *rcsid = "$Id$";	/* */
@@ -40,14 +41,15 @@ extern int	optreset;
  */
 char *local_progname;
 
-#define USAGE	"Usage: %s [-h][-alu][-E <engineID>][-P <passphrase>]"
-#define OPTIONLIST	"aE:hlP:u"
+#define USAGE	"Usage: %s [-h][-aklu][-E <engineID>][-N <newkey>][-O <oldkey>][-P <passphrase>]"
+#define OPTIONLIST	"aE:hklN:O:P:u"
 
 int	doalltests	= 0,
 	dogenKu		= 0,
-	dogenkul	= 0;
+	dogenkul	= 0,
+	dokeychange	= 0;
 
-#define	ALLOPTIONS	(doalltests + dogenKu + dogenkul)
+#define	ALLOPTIONS	(doalltests + dogenKu + dogenkul + dokeychange)
 
 
 #define LOCAL_MAXBUF	(1024 * 8)
@@ -77,9 +79,13 @@ int	doalltests	= 0,
 #define	ENGINEID_DEFAULT	"1.2.3.4wild"
 #define PASSPHRASE_DEFAULT	"Clay's Conclusion: Creativity is great, " \
 					"but plagiarism is faster."
+#define OLDKEY_DEFAULT		"This is a very old key."
+#define NEWKEY_DEFAULT		"This key, on the other hand, is very new."
 
 char	*engineID	= NULL;
 char	*passphrase	= NULL;
+char	*oldkey 	= NULL;
+char	*newkey		= NULL;
 
 
 
@@ -88,8 +94,10 @@ char	*passphrase	= NULL;
  * Prototypes.
  */
 void	usage(FILE *ofp);
+
 int	test_genkul(void);
 int	test_genKu(void);
+int	test_keychange(void);
 
 
 
@@ -104,7 +112,7 @@ main(int argc, char **argv)
 	local_progname = argv[0];
 	optarg = NULL;
 
-/* EM(1);	/* */
+EM(-1);	/* */
 
 	/*
 	 * Parse.
@@ -114,7 +122,10 @@ main(int argc, char **argv)
 		switch(ch) {
 		case 'a':	doalltests = 1;		break;
 		case 'E':	engineID = optarg;	break;
+		case 'k':	dokeychange = 1;	break;
 		case 'l':	dogenkul = 1;		break;
+		case 'N':	newkey = optarg;	break;
+		case 'O':	oldkey = optarg;	break;
 		case 'P':	passphrase = optarg;	break;
 		case 'u':	dogenKu = 1;		break;
 		case 'h':
@@ -158,6 +169,9 @@ main(int argc, char **argv)
 	if (dogenkul || doalltests) {
 		failcount += test_genkul();
 	}
+	if (dokeychange || doalltests) {
+		failcount += test_keychange();
+	}
 
 
 	/*
@@ -181,12 +195,15 @@ usage(FILE *ofp)
 
 	USAGE								
 	""								NL
-	"	-a		All tests."				NL
-	"	-E <engineId>	snmpEngineID string."			NL
-	"	-l		generate_kul()."			NL
-	"	-h		Help."					NL
-	"	-P <passphrase>	Source string for usmUser master key."	NL
-	"	-u		generate_Ku()."				NL
+	"    -a			All tests."				NL
+	"    -E [0x]<engineID>	snmpEngineID string."			NL
+	"    -k			Test {encode,decode}_keychange()."	NL
+	"    -l			generate_kul()."			NL
+	"    -h			Help."					NL
+	"    -N [0x]<newkey>	New key (for testing KeyChange TC)."	NL
+	"    -O [0x]<oldkey>	Old key (for testing KeyChange TC)."	NL
+	"    -P <passphrase>	Source string for usmUser master key."	NL
+	"    -u			generate_Ku()."				NL
 	""								NL
 		, local_progname);
 
@@ -243,7 +260,7 @@ test_genKu(void)
 	u_char		 Ku[LOCAL_MAXBUF];
 	oid		*hashtype =  usmHMACMD5AuthProtocol;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	OUTPUT("Test of generate_Ku --");
@@ -308,6 +325,7 @@ test_genKu_again:
  * transforms, are generated from each of these master keys.
  *
  * ASSUME  generate_Ku is already tested.
+ * ASSUME  engineID is initially a NULL terminated string.
  */
 int
 test_genkul(void)
@@ -316,17 +334,22 @@ test_genkul(void)
 			 failcount	= 0,
 			 properlength,
 			 kulen,
-			 kul_len;
-	char		*testname    = "Using HMACMD5 to create master key.",
+			 kul_len,
+			 engineID_len,
+			 isdefault   = FALSE;
+
+	char		*s	     = NULL,
+			*testname    = "Using HMACMD5 to create master key.",
 			*hashname_Ku = "usmHMACMD5AuthProtocol",
-			*hashname_kul,
-			*s;
+			*hashname_kul;
+
 	u_char		 Ku[LOCAL_MAXBUF],
 			 kul[LOCAL_MAXBUF];
+
 	oid		*hashtype_Ku =  usmHMACMD5AuthProtocol,
 			*hashtype_kul;
 
-EM(1); /* */
+EM(-1); /* */
 
 
 	OUTPUT("Test of generate_kul --");
@@ -334,6 +357,9 @@ EM(1); /* */
 
 	/*
 	 * Set passphrase and engineID.
+	 *
+	 * If engineID begins with 0x, assume it is written in (printable)
+	 * hex and convert it to binary data.
 	 */
 	if (!passphrase) {
 		passphrase = PASSPHRASE_DEFAULT;
@@ -341,12 +367,31 @@ EM(1); /* */
 	fprintf(stdout, "Passphrase%s:\n\t%s\n\n",
 		(passphrase == PASSPHRASE_DEFAULT) ? " (default)" : "",
 		passphrase);
+
 	if (!engineID) {
-		engineID = ENGINEID_DEFAULT;
+		engineID  = ENGINEID_DEFAULT;
+		isdefault = TRUE;
 	}
-	fprintf(stdout, "engineID%s:  %s\n\n",
-		(engineID == ENGINEID_DEFAULT) ? " (default)" : "",
-		engineID);
+
+	engineID_len = strlen(engineID);
+
+	if (tolower(*(engineID+1)) == 'x') {
+		engineID_len = hex_to_binary2(engineID+2, engineID_len-2, &s);
+		if (engineID_len < 0) {
+			FAILED(	(rval = SNMPERR_GENERR),
+				"Could not resolve hex engineID.");
+		}
+		engineID = s;
+		binary_to_hex(engineID, engineID_len, &s);
+	}
+
+	fprintf(stdout, "engineID%s (len=%d):  %s\n\n",
+		(isdefault) ? " (default)" : "",
+		engineID_len, (s) ? s : engineID);
+	if (s) {
+		SNMP_FREE(s);
+	}
+
 
 
 	/*
@@ -367,7 +412,8 @@ test_genkul_again_master:
 	FAILED(rval, "generate_Ku().");
 
 	binary_to_hex(Ku, kulen, &s);
-	fprintf(stdout, "\nMaster Ku using \"%s\":\n\t%s\n\n", hashname_Ku, s);
+	fprintf(stdout,
+		"\n\nMaster Ku using \"%s\":\n\t%s\n\n", hashname_Ku, s);
 	free_zero(s, kulen);
 
 
@@ -376,19 +422,31 @@ test_genkul_again_local:
 	kul_len = LOCAL_MAXBUF;
 
 	rval = generate_kul(	hashtype_kul, USM_LENGTH_OID_TRANSFORM,
-				engineID, strlen(engineID),
+				engineID, engineID_len,
 				Ku, kulen,
 				kul, &kul_len);
-	FAILED(rval, "generate_kul().");
 
-	if (kul_len != properlength) {
-		FAILED(	SNMPERR_GENERR,
-			"kul length is wrong for the given hashtype.");
+	if ( (hashtype_Ku  == usmHMACMD5AuthProtocol)
+		&& (hashtype_kul == usmHMACSHA1AuthProtocol) )
+	{
+		if (rval == SNMPERR_SUCCESS) {
+			FAILED(	SNMPERR_GENERR,
+				"generate_kul SHOULD fail when Ku length is "
+				"less than hash transform length.");
+		}
+
+	} else {
+		FAILED(rval, "generate_kul().");
+
+		if (kul_len != properlength) {
+			FAILED(	SNMPERR_GENERR,
+				"kul length is wrong for the given hashtype.");
+		}
+
+		binary_to_hex(kul, kul_len, &s);
+		fprintf(stdout, "kul (len=%d):  %s\n", kul_len, s);
+		free_zero(s, kul_len);
 	}
-
-	binary_to_hex(kul, kul_len, &s);
-	fprintf(stdout, "kul (len=%d):  %s\n", kul_len, s);
-	free_zero(s, kul_len);
 
 
 	/* Create localized key using the other hash transform, but from
@@ -414,8 +472,176 @@ test_genkul_again_local:
 	}
 
 
-test_genkul_quit:
 	return failcount;
 
 }  /* end test_genkul() */
+
+
+
+
+/*******************************************************************-o-******
+ * test_keychange
+ *
+ * Returns:
+ *	Number of failures.
+ *
+ *
+ * Test of KeyChange TC implementation.
+ *
+ * ASSUME newkey and oldkey begin as NULL terminated strings.
+ */
+int
+test_keychange(void)
+{
+	int		 rval		= SNMPERR_SUCCESS,
+			 failcount	= 0,
+			 properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5),
+			 oldkey_len,
+			 newkey_len,
+			 keychange_len,
+			 temp_len,
+			 isdefault_new  = FALSE,
+			 isdefault_old  = FALSE;
+
+	char		*hashname = "usmHMACMD5AuthProtocol.",
+			*s;
+
+	u_char		 oldkey_buf[LOCAL_MAXBUF],
+			 newkey_buf[LOCAL_MAXBUF],
+			 temp_buf[LOCAL_MAXBUF],
+			 keychange_buf[LOCAL_MAXBUF];
+
+	oid		*hashtype =  usmHMACMD5AuthProtocol;
+
+EM(-1); /* */
+
+
+	OUTPUT("Test of KeyChange TC --");
+	
+
+	/*
+	 * Set newkey and oldkey.
+	 */
+	if (!newkey) {						/* newkey */
+		newkey        = NEWKEY_DEFAULT;
+		isdefault_new = TRUE;
+	}
+	newkey_len = strlen(newkey);
+
+	if (tolower(*(newkey+1)) == 'x') {
+		newkey_len = hex_to_binary2(newkey+2, newkey_len-2, &s);
+		if (newkey_len < 0) {
+			FAILED(	(rval = SNMPERR_GENERR),
+				"Could not resolve hex newkey.");
+		}
+		newkey = s;
+		binary_to_hex(newkey, newkey_len, &s);
+	}
+
+	if (!oldkey) {						/* oldkey */
+		oldkey        = OLDKEY_DEFAULT;
+		isdefault_old = TRUE;
+	}
+	oldkey_len = strlen(oldkey);
+
+	if (tolower(*(oldkey+1)) == 'x') {
+		oldkey_len = hex_to_binary2(oldkey+2, oldkey_len-2, &s);
+		if (oldkey_len < 0) {
+			FAILED(	(rval = SNMPERR_GENERR),
+				"Could not resolve hex oldkey.");
+		}
+		oldkey = s;
+		binary_to_hex(oldkey, oldkey_len, &s);
+	}
+
+
+		
+test_keychange_again:
+	memset(oldkey_buf,	0, LOCAL_MAXBUF);
+	memset(newkey_buf,	0, LOCAL_MAXBUF);
+	memset(keychange_buf,	0, LOCAL_MAXBUF);
+	memset(temp_buf,	0, LOCAL_MAXBUF);
+
+	memcpy(oldkey_buf,	oldkey, MIN(oldkey_len, properlength));
+	memcpy(newkey_buf,	newkey, MIN(newkey_len, properlength));
+	keychange_len = LOCAL_MAXBUF;
+
+
+	binary_to_hex(oldkey_buf, properlength, &s);
+	fprintf(stdout, "\noldkey%s (len=%d):  %s\n",
+		(isdefault_old) ? " (default)" : "", properlength, s);
+	SNMP_FREE(s);
+
+	binary_to_hex(newkey_buf, properlength, &s);
+	fprintf(stdout, "newkey%s (len=%d):  %s\n\n",
+		(isdefault_new) ? " (default)" : "", properlength, s);
+	SNMP_FREE(s);
+
+
+	rval = encode_keychange(hashtype, USM_LENGTH_OID_TRANSFORM,
+				oldkey_buf, properlength,
+				newkey_buf, properlength,
+				keychange_buf, &keychange_len);
+	FAILED(rval, "encode_keychange().");
+
+	if (keychange_len != (properlength*2)) {
+		FAILED(	SNMPERR_GENERR,
+			"KeyChange string (encoded) is not proper length "
+			"for this hash transform.");
+	}
+
+	binary_to_hex(keychange_buf, keychange_len, &s);
+	fprintf(stdout, "KeyChange string:  %s\n\n", s);
+	SNMP_FREE(s);
+
+	temp_len = properlength;
+	rval = decode_keychange(hashtype, USM_LENGTH_OID_TRANSFORM,
+				oldkey_buf, properlength,
+				keychange_buf, properlength*2,
+				temp_buf, &temp_len);
+	FAILED(rval, "decode_keychange().");
+
+	if (temp_len != properlength) {
+		FAILED(	SNMPERR_GENERR,
+			"decoded newkey is not proper length for "
+			"this hash transform.");
+	}
+
+	binary_to_hex(temp_buf, temp_len, &s);
+	fprintf(stdout, "decoded newkey:  %s\n\n", s);
+	SNMP_FREE(s);
+
+
+	if ( memcmp(newkey_buf, temp_buf, temp_len) ) {
+		FAILED( SNMPERR_GENERR, "newkey did not decode properly.");
+	}
+
+	
+	SUCCESS(hashname);
+	fprintf(stdout, "\n");
+
+
+	/*
+	 * Multiplex different test combinations.
+	 *
+	 * First clause is for Test #2, second clause is for (last) Test #3.
+	 */
+	if (hashtype == usmHMACMD5AuthProtocol) {
+		hashtype     =  usmHMACSHA1AuthProtocol;
+		hashname     = "usmHMACSHA1AuthProtocol (w/DES length kul's).";
+		properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES)
+				+ BYTESIZE(SNMP_TRANS_PRIVLEN_1DES_IV);
+		goto test_keychange_again;
+
+	} else if ( properlength < BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1) ) {
+		hashtype	=  usmHMACSHA1AuthProtocol;
+		hashname	= "usmHMACSHA1AuthProtocol.";
+		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
+		goto test_keychange_again;
+	}
+
+
+	return failcount;
+
+}  /* end test_keychange() */
 

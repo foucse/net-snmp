@@ -18,13 +18,16 @@
 #define DF(l)	(DEBUG_ ## l)
 #define ISDF(f) ( (snmp_debug & (DF(ON))) && (snmp_debug & DF(f)) )
 
-#define DEBUG_ON	0x00000001	/* General ON/OFF switch.	*/
-#define DEBUG_EM	0x00000002	/* Print entry mark messages.	*/
-#define DEBUG_KMTDUMP1	0x00000004	/* Dump keylists from
+#define DEBUG_ON		0x01	/* General ON/OFF switch.	*/
+#define DEBUG_EM		0x02	/* Print entry mark messages.	*/
+#define DEBUG_KMTDUMP1		0x04	/* Dump keylists from
 					 *   sc_internal_kmtlookup().	*/
+#define DEBUG_RANDOMZEROS	0x08	/* Use only zero bits for random
+					 *   delta portion of KeyChange TC. */
 
 static u_int snmp_debug =	DF(ON) | DF(EM)		/* */
 				/* | DF(KMTDUMP1)	/* */
+				/* | DF(RANDOMZEROS)	/* */
 	;
 
 

@@ -85,7 +85,7 @@ generate_Ku(	oid	*hashtype,	u_int  hashtype_len,
 
 	void		*context = NULL;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -170,15 +170,19 @@ generate_Ku_quit:
  *	SNMPERR_SC_GENERAL_FAILURE	All errors, including KMT errs.
  *
  *
- * Ku must be the proper length (currently fixed) for the given hashtype.
+ * Ku MUST be the proper length (currently fixed) for the given hashtype.
  *
  * Upon successful return, Kul contains the localized form of Ku at
  * engineID, and the length of the key is stored in kul_len.
  *
- * FIX	[Cite RFC and U. Blumenthal, et al.'s paper.  XXX]
+ * The localized key method is defined in RFC2274, Sections 2.6 and A.2, and
+ * originally documented in:
+ *  	U. Blumenthal, N. C. Hien, B. Wijnen,
+ *     	"Key Derivation for Network Management Applications",
+ *	IEEE Network Magazine, April/May issue, 1997.
  *
  *
- * ASSUMES  SNMP_MAXBUF > sizeof(Ku + engineID + Ku).
+ * ASSUMES  SNMP_MAXBUF >= sizeof(Ku + engineID + Ku).
  *
  * XXX	An engineID of any length is accepted, even if larger than
  *	what is spec'ed for the textual convention.
@@ -197,7 +201,7 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 	char		 buf[SNMP_MAXBUF];
 	void		*context = NULL;
 
-/* EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -225,12 +229,12 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 		kmt_hash	= kmt_s_sha1;
 
 	} else {
-		kmt_hash  = NULL;
+		kmt_hash = NULL;
 		QUITFUN(SNMPERR_GENERR, generate_kul_quit);
 	}
 
 
-	if (*kul_len < properlength) {
+	if ((*kul_len < properlength) || (ku_len < properlength) ) {
 		QUITFUN(SNMPERR_GENERR, generate_kul_quit);
 	}
 
@@ -240,9 +244,10 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 	 * Concatenate Ku and engineID properly, then hash the result.
 	 * Store it in Kul.
 	 */
-	memcpy(buf,	   Ku,		nbytes += ku_len);
-	memcpy(buf+nbytes, engineID,	nbytes += engineID_len);
-	memcpy(buf+nbytes, Ku,		nbytes += ku_len);
+	nbytes = 0;
+	memcpy(buf,	   Ku,		properlength); nbytes += properlength;
+	memcpy(buf+nbytes, engineID,	engineID_len); nbytes += engineID_len;
+	memcpy(buf+nbytes, Ku,		properlength); nbytes += properlength;
 
 	rval = kmt_hash(KMT_CRYPT_MODE_ALL,
 			&context,
@@ -264,14 +269,14 @@ generate_kul_quit:
  * encode_keychange
  *
  * Parameters:
- *	*hashtype
- *	 hashtype_len
- *	*oldkey
- *	 olekey_len
- *	*newkey
- *	 newkey_len
- *	*kcstring
- *	*kcstring_len
+ *	*hashtype	MIB OID for the hash transform type.
+ *	 hashtype_len	Length of the MIB OID hash transform type.
+ *	*oldkey		Old key that is used to encodes the new key.
+ *	 olekey_len	Length of oldkey in bytes.
+ *	*newkey		New key that is encoded using the old key.
+ *	 newkey_len	Length of new key in bytes.
+ *	*kcstring	Buffer to contain the KeyChange TC string.
+ *	*kcstring_len	Length of kcstring buffer.
  *      
  * Returns:
  *	SNMPERR_SUCCESS			Success.
@@ -279,19 +284,24 @@ generate_kul_quit:
  *
  *
  * Uses oldkey and acquired random bytes to encode newkey into kcstring
- * according to the rules of the KeyChange TC described in [cite RFC
- * section XXX].
+ * according to the rules of the KeyChange TC described in RFC 2274, Section 5.
  *
  * Upon successful return, *kcstring_len contains the length of the
  * encoded string.
  *
+ * ASSUMES	Old and new key are always equal to each other, although
+ *		this may be less than the transform type hash output
+ * 		output length (eg, using KeyChange for a DESPriv key when
+ *		the user also uses SHA1Auth).  This also implies that the
+ *		hash placed in the second 1/2 of the key change string
+ *		will be truncated before the XOR'ing when the hash output is 
+ *		larger than that 1/2 of the key change string.
  *
- * ASSUMES	Old and new key are always equal to the transform type hash
- * 		output length.  This means *kcstring_len must also be
- *		exactly twice that same length.  XXX
+ *		*kcstring_len will be returned as exactly twice that same
+ *		length though the input buffer may be larger.
  *
  * ASSUMES	The result is not ASN.1 encoded, the calling environment
- *		this.  FIX -- Tragic flaw?
+ *		must do this.  FIX -- Tragic flaw?
  */
 int
 encode_keychange(	oid	*hashtype,	u_int  hashtype_len,
@@ -307,7 +317,8 @@ encode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 	u_int8_t	*bufp;
 	void		*context = NULL;
 
-EM(1); /* */
+EM(-1); /* */
+
 
 	/*
 	 * Sanity check.
@@ -339,11 +350,12 @@ EM(1); /* */
 	}
 
 
-	if ( (oldkey_len != properlength) || (newkey_len != properlength)
-		|| (*kcstring_len < (2*properlength)) )
+	if ( (oldkey_len != newkey_len) || (*kcstring_len < (2*oldkey_len)) )
 	{
 		QUITFUN(SNMPERR_GENERR, encode_keychange_quit);
 	}
+
+	properlength = MIN(oldkey_len, properlength);
 
 
 
@@ -357,10 +369,18 @@ EM(1); /* */
 	 * Getting the wrong number of random bytes is considered an error.
 	 */
 	nbytes = properlength;
-	rval   = sc_random(kcstring, &nbytes);
-	QUITFUN(rval, encode_keychange_quit);
-	if (nbytes != properlength) {
-		QUITFUN(SNMPERR_GENERR, encode_keychange_quit);
+
+	if ( ISDF(RANDOMZEROS) ) {
+		memset(kcstring, 0, nbytes);	/* XXX  For testing only! */
+		DEBUGP(	"** Using all zero bits for \"random\" delta of "
+			"the keychange string! **\n");
+
+	} else {
+		rval = sc_random(kcstring, &nbytes);
+		QUITFUN(rval, encode_keychange_quit);
+		if (nbytes != properlength) {
+			QUITFUN(SNMPERR_GENERR, encode_keychange_quit);
+		}
 	}
 
 
@@ -375,7 +395,9 @@ EM(1); /* */
 			&context,
 			kcstring, properlength,
 			&bufp, kcstring_len);
-	*kcstring_len *= 2;
+
+	*kcstring_len = (properlength*2);
+
 	QUITFUN(rval, encode_keychange_quit);
 
 
@@ -402,14 +424,14 @@ encode_keychange_quit:
  * decode_keychange
  *
  * Parameters:
- *	*hashtype
- *	 hashtype_len
- *	*oldkey
- *	 olekey_len
- *	*kcstring
- *	 kcstring_len
- *	*newkey
- *	*newkey_len
+ *	*hashtype	MIB OID of the hash transform to use.
+ *	 hashtype_len	Length of the hash transform MIB OID.
+ *	*oldkey		Old key that is used to encode the new key.
+ *	 olekey_len	Length of oldkey in bytes.
+ *	*kcstring	Encoded KeyString buffer containing the new key.
+ *	 kcstring_len	Length of kcstring in bytes.
+ *	*newkey		Buffer to hold the extracted new key.
+ *	*newkey_len	Length of newkey in bytes.
  *      
  * Returns:
  *	SNMPERR_SUCCESS			Success.
@@ -417,15 +439,16 @@ encode_keychange_quit:
  *
  *
  * Decodes a string of bits encoded according to the KeyChange TC described
- * in [cite RFC section XXX].  The new key is extracted from *kcstring with
+ * in RFC 2274, Section 5.  The new key is extracted from *kcstring with
  * the aid of the old key.
  *
  * Upon successful return, *newkey_len contains the length of the new key.
  *
  *
- * ASSUMES	Old key and new key are the same length as the hashtype
- *		transform output.  Thus kcstring_len must be passed
- *		as at least twice that same size.
+ * ASSUMES	Old key is exactly 1/2 the length of the KeyChange buffer,
+ *		although this length may be less than the hash transform
+ *		output.  Thus the new key length will be equal to the old
+ *		key length.
  *
  * ASSUMES	kcstring is NOT ASN.1 encoded.  FIX -- Tragic flaw?
  */
@@ -440,10 +463,11 @@ decode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 			 properlength,
 			 nbytes  = 0;
 
-	char		*bufp;
+	u_int8_t	*bufp,
+			 tmp_buf[SNMP_MAXBUF];
 	void		*context = NULL;
 
-EM(1); /* */
+EM(-1); /* */
 
 
 	/*
@@ -476,11 +500,12 @@ EM(1); /* */
 	}
 
 
-	if ( (oldkey_len != properlength) || (kcstring_len != (2*properlength))
-		|| (*newkey_len < properlength) )
+	if ( ((oldkey_len*2) != kcstring_len) || (*newkey_len < oldkey_len) )
 	{
 		QUITFUN(SNMPERR_GENERR, decode_keychange_quit);
 	}
+
+	properlength = oldkey_len;
 
 
 
@@ -489,8 +514,6 @@ EM(1); /* */
 	 * the new key:
 	 *	. Hash (oldkey | random_bytes) (into newkey),
 	 *	. XOR hash and encoded (second) half of kcstring (into newkey).
-	 *
-	 * Getting the wrong number of random bytes is considered an error.
 	 */
 	rval = kmt_hash(KMT_CRYPT_MODE_INIT|KMT_CRYPT_MODE_UPDATE,
 			&context,
@@ -498,23 +521,33 @@ EM(1); /* */
 			NULL, NULL);
 	QUITFUN(rval, decode_keychange_quit);
 
+	bufp	    = (u_int8_t *) tmp_buf;
+	*newkey_len = SNMP_MAXBUF;
+
 	rval = kmt_hash(KMT_CRYPT_MODE_UPDATE|KMT_CRYPT_MODE_FINAL,
 			&context,
 			kcstring, properlength,
-			&newkey, newkey_len);
+			&bufp, newkey_len);
+
+	*newkey_len = properlength;
+	memcpy(newkey, tmp_buf, *newkey_len);
+
 	QUITFUN(rval, decode_keychange_quit);
 
 
 	bufp   = kcstring+properlength;
 	nbytes = 0;
 	while (nbytes++ < properlength) {
-		*newkey++ = *newkey ^ *kcstring++;
+		*newkey++ = *newkey ^ *bufp++;
 	}
 
 
 
 decode_keychange_quit:
-	if (rval != SNMPERR_SUCCESS) memset(newkey, 0, properlength);
+	if (rval != SNMPERR_SUCCESS) {
+		memset(newkey, 0, properlength);
+	}
+	memset(tmp_buf, 0, SNMP_MAXBUF);
 	SNMP_FREE(context);
 
 	return rval;
