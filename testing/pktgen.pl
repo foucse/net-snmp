@@ -612,7 +612,7 @@ sub pkt_encrypt_data {
     my $passphrase = shift;
     my $engine_id = shift;
     my $buf = $ber->buffer();
-    $buf .= "\0" x (8 - length($buf) % 8) if length($buf) % 8;
+    # $buf .= "\0" x (8 - length($buf) % 8) if length($buf) % 8;
     print "pkt_encrypt_data: called [$priv_proto, $passphrase, ",
     length($buf), join(" ", ", 0x", map {sprintf "%02X", $_;} unpack("C*", $buf)),"]\n";
 
@@ -621,17 +621,25 @@ sub pkt_encrypt_data {
     my $kul = pkt_gen_kul($auth_proto,$ku,$engine_id);
 
     my $des_key = substr($kul,0,8);
-    my $pre_iv = substr($kul,-8,8); # last 8, this may not be right for SHA
+    my $pre_iv = substr($kul,8,8); # last 8, this may not be right for SHA
 #    my $salt = pack('NN',rand(0xffffffff),rand(0xffffffff));
     my $salt = pack('NN',1,1);
+print join(" ", "salt = 0x", map {sprintf "%02X", $_;} unpack("C*", $salt)),"\n";
     my $iv = $pre_iv ^ $salt;
     my $cipher = new SSLeay::Cipher('des-cbc');
     $cipher->init($des_key, $iv, 1);
+    my $oldbuf=$buf;
     $buf = $cipher->update($buf);
+    $buf .= $cipher->final();
+    $cipher->init($des_key, $iv,0);
+    my $newbuf = $cipher->update($buf);
+    $newbuf .= $cipher->final();
     print "pkt_encrypt_data: called [buflen => ", length($buf), "buf => ", 
     join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $buf)),", iv => ",
     join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $iv)),", key => ",
-    join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $kul)),"]\n";
+    join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $kul)),", oldbuf => ",
+    join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $oldbuf)),", newbuf => ",
+    join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $newbuf)),"]\n";
     $ber = new Convert::BER(STRING => $buf);
 }
 
