@@ -34,6 +34,7 @@ u_char	*var_ipRouteEntry();
 u_char	*var_icmp();
 u_char	*var_tcp();
 u_char	*var_udp();
+u_char	*var_snmp();
 u_char	*var_process();
 u_char	*var_event();
 u_char  *var_capture();
@@ -171,6 +172,35 @@ extern u_char return_buf[];
 #define UDPNOPORTS	    1
 #define UDPINERRORS	    2
 #define UDPOUTDATAGRAMS     3
+
+#define SNMPINPKTS		1
+#define SNMPOUTPKTS		2
+#define SNMPINBADVERSIONS	3
+#define SNMPINBADCOMMUNITYNAMES	4
+#define SNMPINBADCOMMUNITYUSES	5
+#define SNMPINASNPARSEERRORS	6
+#define SNMPINTOOBIGS		8
+#define SNMPINNOSUCHNAMES	9
+#define SNMPINBADVALUES		10
+#define SNMPINREADONLYS		11
+#define SNMPINGENERRS		12
+#define SNMPINTOTALREQVARS	13
+#define SNMPINTOTALSETVARS	14
+#define SNMPINGETREQUESTS	15
+#define SNMPINGETNEXTS		16
+#define SNMPINSETREQUESTS	17
+#define SNMPINGETRESPONSES	18
+#define SNMPINTRAPS		19
+#define SNMPOUTTOOBIGS		20
+#define SNMPOUTNOSUCHNAMES	21
+#define SNMPOUTBADVALUES	22
+#define SNMPOUTGENERRS		24
+#define SNMPOUTGETREQUESTS	25
+#define SNMPOUTGETNEXTS		26
+#define SNMPOUTSETREQUESTS	27
+#define SNMPOUTGETRESPONSES	28
+#define SNMPOUTTRAPS		29
+#define SNMPENABLEAUTHENTRAPS	30
 
 struct variable {
     u_char	    magic;	    /* passed to function as a hint */

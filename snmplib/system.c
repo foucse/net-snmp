@@ -53,6 +53,9 @@ SOFTWARE.
 #if HAVE_SYS_FILE_H
 #include <sys/file.h>
 #endif
+#ifdef solaris2
+#include <kstat.h>
+#endif
 #include "system.h"
 
 #define NUM_NETWORKS    32   /* max number of interfaces to check */
@@ -150,14 +153,23 @@ long get_uptime(){
     return ((diff.tv_sec * 100) + (diff.tv_usec / 10000));
 #endif /* bsdlike */
 
-#ifdef solaris
+#ifdef solaris2
+    kstat_ctl_t *ksc = kstat_open();
+    kstat_t *ks;
+    kid_t kid;
+    kstat_named_t *named;
     u_long lbolt;
 
-    if (getKstat ("system_misc", "lbolt", &lbolt) < 0)
-	return 0;
-    else
-	return lbolt;
-                             
+    if (ksc == NULL) return 0;
+    ks = kstat_lookup (ksc, "unix", -1, "system_misc");
+    if (ks == NULL) return 0;
+    kid = kstat_read (ksc, ks, NULL);
+    if (kid == -1) return 0;
+    named = kstat_data_lookup(ks, "lbolt");
+    if (named == NULL) return 0;
+    lbolt = named->value.ul;
+    kstat_close(ksc);
+    return lbolt;
 #endif /* solaris2 */
 
 #ifdef linux

@@ -216,7 +216,7 @@ snmp_add_var(pdu, name, name_length, type, value)
 	    break;
 	default:
 	    fprintf(stderr, "Internal error in type switching: %c\n", type);
-	    exit(-1);
+	    exit(1);
     }
 }
 
@@ -293,10 +293,11 @@ main(argc, argv)
     char *community = NULL;
     char *trap = NULL, *specific = NULL, *description = NULL, *agent = NULL;
     int version = 2;
-    oid src[MAX_NAME_LEN], dst[MAX_NAME_LEN];
-    int srclen = 0, dstlen = 0;
+    oid src[MAX_NAME_LEN], dst[MAX_NAME_LEN], context[MAX_NAME_LEN];
+    int srclen = 0, dstlen = 0, contextlen = 0;
     struct partyEntry *pp;
     char ctmp[300];
+    int trivialSNMPv2 = FALSE;
 
     /*
      * usage: snmptrap gateway-name srcParty dstParty trap-type specific-type device-description [ -a agent-addr ]
@@ -332,30 +333,34 @@ main(argc, argv)
 	    gateway = argv[arg];
 	} else if (version == 1 && community == NULL){
 	    community = argv[arg];
-	} else if (version == 2 && srclen == 0){
+	} else if (version == 2 && srclen == 0 && !trivialSNMPv2){
 	    sprintf(ctmp, "%s/party.conf", SNMPLIBPATH);
-	    if (!read_party_database(ctmp)){
+	    if (read_party_database(ctmp) != 0){
 		fprintf(stderr,
 			"Couldn't read party database from %s\n", ctmp);
 		exit(0);
 	    }
-	    party_scanInit();
-	    for(pp = party_scanNext(); pp; pp = party_scanNext()){
-		if (!strcasecmp(pp->partyName, argv[arg])){
-		    srclen = pp->partyIdentityLen;
-		    memcpy(src, pp->partyIdentity, srclen * sizeof(oid));
-		    break;
+            if (!strcasecmp(argv[arg], "noauth"))
+                trivialSNMPv2 = TRUE;
+	    else {
+		party_scanInit();
+		for(pp = party_scanNext(); pp; pp = party_scanNext()){
+		    if (!strcasecmp(pp->partyName, argv[arg])){
+			srclen = pp->partyIdentityLen;
+			memcpy(src, pp->partyIdentity, srclen * sizeof(oid));
+			break;
+		    }
 		}
-	    }
-	    if (!pp){
-		srclen = MAX_NAME_LEN;
-		if (!read_objid(argv[arg], src, &srclen)){
-		    fprintf(stderr, "Invalid source party: %s\n", argv[arg]);
-		    srclen = 0;
-		    usage();
+		if (!pp){
+		    srclen = MAX_NAME_LEN;
+		    if (!read_objid(argv[arg], src, &srclen)){
+			fprintf(stderr, "Invalid source party: %s\n", argv[arg]);
+			srclen = 0;
+			usage();
+		    }
 		}
-	    }
-	} else if (version == 2 && dstlen == 0){
+            }
+	} else if (version == 2 && dstlen == 0 && !trivialSNMPv2){
 	    dstlen = MAX_NAME_LEN;
 	    party_scanInit();
 	    for(pp = party_scanNext(); pp; pp = party_scanNext()){
@@ -381,6 +386,13 @@ main(argc, argv)
     if (trap == NULL) {
 	usage ();
     }
+ 
+    if (trivialSNMPv2){
+        u_long destAddr = parse_address (gateway);;
+        srclen = dstlen = contextlen = MAX_NAME_LEN;
+        ms_party_init(destAddr, src, &srclen, dst, &dstlen,
+                      context, &contextlen);
+    }
 
     memset (&session, 0, sizeof(struct snmp_session));
     session.peername = gateway;
@@ -394,6 +406,8 @@ main(argc, argv)
         session.srcPartyLen = srclen;
         session.dstParty = dst;
         session.dstPartyLen = dstlen;
+	session.context = context;
+	session.contextLen = contextlen;
     }
     session.retries = SNMP_DEFAULT_RETRIES;
     session.timeout = SNMP_DEFAULT_TIMEOUT;
@@ -404,7 +418,7 @@ main(argc, argv)
     ss = snmp_open(&session);
     if (ss == NULL){
 	fprintf(stderr, "Couldn't open snmp\n");
-	exit(-1);
+	exit(1);
     }
 
     if (version == 1) {
@@ -478,15 +492,15 @@ main(argc, argv)
     }
 
     while (arg < argc) {
-      arg += 3;
-      if (arg > argc) break;
-      name_length = MAX_NAME_LEN;
-      if (!read_objid (argv [arg-3], name, &name_length)) {
-	  fprintf (stderr, "Invalid object identifier: %s\n", argv [arg-3]);
-	  continue;
-      }
+	arg += 3;
+	if (arg > argc) break;
+	name_length = MAX_NAME_LEN;
+	if (!read_objid (argv [arg-3], name, &name_length)) {
+	    fprintf (stderr, "Invalid object identifier: %s\n", argv [arg-3]);
+	    continue;
+	}
 
-      snmp_add_var (pdu, name, name_length, argv [arg-2][0], argv [arg-1]);
+	snmp_add_var (pdu, name, name_length, argv [arg-2][0], argv [arg-1]);
     }
 
     if (snmp_send(ss, pdu)== 0){

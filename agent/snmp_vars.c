@@ -178,6 +178,45 @@ PERFORMANCE OF THIS SOFTWARE.
 #include "kernel_sunos5.h"
 #endif
 
+/* counters for the snmp group: */
+
+#include "snmp_groupvars.h"
+
+int snmp_inpkts = 0;
+int snmp_outpkts = 0;
+int snmp_inbadversions = 0;
+int snmp_inbadcommunitynames = 0;
+int snmp_inbadcommunityuses = 0;
+int snmp_inasnparseerrors = 0;
+int snmp_intoobigs = 0;
+int snmp_innosuchnames = 0;
+int snmp_inbadvalues = 0;
+int snmp_inreadonlys = 0;
+int snmp_ingenerrs = 0;
+int snmp_intotalreqvars = 0;
+int snmp_intotalsetvars = 0;
+int snmp_ingetrequests = 0;
+int snmp_ingetnexts = 0;
+int snmp_insetrequests = 0;
+int snmp_ingetresponses = 0;
+int snmp_intraps = 0;
+int snmp_outtoobigs = 0;
+int snmp_outnosuchnames = 0;
+int snmp_outbadvalues = 0;
+int snmp_outgenerrs = 0;
+int snmp_outgetrequests = 0;
+int snmp_outgetnexts = 0;
+int snmp_outsetrequests = 0;
+int snmp_outgetresponses = 0;
+int snmp_outtraps = 0;
+
+/* agents startup time stamp: */
+static unsigned long uptime_stamp;
+
+int snmp_enableauthentraps = 2;		/* default: 2 == disabled */
+char *snmp_trapsink;
+char *snmp_trapcommunity;
+
 #define PROCESSSLOTINDEX  0
 #define PROCESSID         4
 #define PROCESSCOMMAND    8
@@ -365,6 +404,7 @@ u_char		return_buf[258];
 u_char		return_buf[256]; /* nee 64 */
 #endif
  
+void
 init_snmp()
 {
   int ret;
@@ -663,6 +703,37 @@ struct variable2 process_variables[] = {
 };
 #endif
 
+struct variable2 snmp_variables[] = {
+    {SNMPINPKTS, COUNTER, RONLY, var_snmp, 1, {1}},
+    {SNMPOUTPKTS, COUNTER, RONLY, var_snmp, 1, {2}},
+    {SNMPINBADVERSIONS, COUNTER, RONLY, var_snmp, 1, {3}},
+    {SNMPINBADCOMMUNITYNAMES, COUNTER, RONLY, var_snmp, 1, {4}},
+    {SNMPINBADCOMMUNITYUSES, COUNTER, RONLY, var_snmp, 1, {5}},
+    {SNMPINASNPARSEERRORS, COUNTER, RONLY, var_snmp, 1, {6}},
+    {SNMPINTOOBIGS, COUNTER, RONLY, var_snmp, 1, {8}},
+    {SNMPINNOSUCHNAMES, COUNTER, RONLY, var_snmp, 1, {9}},
+    {SNMPINBADVALUES, COUNTER, RONLY, var_snmp, 1, {10}},
+    {SNMPINREADONLYS, COUNTER, RONLY, var_snmp, 1, {11}},
+    {SNMPINGENERRS, COUNTER, RONLY, var_snmp, 1, {12}},
+    {SNMPINTOTALREQVARS, COUNTER, RONLY, var_snmp, 1, {13}},
+    {SNMPINTOTALSETVARS, COUNTER, RONLY, var_snmp, 1, {14}},
+    {SNMPINGETREQUESTS, COUNTER, RONLY, var_snmp, 1, {15}},
+    {SNMPINGETNEXTS, COUNTER, RONLY, var_snmp, 1, {16}},
+    {SNMPINSETREQUESTS, COUNTER, RONLY, var_snmp, 1, {17}},
+    {SNMPINGETRESPONSES, COUNTER, RONLY, var_snmp, 1, {18}},
+    {SNMPINTRAPS, COUNTER, RONLY, var_snmp, 1, {19}},
+    {SNMPOUTTOOBIGS, COUNTER, RONLY, var_snmp, 1, {20}},
+    {SNMPOUTNOSUCHNAMES, COUNTER, RONLY, var_snmp, 1, {21}},
+    {SNMPOUTBADVALUES, COUNTER, RONLY, var_snmp, 1, {22}},
+    {SNMPOUTGENERRS, COUNTER, RONLY, var_snmp, 1, {24}},
+    {SNMPOUTGETREQUESTS, COUNTER, RONLY, var_snmp, 1, {25}},
+    {SNMPOUTGETNEXTS, COUNTER, RONLY, var_snmp, 1, {26}},
+    {SNMPOUTSETREQUESTS, COUNTER, RONLY, var_snmp, 1, {27}},
+    {SNMPOUTGETRESPONSES, COUNTER, RONLY, var_snmp, 1, {28}},
+    {SNMPOUTTRAPS, COUNTER, RONLY, var_snmp, 1, {29}},
+    {SNMPENABLEAUTHENTRAPS, INTEGER, RWRITE, var_snmp, 1, {30}}
+};
+
 /*
  * Note that the name field must be larger than any name that might
  * match that object.  For these variable length (objid) indexes
@@ -817,6 +888,9 @@ struct subtree subtrees_old[] = {
     {{MIB, 7}, 7, (struct variable *)udp_variables,
 	 sizeof(udp_variables)/sizeof(*udp_variables),
 	 sizeof(*udp_variables)},
+    {{MIB, 11}, 7, (struct variable *)snmp_variables,
+	 sizeof(snmp_variables)/sizeof(*snmp_variables),
+	 sizeof(*snmp_variables)},
 #ifdef testing
     {{HOSTTIMETAB}, 10, (struct variable *)hosttimetab_variables,
 	 sizeof(hosttimetab_variables) / sizeof(*hosttimetab_variables),
@@ -1142,27 +1216,152 @@ char sysName[128] = SYS_NAME;
 char sysLocation[128] = SYS_LOC;
 
 oid version_id[] = {EXTENSIBLEMIB,AGENTID,OSTYPE};
+int version_id_len = sizeof(version_id)/sizeof(version_id[0]);
 
-u_long
-sysUpTime(){
-#ifndef solaris2
-    struct timeval now, boottime;
-    
-    if (KNLookup(N_BOOTTIME, (char *)&boottime, sizeof(boottime)) == 0) {
-	return(0);
+
+/*
+ * only for snmpEnableAuthenTraps:
+ */
+
+static int
+write_snmp (action, var_val, var_val_type, var_val_len, statP, name, name_len)
+   int      action;
+   u_char   *var_val;
+   u_char   var_val_type;
+   int      var_val_len;
+   u_char   *statP;
+   oid      *name;
+   int      name_len;
+{
+    int bigsize = 4, intval;
+
+    if (var_val_type != INTEGER){
+	ERROR("not integer");
+	return SNMP_ERR_WRONGTYPE;
     }
 
-    gettimeofday(&now, (struct timezone *)0);
-    return (u_long) ((now.tv_sec - boottime.tv_sec) * 100
-			    + (now.tv_usec - boottime.tv_usec) / 10000);
-#else
-    u_long lbolt;
-
-    if (getKstat ("system_misc", "lbolt", &lbolt) < 0)
-	return 0;
-    else
-	return lbolt;
+    asn_parse_int(var_val, &bigsize, &var_val_type, &intval, sizeof (intval));
+    if (intval != 1 && intval != 2) {
+#ifdef DEBUG	    
+	printf("not valid %x\n", intval);
 #endif
+	return SNMP_ERR_WRONGVALUE;
+    }
+
+    if (action == COMMIT) {
+	snmp_enableauthentraps = intval;	
+	/* save_into_conffile ("authentraps:", intval == 1 ? "yes" : "no"); */
+    }
+    return SNMP_ERR_NOERROR;
+}
+
+
+u_char *
+var_snmp(vp, name, length, exact, var_len, write_method)
+    register struct variable *vp;    /* IN - pointer to variable entry that points here */
+    oid     *name;	    /* IN/OUT - input name requested, output name found */
+    int     *length;	    /* IN/OUT - length of input and output oid's */
+    int     exact;	    /* IN - TRUE if an exact match was requested. */
+    int     *var_len;	    /* OUT - length of variable or 0 if function returned. */
+    int     (**write_method)(); /* OUT - pointer to function to set variable, otherwise 0 */
+{
+    oid newname[MAX_NAME_LEN];
+    int result;
+
+    bcopy((char *)vp->name, (char *)newname, (int)vp->namelen * sizeof(oid));
+    newname[8] = 0;
+    result = compare(name, *length, newname, (int)vp->namelen + 1);
+    if ((exact && (result != 0)) || (!exact && (result >= 0)))
+        return NULL;
+    bcopy((char *)newname, (char *)name, ((int)vp->namelen + 1) * sizeof(oid));
+    *length = vp->namelen + 1;
+
+    *write_method = 0;
+    *var_len = sizeof(long);	/* default length */
+
+    /* default value: */
+    long_return = 0;
+
+    switch (vp->magic){
+	case SNMPINPKTS:
+	    long_return = snmp_inpkts;
+      	    break;
+	case SNMPOUTPKTS:
+	    long_return = snmp_outpkts;
+      	    break;
+	case SNMPINBADVERSIONS:
+	    long_return = snmp_inbadversions;
+      	    break;
+	case SNMPINBADCOMMUNITYNAMES:
+	    long_return = snmp_inbadcommunitynames;
+      	    break;
+	case SNMPINBADCOMMUNITYUSES:
+      	    break;
+	case SNMPINASNPARSEERRORS:
+	    long_return = snmp_inasnparseerrors;
+      	    break;
+	case SNMPINTOOBIGS:
+	    long_return = snmp_intoobigs;
+      	    break;
+	case SNMPINNOSUCHNAMES:
+      	    break;
+	case SNMPINBADVALUES:
+	    long_return = snmp_inbadvalues;
+      	    break;
+	case SNMPINREADONLYS:
+	    long_return = snmp_inreadonlys;
+      	    break;
+	case SNMPINGENERRS:
+	    long_return = snmp_ingenerrs;
+      	    break;
+	case SNMPINTOTALREQVARS:
+	    long_return = snmp_intotalreqvars;
+      	    break;
+	case SNMPINTOTALSETVARS:
+      	    break;
+	case SNMPINGETREQUESTS:
+	    long_return = snmp_ingetrequests;
+      	    break;
+	case SNMPINGETNEXTS:
+	    long_return = snmp_ingetnexts;
+      	    break;
+	case SNMPINSETREQUESTS:
+	    long_return = snmp_insetrequests;
+      	    break;
+	case SNMPINGETRESPONSES:
+      	    break;
+	case SNMPINTRAPS:
+      	    break;
+	case SNMPOUTTOOBIGS:
+      	    break;
+	case SNMPOUTNOSUCHNAMES:
+	    long_return = snmp_outnosuchnames;
+      	    break;
+	case SNMPOUTBADVALUES:
+      	    break;
+	case SNMPOUTGENERRS:
+      	    break;
+	case SNMPOUTGETREQUESTS:
+      	    break;
+	case SNMPOUTGETNEXTS:
+      	    break;
+	case SNMPOUTSETREQUESTS:
+      	    break;
+	case SNMPOUTGETRESPONSES:
+	    long_return = snmp_outgetresponses;
+      	    break;
+	case SNMPOUTTRAPS:
+      	    break;
+	case SNMPENABLEAUTHENTRAPS:
+	    *write_method = write_snmp;
+	    long_return = snmp_enableauthentraps;
+      	    break;
+	default:
+	    ERROR("unknown snmp var");
+	    return NULL;
+    }
+
+    return (u_char *) &long_return;
 }
 
 Export u_char *
@@ -1279,7 +1478,7 @@ var_system(vp, name, length, exact, var_len, write_method)
 	    *var_len = sizeof(version_id);
 	    return (u_char *)version_id;
 	case UPTIME:
-	    long_return = (u_long)  sysUpTime();
+	    long_return = (u_long)  get_uptime();
 	    return (u_char *)&long_return;
 	case IFNUMBER:
 	    long_return = Interface_Scan_Get_Count();
@@ -1352,7 +1551,6 @@ var_demo(vp, name, length, exact, var_len, write_method)
     return NULL;
 }
 
-#include <ctype.h>
 int
 writeVersion(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
