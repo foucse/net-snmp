@@ -263,6 +263,28 @@ snmp_clone_mem(void ** dstPtr, void * srcPtr, unsigned len)
 
 
 /*
+ * Walks through a list of varbinds and frees and allocated memory,
+ * restoring pointers to local buffers
+ */
+void
+snmp_reset_var_buffers( struct variable_list * var )
+{
+    while( var ) {
+        if(var->name != var->name_loc) {
+            free(var->name);
+            var->name = var->name_loc;
+            var->name_length = 0;
+        }
+        if(var->val.string != var->buf) {
+            free(var->val.string);
+            var->val.string = var->buf;
+            var->val_len = 0;
+        }
+        var = var->next_variable;
+    }
+}
+
+/*
  * Creates and allocates a clone of the input PDU,
  * but does NOT copy the variables.
  * This function should be used with another function,
