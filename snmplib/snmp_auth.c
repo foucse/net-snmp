@@ -306,7 +306,7 @@ md5Digest(	u_char	*start,
 	length -= 64;
     }
     MDupdate(&MD, cp, length * 8);
-    /* MDprint(&MD); /* */
+    /* MDprint(&MD); */
 
    for (i=0;i<4;i++)
      for (j=0;j<32;j=j+8)
@@ -534,7 +534,7 @@ snmp_party_parse(	u_char	*data,		 	int	*length,
 	 */
 	pi->sec_level = SNMP_SEC_LEVEL_AUTHPRIV;
 	if (!ismd5){
-	    /* snmpStatsBadAuths++	/* XXX */
+	    /* snmpStatsBadAuths++	/ * XXX */
 	    return NULL;
 	}
 
@@ -547,7 +547,7 @@ snmp_party_parse(	u_char	*data,		 	int	*length,
 	 */
 	if (authSrcTimeStamp + srcp->partyAuthLifetime < srcp->partyAuthClock){
 	    ERROR_MSG("Late message");
-	    /* snmpStatsNotInLifetimes 	/* XXX */
+	    /* snmpStatsNotInLifetimes 	/ * XXX */
 	    return NULL;
 	}
 
@@ -894,7 +894,7 @@ snmp_party_build(	u_char	*data,			int	*length,
      */
     if (srcp->partyAuthProtocol != SNMPV2MD5AUTHPROT)
 	return (u_char *)endOfPacket;
-    /* xdump(srcp->partyAuthPrivate, MD5_HASHSIZE_BYTES, "authPrivate: "); /* */
+    /* xdump(srcp->partyAuthPrivate, MD5_HASHSIZE_BYTES, "authPrivate: "); */
 
 
     /* Create a hash of the message. */

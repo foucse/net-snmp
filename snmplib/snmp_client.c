@@ -139,19 +139,21 @@ snmp_add_null_var(pdu, name, name_length)
     int name_length;
 {
     struct variable_list *vars;
+    int itmp;
 
     if (pdu->variables == NULL){
 	pdu->variables = vars = (struct variable_list *)malloc(sizeof(struct variable_list));
     } else {
 	for(vars = pdu->variables; vars->next_variable; vars = vars->next_variable)
 	    /*EXIT*/;
-	vars->next_variable = (struct variable_list *)malloc(sizeof(struct variable_list));
+        itmp = sizeof(struct variable_list);
+	vars->next_variable = (struct variable_list *)malloc(itmp);
 	vars = vars->next_variable;
     }
 
     vars->next_variable = NULL;
     vars->name = (oid *)malloc(name_length * sizeof(oid));
-    memmove(vars->name, name, name_length * sizeof(oid));
+    memcpy(vars->name, name, name_length * sizeof(oid));
     vars->name_length = name_length;
     vars->type = ASN_NULL;
     vars->val.string = NULL;

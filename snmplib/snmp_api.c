@@ -595,13 +595,13 @@ snmp_sess_open(in_session)
     /* Fill in defaults if necessary */
     if (session->community_len != SNMP_DEFAULT_COMMUNITY_LEN){
 	cp = (u_char *)malloc((unsigned)session->community_len);
-	if (cp)
-	memmove(cp, session->community, session->community_len);
+	if (cp != NULL)
+          memmove(cp, session->community, session->community_len);
     } else {
 	session->community_len = strlen(DEFAULT_COMMUNITY);
 	cp = (u_char *)malloc((unsigned)session->community_len);
-	if (cp)
-	memmove(cp, DEFAULT_COMMUNITY, session->community_len);
+	if (cp != NULL)
+          memmove(cp, DEFAULT_COMMUNITY, session->community_len);
     }
     if (cp == NULL) {
       snmp_errno = SNMPERR_GENERR;

@@ -32,6 +32,14 @@ int reportErrorOnUnknownID = 0;
 static struct usmUser *initialUser = NULL;
 static struct usmUser *noNameUser = NULL;
 
+/*
+ * Prototypes
+ */
+int
+usm_check_secLevel_vs_protocols(int level,
+                                oid *authProtocol, u_int authProtocolLen,
+                                oid *privProtocol, u_int privProtocolLen);
+  
 /* 
  * Set a given field of the secStateRef.
  *
@@ -547,7 +555,6 @@ usm_set_salt (	u_char		*iv,
 	int index;
 
 EM(-1);
-
 
 	/*
 	 * Sanity check.
@@ -2313,6 +2320,7 @@ usm_cloneFrom_user(struct usmUser *from, struct usmUser *to)
     to->privKey = NULL;
     to->privKeyLen = 0;
   }
+  return to;
 }
 
 /* usm_create_user(void):
@@ -2426,7 +2434,6 @@ usm_save_user(struct usmUser *user, char *token, char *type)
 {
   char line[4096];
   char *cptr;
-  int i, tmp;
 
   memset(line, 0, sizeof(line));
 
@@ -2547,16 +2554,9 @@ usm_set_password(char *token, char *line)
   char		 *cp;
   char		  nameBuf[SNMP_MAXBUF];
   u_char	 *engineID;
-  int		  nameLen, engineIDLen;
+  int		  engineIDLen;
   struct usmUser *user;
 
-  u_char	**key;
-  int		 *keyLen;
-  u_char	  userKey[SNMP_MAXBUF_SMALL];
-  int		  userKeyLen = SNMP_MAXBUF_SMALL;
-  int		  type, ret;
-
-  
   cp = copy_word(line, nameBuf);
   if (cp == NULL) {
     config_perror("invalid name specifier");
@@ -2593,10 +2593,8 @@ void
 usm_set_user_password(struct usmUser *user, char *token, char *line)
 {
   char		 *cp = line;
-  char		  nameBuf[SNMP_MAXBUF];
   u_char	 *engineID = user->engineID;
-  int		  nameLen,
-                  engineIDLen = user->engineIDLen;
+  int		  engineIDLen = user->engineIDLen;
 
   u_char	**key;
   int		 *keyLen;

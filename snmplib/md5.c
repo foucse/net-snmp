@@ -44,6 +44,11 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#if HAVE_STRING_H
+#include <string.h>
+#else
+#include <strings.h>
+#endif
 #include "md5.h"
 
 /* Compile-time declarations of MD5 ``magic constants''.

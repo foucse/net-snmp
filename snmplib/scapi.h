@@ -62,6 +62,12 @@ int	sc_decrypt __P((	oid    *privtype,	int   privtypelen,
 int     sc_hash(oid *hashtype, int hashtypelen, u_char *buf, int buf_len,
                 u_char *MAC, u_int *MAC_len);
 
+int     sc_get_transform_type(oid *hashtype, u_int hashtype_len,
+                              int (**hash_fn)(
+                                const int	  mode,	  void 	   **context,
+                                const u_int8_t	 *data,	  const int  data_len,
+                                u_int8_t	**digest, int	    *digest_len));
+  
 /*
  * SCAPI functions specific to KMT.
  */

@@ -10,6 +10,7 @@
 
 #include "all_system.h"
 #include "all_general_local.h"
+#include "scapi.h"
 
 #ifdef USE_INTERNAL_MD5
 #include "md5.h"
@@ -205,13 +206,11 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 #if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		 rval    = SNMPERR_SUCCESS;
-	u_int		 transform,
-			 nbytes  = 0;
+	u_int		 nbytes  = 0;
         int              properlength;
 
 	char		 buf[SNMP_MAXBUF];
 	void		*context = NULL;
-        int              i;
         
 EM(-1); /* */
 
@@ -317,11 +316,9 @@ encode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 #if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		 rval    = SNMPERR_SUCCESS;
-	int		 transform,
-			 properlength;
+	int		 properlength;
         u_int            nbytes  = 0;
 
-	u_int8_t	*bufp;
         u_char          *tmpbuf = NULL;
 	void		*context = NULL;
 
@@ -455,8 +452,7 @@ decode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 #if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		 rval    = SNMPERR_SUCCESS;
-	int		 transform,
-			 properlength;
+	int		 properlength;
 	u_int		 nbytes  = 0;
 
 	u_int8_t	*bufp,
