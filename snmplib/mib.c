@@ -3190,37 +3190,51 @@ build_oid_segment(struct variable_list *var) {
 }
 
       
+int build_oid_noalloc(oid *in, size_t in_len, size_t *out_len,
+											oid *prefix, size_t prefix_len,
+											struct variable_list *indexes)
+{
+	struct variable_list *var;
+  
+	if (prefix) {
+		if (in_len < prefix_len)
+			return SNMPERR_GENERR;
+		memcpy(in, prefix, prefix_len * sizeof(oid));
+		*out_len = prefix_len;
+	} else {
+		*out_len = 0;
+	}
+    
+	for(var = indexes; var != NULL; var = var->next_variable) {
+		if (build_oid_segment(var) != SNMPERR_SUCCESS)
+			return SNMPERR_GENERR;
+		if (var->name_length + *out_len < in_len) {
+			memcpy(&(in[*out_len]), var->name, sizeof(oid) * var->name_length);
+			*out_len += var->name_length;
+		} else {
+			return SNMPERR_GENERR;
+		}
+	}
+    
+	DEBUGMSGTL(("build_oid_noalloc", "generated: "));
+	DEBUGMSGOID(("build_oid_noalloc", in, *out_len));
+	DEBUGMSG(("build_oid_noalloc", "\n"));
+	return SNMPERR_SUCCESS;
+}
+
 int build_oid(oid **out, size_t *out_len,
               oid *prefix, size_t prefix_len,
               struct variable_list *indexes)
 {
-    struct variable_list *var;
-    oid tmpout[MAX_OID_LEN];
+	oid tmpout[MAX_OID_LEN];
   
-    if (prefix) {
-        memcpy(tmpout, prefix, prefix_len * sizeof(oid));
-        *out_len = prefix_len;
-    } else {
-        *out_len = 0;
-    }
-    
-    for(var = indexes; var != NULL; var = var->next_variable) {
-        if (build_oid_segment(var) != SNMPERR_SUCCESS)
-            return SNMPERR_GENERR;
-        if (var->name_length + *out_len < MAX_OID_LEN) {
-            memcpy(&(tmpout[*out_len]), var->name,
-                   sizeof(oid) * var->name_length);
-            *out_len += var->name_length;
-        } else {
-            return SNMPERR_GENERR;
-        }
-    }
-    
-    snmp_clone_mem((void **) out, (void *) tmpout, *out_len*sizeof(oid));
-    DEBUGMSGTL(("build_oid", "generated: "));
-    DEBUGMSGOID(("build_oid", *out, *out_len));
-    DEBUGMSG(("build_oid", "\n"));
-    return SNMPERR_SUCCESS;
+	if (build_oid_noalloc(tmpout,sizeof(tmpout), out_len,
+												prefix, prefix_len, indexes) != SNMPERR_SUCCESS)
+		return SNMPERR_GENERR;
+	
+	snmp_clone_mem((void **) out, (void *) tmpout, *out_len*sizeof(oid));
+
+	return SNMPERR_SUCCESS;
 }
 
 /* vblist_out must contain a pre-allocated string of variables into
@@ -3282,8 +3296,12 @@ int parse_one_oid_index(oid **oidStart, size_t *oidLen,
             if (var->type == ASN_PRIV_IMPLIED_OBJECT_ID) {
                 itmp = *oidLen;
             } else {
+							if (*oidLen) {
                 itmp = (long) *oidIndex++;
                 --(*oidLen);
+							} else {
+								itmp = 0;
+							}
                 if ( (itmp > (int)*oidLen) && (complete==0) )
                     return SNMPERR_GENERR;
             }
@@ -3292,10 +3310,13 @@ int parse_one_oid_index(oid **oidStart, size_t *oidLen,
 			  memcpy( tmpout, oidIndex, sizeof(oid)*(*oidLen) );
 			  memset( &tmpout[ *oidLen ], 0x00, sizeof(oid)*(itmp-*oidLen) );
 			  snmp_set_var_value(var, (u_char *) tmpout, sizeof(oid)*itmp);
+				oidIndex += *oidLen;
+				(*oidLen) = 0;
 			} else {
             snmp_set_var_value(var, (u_char *) oidIndex, sizeof(oid)*itmp);
+						oidIndex += itmp;
+						(*oidLen) -= itmp;
 			}
-			(*oidLen) -= itmp;
 
             DEBUGMSGTL(("parse_oid_indexes", "Parsed oid: "));
             DEBUGMSGOID(("parse_oid_indexes",
@@ -3309,8 +3330,12 @@ int parse_one_oid_index(oid **oidStart, size_t *oidLen,
             if (var->type == ASN_PRIV_IMPLIED_OCTET_STR) {
                 itmp = *oidLen;
             } else {
+							if (*oidLen) {
                 itmp = (long) *oidIndex++;
                 --(*oidLen);
+							} else {
+								itmp = 0;
+							}
                 if ( (itmp > (int)*oidLen) && (complete==0) )
                     return SNMPERR_GENERR;
             }
@@ -3328,12 +3353,18 @@ int parse_one_oid_index(oid **oidStart, size_t *oidLen,
             if (var->val.string == NULL)
                 return SNMPERR_GENERR;
 
+						if (itmp > (int)(*oidLen) ) {
             for(i = 0; i < *oidLen; ++i)
                 var->val.string[i] = (u_char) *oidIndex++;
             for(i = 0; i < itmp; ++i)
 			  var->val.string[i] = '\0';
+						(*oidLen) = 0;
+						} else {
+							for(i = 0; i < itmp; ++i)
+                var->val.string[i] = (u_char) *oidIndex++;
+							(*oidLen) -= itmp;
+						}
             var->val.string[itmp] = '\0';
-			(*oidLen) -= itmp;
 
             DEBUGMSGTL(("parse_oid_indexes",
                         "Parsed str(%d): %s\n", var->type, var->val.string));
