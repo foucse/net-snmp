@@ -49,6 +49,11 @@
 #define ASN_INTEGER64   (ASN_APPLICATION | 10)
 #define ASN_UNSIGNED64  (ASN_APPLICATION | 11)
 
+	/* Exception pseudo-types */
+#define SNMP_NOSUCHOBJECT    (ASN_CONTEXT | ASN_PRIMITIVE | 0x0)
+#define SNMP_NOSUCHINSTANCE  (ASN_CONTEXT | ASN_PRIMITIVE | 0x1)
+#define SNMP_ENDOFMIBVIEW    (ASN_CONTEXT | ASN_PRIMITIVE | 0x2)
+
 
 struct counter64 {
     u_long high;

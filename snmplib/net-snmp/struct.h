@@ -50,7 +50,7 @@ typedef struct netsnmp_value_s {
         double          *doubleVal;
     }           val;
 
-    char         valbuf[ NETSNMP_VALBUF_LEN ];
+    u_char         valbuf[ NETSNMP_VALBUF_LEN ];
 
 } netsnmp_value;
 
@@ -66,8 +66,12 @@ struct netsnmp_varbind_s {
 };
 
 struct netsnmp_pdu_s {
-                /* Placeholders.... */
+          /* Incomplete, and subject to change.... */
+    int                  version;
+    int                  command;
     int                  errindex;
+    int                  errstatus;
+    int                  request;
     netsnmp_varbind     *varbind_list;
 };
 
