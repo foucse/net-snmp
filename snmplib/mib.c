@@ -4900,6 +4900,58 @@ snmp_parse_oid(const char *argv,
   return NULL;
 }
 
+int
+mib_to_asn_type(int mib_type) 
+{
+    switch(mib_type) {
+        case TYPE_OBJID:
+            return ASN_OBJECT_ID;
+            
+        case TYPE_OCTETSTR:
+        case TYPE_IPADDR:
+            return ASN_OCTET_STR;
+            
+        case TYPE_NETADDR:
+            return ASN_IPADDRESS;
+
+        case TYPE_INTEGER32:
+        case TYPE_INTEGER:
+            return ASN_INTEGER;
+            
+        case TYPE_COUNTER:
+            return ASN_COUNTER;
+            
+        case TYPE_GAUGE:
+            return ASN_COUNTER;
+            
+        case TYPE_TIMETICKS:
+            return ASN_TIMETICKS;
+            
+        case TYPE_OPAQUE:
+            return ASN_OPAQUE;
+            
+        case TYPE_NULL:
+            return ASN_NULL;
+
+        case TYPE_COUNTER64:
+            return ASN_COUNTER64;
+
+        case TYPE_BITSTRING:
+            return ASN_BIT_STR;
+
+        case TYPE_UINTEGER:
+        case TYPE_UNSIGNED32:
+            return ASN_UINTEGER;
+
+        case TYPE_NSAPADDRESS:
+            return ASN_NSAP;
+            
+    }
+    return -1;
+}
+
+    
+
 #ifdef CMU_COMPATIBLE
 
 int mib_TxtToOid(char *Buf, oid **OidP, size_t *LenP)

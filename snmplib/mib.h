@@ -478,6 +478,7 @@ char *snmp_out_toggle_options(char *);
 void snmp_out_toggle_options_usage(const char *, FILE *);
 char *snmp_in_toggle_options(char *);
 void snmp_in_toggle_options_usage(const char *, FILE *);
+int mib_to_asn_type(int mib_type);
 
 #ifdef __cplusplus
 }
