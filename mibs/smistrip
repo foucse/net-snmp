@@ -68,7 +68,7 @@ do_strip () {
     # a blank line - suppress multiple
     /^[ \t]*$/ {
         if (collect)
-	    if (line[n-1] != "") line[n++] = ""    
+	    if (line[n-1] != "" && line[n-1] !~ /,[ \t]*$/) line[n++] = ""    
 	next
     }
 

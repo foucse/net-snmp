@@ -15,7 +15,7 @@ MIBS =	SNMPv2-TC.txt SNMPv2-TM.txt SNMPv2-SMI.txt SNMPv2-MIB.txt \
 	HOST-RESOURCES-MIB.txt HOST-RESOURCES-TYPES.txt \
 	RMON-MIB.txt \
 
-MIBDEPS = Makefile.mib mibfetch mibstrip
+MIBDEPS = Makefile.mib mibfetch smistrip
 
 all:	$(MIBS)
 
