@@ -205,10 +205,12 @@ These lines configure a given users authorization and privacy keys.
 The secname should be the security name of the user in question (EG:
 initial) and the engineIDLen and engineID should be the length in
 bytes and the engineID in hex of the engineID that the user is
-registered under.  "pass" is a passphrase that is converted into a key
-and then localized to the engineID.  "Ku" is a key that is then taken
-and localized.  And finally "Kul" can be used to specify an already
-localized key.
+registered under.  A single
+.B "*"
+for the engineIDLen engineID fields will match any engineID. "pass" is
+a passphrase that is converted into a key and then localized to the
+engineID.  "Ku" is a key that is then taken and localized.  And
+finally "Kul" can be used to specify an already localized key.
 .IP "Initial and Template Users"
 It is recommended that you use the userSetAuthPass and userSetPrivPass
 tokens above to configure your initial and template users.  The agent
