@@ -481,7 +481,7 @@ oid
 		oid *root,
 		int *rootlen)
 {
-  if (random_access) {
+  if (random_access || strchr(argv, ':')) {
     if (get_node(argv,root,rootlen)) {
       return root;
     }
