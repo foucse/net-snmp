@@ -7,7 +7,7 @@
 #ifndef SNMPUSM_H
 #define SNMPUSM_H
 
-
+#define WILDCARDSTRING "*"
 
 /*
  * General.
@@ -125,6 +125,8 @@ struct usmUser *usm_read_user(char *line);
 void            usm_parse_config_usmUser(char *token, char *line);
 
 void            usm_set_password(char *token, char *line);
+void            usm_set_user_password(struct usmUser *user, char *token,
+                                      char *line);
 void            init_usm_post_config(void);
 
 #endif /* SNMPUSM_H */
