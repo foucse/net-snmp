@@ -70,7 +70,7 @@ EM(-1); /* */
 	 */
 	*enginetime = *engineboot = 0;
 
-	if ( !engineID || *engineID == '\0' || (engineID_len<=0) ) {
+	if ( !engineID || (engineID_len<=0) ) {
 	        QUITFUN(SNMPERR_GENERR, get_enginetime_quit);
 	}
 
