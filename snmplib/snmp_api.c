@@ -1362,6 +1362,7 @@ snmpv3_parse(pdu, data, length, after_header)
   int pdu_buf_len;
   u_char *sec_params;
   u_char *msg_data;
+  u_char *cp;
   int asn_len;
 
   /* message is an ASN.1 SEQUENCE */
@@ -1384,7 +1385,9 @@ snmpv3_parse(pdu, data, length, after_header)
   pdu->version = ver;
 
   /* parse msgGlobalData sequence */
-  data = asn_parse_header(data, length, &type);
+  cp = data;
+  asn_len = *length;
+  data = asn_parse_header(data, &asn_len, &type);
   if (data == NULL){
     ERROR_MSG("bad header");
     return -1;
@@ -1393,6 +1396,7 @@ snmpv3_parse(pdu, data, length, after_header)
     ERROR_MSG("wrong msgGlobalData  header type");
     return -1;
   }
+  *length -= data - cp;  /* subtract off the length of the header */
 
   /* msgID - storing in reqid for now - may need seperate storage */
   data = asn_parse_int(data, length, &type, &pdu->reqid, sizeof(pdu->reqid));
@@ -1429,6 +1433,7 @@ snmpv3_parse(pdu, data, length, after_header)
     ERROR_MSG("error parsing msgSecurityModel");
     return -1;
   }
+  pdu->securityModel = msg_sec_model;
   /* end of msgGlobalData */
 
   /* save pointer securtityParameters for USM to parse */
@@ -1436,11 +1441,14 @@ snmpv3_parse(pdu, data, length, after_header)
   asn_len = *length;
   /* skip over securityParameters to message payload */
   data = asn_parse_header(sec_params, &asn_len, &type);
+  *length -= data-sec_params;
   msg_data = data + asn_len;
 
   /* get length of message payload - msgData - not sure why USM needs this */
+  /* no, it needs the length of *all* of the data because its possibly
+     encrypted and therefore it can't detemrine the length from any
+     ASN headers -- Wes */
   asn_len = *length;
-  data = asn_parse_header(msg_data, &asn_len, &type);
 
   pdu->contextEngineID = malloc(SNMP_MAX_ENG_SIZE);
   pdu->contextEngineIDLen = SNMP_MAX_ENG_SIZE;
@@ -1453,8 +1461,8 @@ snmpv3_parse(pdu, data, length, after_header)
 		     pdu_buf, &pdu_buf_len, &max_size_response, NULL);
 
   /* parse plaintext ScopedPDU sequence */
-  *length = pdu_buf_len;
-  data = asn_parse_header(pdu_buf, length, &type);
+  asn_len = *length = pdu_buf_len;
+  data = asn_parse_header(pdu_buf, &asn_len, &type);
   if (data == NULL){
     ERROR_MSG("bad plaintext header");
     return -1;
@@ -1463,6 +1471,7 @@ snmpv3_parse(pdu, data, length, after_header)
     ERROR_MSG("wrong plaintext header type");
     return -1;
   }
+  *length -= data - pdu_buf;
 
   /* parse contextEngineID from scopedPdu */
   tmp_buf_len = SNMP_MAX_MSG_SIZE;
@@ -1470,6 +1479,11 @@ snmpv3_parse(pdu, data, length, after_header)
   if (data == NULL) {
     ERROR_MSG("error parsing msgFlags");
     return -1;
+  }
+  if (tmp_buf_len) {
+    pdu->contextEngineID = malloc(tmp_buf_len);
+    pdu->contextEngineIDLen = tmp_buf_len;
+    memcpy(pdu->contextEngineID, tmp_buf, tmp_buf_len);
   }
   /* check that it agrees with engineID returned from USM above ? */
 
@@ -1483,6 +1497,7 @@ snmpv3_parse(pdu, data, length, after_header)
   if (tmp_buf_len) {
     pdu->contextName = malloc(tmp_buf_len);
     pdu->contextNameLen = tmp_buf_len;
+    memcpy(pdu->contextName, tmp_buf, tmp_buf_len);
   }
 
   if (after_header != NULL) {
