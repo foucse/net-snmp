@@ -69,6 +69,7 @@ typedef struct table_array_callbacks_s {
     UserGetProcessor       *get_value;
 
     UserRowMethod          *create_row;
+    UserRowMethod          *duplicate_row;
     UserRowMethod          *delete_row;
 
     UserGroupMethod        *set_reserve1;
