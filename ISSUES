@@ -70,4 +70,29 @@
     routine in the config_handler needs to be created.
 
 + hardaker/Sep 29
-    Correctly map error codes from mib modules from v2/v3 errors to v1.
+    snmp_agent.c:474: Correctly map error codes from mib modules from
+    v2/v3 errors to v1.
+
++ hardaker/Sep 30
+    snmp_agent.c:359: I don't think a write_() function gets called if
+    the first pass (RESERVE1) gets an error.  Should a ACTION/UNDO be
+    called?  Yes? No?
+
+- hardaker/Sep 30
+    None of the libraries asn_parse_objid() and similar functions are
+    passed a max length to look into the data, and therefore if the
+    data is corrupted a segfault (or whatever) could occur.  Repeat
+    after me:  "I love CMU".
+
+- hardaker/Sep 30
+    snmp_agent.c: parse_var_op_list() spends too much overhead
+    building data repeatedly on sets (for RESERVEs, COMMIT, ...)?
+
++ hardaker/Oct 05
+    snmp_agent.c: complete rewrite of the agent packet handling to use 
+    a pdu structure instead of encoding/decoding as it goes along.
+    Advantages:  more code reuse from the library.
+    Disadvantages:  possibly more overhead.
+
+- hardaker/Oct 05
+    snmptrapd still doesn't handle informs...  it should...
