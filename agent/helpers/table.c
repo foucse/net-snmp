@@ -268,6 +268,7 @@ table_helper_handler(mib_handler * handler,
 
         incomplete = 0;
         tbl_req_info = SNMP_MALLOC_TYPEDEF(table_request_info);
+        tbl_req_info->reg_info = tbl_info;
         tbl_req_info->indexes = snmp_clone_varbind(tbl_info->indexes);
         tbl_req_info->number_indexes = 0;       /* none yet */
         request_add_list_data(request,

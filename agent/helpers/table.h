@@ -78,6 +78,7 @@ typedef struct _table_request_info {
    struct variable_list *indexes; /* contents freed by helper upon exit */
   oid index_oid[MAX_OID_LEN];
   size_t index_oid_len;
+  table_registration_info *reg_info;
 } table_request_info;
 
 mib_handler *get_table_handler(table_registration_info *tabreq);
