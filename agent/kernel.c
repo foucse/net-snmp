@@ -45,10 +45,17 @@ init_kmem(char *file)
     kd = kvm_openfiles(NULL, NULL, NULL, O_RDONLY, err);
     if (kd == NULL) {
 	fprintf(stderr, "init_kmem: kvm_openfiles failed: %s\n", err);
-    }
-#else
-    kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "kvm_open");
+#ifndef NO_ROOT_ACCESS
+        exit(1);
 #endif
+    }
+#else	/* HAVE_KVM_OPENFILES */
+    kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "kvm_open");
+#ifndef NO_ROOT_ACCESS
+    if (kd == NULL)
+        exit(1);
+#endif
+#endif	/* HAVE_KVM_OPENFILES */
 }
 
 
@@ -105,8 +112,7 @@ init_kmem(char *file)
   fcntl(kmem,F_SETFD,1);
   mem = open("/dev/mem",O_RDONLY);    
   if (mem < 0){
-    fprintf(stderr, "cannot open /dev/mem: ");
-    perror(NULL);
+    perror("cannot open /dev/mem");
 #ifndef NO_ROOT_ACCESS
     exit(1);
 #endif
