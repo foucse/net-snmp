@@ -118,6 +118,8 @@ snmp_pdu_create(command)
     pdu->errstat = SNMP_DEFAULT_ERRSTAT;
     pdu->errindex = SNMP_DEFAULT_ERRINDEX;
     pdu->address.sin_addr.s_addr = SNMP_DEFAULT_ADDRESS;
+    pdu->securityNameLen = -1;
+    pdu->contextNameLen = -1;
     return pdu;
 }
 
