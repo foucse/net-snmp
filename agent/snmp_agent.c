@@ -860,22 +860,20 @@ parse_var_op_list(data, length, out_data, out_length, index, pi, action)
 		       entity's variable */
 		    if (!goodValue(var_val_type, var_val_len, statType,
 				   statLen)){
-			if (pi->version == SNMP_VERSION_2p ||
-                            pi->version == SNMP_VERSION_2c)
-			    return SNMP_ERR_WRONGTYPE; /* poor approximation */
-			else
+			if (pi->version != SNMP_VERSION_1)
 			    return SNMP_ERR_BADVALUE;
+			else
+			    return SNMP_ERR_WRONGTYPE; /* poor approximation */
 		    }
 		    /* actually do the set if necessary */
 		    if (action == COMMIT)
 			setVariable(var_val, var_val_type, var_val_len,
 				    statP, statLen);
 		} else {
-		    if (pi->version == SNMP_VERSION_2p
-                        || pi->version == SNMP_VERSION_2c)
-			return SNMP_ERR_NOCREATION;
-		    else
+		    if (pi->version != SNMP_VERSION_1)
 			return SNMP_ERR_NOSUCHNAME;
+		    else
+			return SNMP_ERR_NOCREATION;
 		}
 	    } else {
 		err = (*write_method)(action, var_val, var_val_type,
