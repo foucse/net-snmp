@@ -637,8 +637,12 @@ snmp_set_var_value(struct variable_list *newvar,
         }
         memmove(newvar->val.string, val_str, val_len);
         newvar->val_len = val_len;
+    } else if (val_str) {
+        /* NULL STRING != NULL ptr */
+        newvar->val.string = newvar->buf;
+        newvar->val.string[0] = '\0';
+        newvar->val_len = 0;
     }
-
     return 0;
 }
 
