@@ -295,26 +295,22 @@ TITLE "Send crypted packets." \
       "Prove results are the same as noAuthNoPriv"\
       "parse the agent debug output:"
 
-## FIX: CRYPT
 SETDEBUGGING 1
 TITLE "Perform a get with shark."
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l noAuthNoPriv -v 3 $host $sysUpTime
-OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l authPriv -a MD5 -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
 
-## FIX: CRYPT
 TITLE "Perform a get with shark2."
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark2 -l noAuthNoPriv -v 3 $host $sysUpTime
-OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark2 -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark2 -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
 
-## FIX: CRYPT
 TITLE "Perform a get with stingray."
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l noAuthNoPriv -v 3 $host $sysUpTime
-OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authPriv -a MD5 -A "$defpass" -x DES -X "$defpass"  -v 3 $host $sysUpTime
 
-## FIX: CRYPT
 TITLE "Perform a get with stingray2."
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray2 -l noAuthNoPriv -v 3 $host $sysUpTime
-OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray2 -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray2 -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
 
 SETDEBUGGING 0
 
@@ -329,11 +325,10 @@ OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNo
 # Malformed packets (wrong key)
 #
 
-## FIX: CRYPT
 ## FIX: Change "FIXME" below to the proper error message to look for
 
 TITLE "Send malformed crypted packets and examine the result for proper information."
-OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authPriv -a SHA -A "$defpass" -x DES -X "$defpass" -v 3 $host $sysUpTime
 
 #
 # Key Change
@@ -356,9 +351,8 @@ OKORFAIL "usmUserPrivKeyChange.$stingrayoid = +Hex: " $snmpset usmUserPrivKeyCha
 TITLE "Perform a get using stingray to demonstrate it fails."\
       "(using old key)"
 
-## FIX: authpriv
 ## FIX: change FIXME to proper error message
-OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authPriv -a MD5 -A "$defpass" -x DES -X "$defpass"  -v 3 $host $sysUpTime
 
 TITLE "Perform a get using stingray to demonstrate it succeeds." "(using new key)"
 OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpass" -v 3 $host $sysUpTime
@@ -409,7 +403,7 @@ DOIT $asnmpget $sysUpTime
 TITLE "Reboot the agent." \
       "snmpget and trace the 4 message exchange."
 
-## FIX: reboot the agent
+## FIX: reboot the agent, keep same boots/time
 DOIT $asnmpget $sysUpTime
 
 #
