@@ -899,7 +899,7 @@ snmp_sess_open(in_session)
 	if (snmp_get_do_debugging()) {
 	  DEBUGP("  probe found engineID:  ");
 	  for(i = 0; i < slp->session->contextEngineIDLen; i++)
-	    DEBUGP("%x", slp->session->contextEngineID[i]);
+	    DEBUGP("%02x", slp->session->contextEngineID[i]);
 	  DEBUGP("\n");
 	}
       }
