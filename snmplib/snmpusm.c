@@ -35,6 +35,13 @@
 #include "keytools.h"
 #include "tools.h"
 
+/*
+	This is the seed for the salt (an arbitrary number - RFC2274,
+	Sect 8.1.1.1.)
+*/
+
+static u_int salt_integer = 4985517;
+
 int
 asn_predict_int_length (int type, long number, int len)
 {
@@ -72,23 +79,25 @@ asn_predict_length (int type, u_char *ptr, int u_char_len)
 		return 1+3+u_char_len;
 }
 
-int usm_calc_offsets (	int globalDataLen,
-						int secLevel,
-						int secEngineIDLen,
-						int secNameLen,
-						int scopedPduLen,
-						long engineboots,
-						long enginetime,
-						int *theTotalLength,
-						int *authParamsOffset,
-						int *privParamsOffset,
-						int *dataOffset,
-						int *datalen,
-						int *msgAuthParmLen,
-						int *msgPrivParmLen,
-						int *otstlen,
-						int *seq_len,
-						int *msgSecParmLen)
+int
+usm_calc_offsets (
+	int globalDataLen,
+	int secLevel,
+	int secEngineIDLen,
+	int secNameLen,
+	int scopedPduLen,
+	long engineboots,
+	long enginetime,
+	int *theTotalLength,
+	int *authParamsOffset,
+	int *privParamsOffset,
+	int *dataOffset,
+	int *datalen,
+	int *msgAuthParmLen,
+	int *msgPrivParmLen,
+	int *otstlen,
+	int *seq_len,
+	int *msgSecParmLen)
 {
 	int engIDlen, engBtlen, engTmlen, namelen, authlen, privlen;
 
@@ -97,7 +106,7 @@ int usm_calc_offsets (	int globalDataLen,
 						|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)?12:0;
 
 	/* If doing encryption, msgPrivParmLen = 8 else msgPrivParmLen = 0 */
-	*msgPrivParmLen = (secLevel & SNMP_SEC_LEVEL_AUTHPRIV)?8:0;
+	*msgPrivParmLen = (secLevel == SNMP_SEC_LEVEL_AUTHPRIV)?8:0;
 
 	/* Calculate lengths */
 	if ((engIDlen = asn_predict_length (ASN_OCTET_STR,0,secEngineIDLen))==-1)
@@ -138,13 +147,13 @@ int usm_calc_offsets (	int globalDataLen,
 		return -1;
 	}
 
-	*authParamsOffset = 	globalDataLen +
-						+ (*msgSecParmLen/*-otstlen)+(otstlen*/-*seq_len)
-						+ engIDlen + engBtlen + engTmlen + namelen
-						+ (authlen - *msgAuthParmLen);
+	*authParamsOffset =	globalDataLen +
+		+ (*msgSecParmLen/*-otstlen)+(otstlen*/-*seq_len)
+		+ engIDlen + engBtlen + engTmlen + namelen
+		+ (authlen - *msgAuthParmLen);
 
 	*privParamsOffset =	*authParamsOffset + *msgAuthParmLen
-						+ (privlen - *msgPrivParmLen);
+		+ (privlen - *msgPrivParmLen);
 
 	if (secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
 	{
@@ -276,11 +285,6 @@ for reference now. */
   return 0;
 }
 
-/*
-	This is the seed for the salt (an arbitrary number - RFC2274, Sect 8.1.1.1.
-*/
-static u_int salt_integer = 4985517;
-
 int
 usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int prev_key_length)
 {
@@ -362,14 +366,18 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	int dataOffset;
 	int theTotalLength;
 
-	u_char	*ptr;
-	int ptr_len, remaining, offSet;
-	struct usmUser	*user;
-	u_int	boot_uint;
-	u_int	time_uint;
-	long	boot_long;
-	long	time_long;
+	u_char         *ptr;
+	int            ptr_len;
+	int            remaining;
+	int            offSet;
+	struct usmUser *user;
+	u_int          boots_uint;
+	u_int          time_uint;
+	long           boots_long;
+	long           time_long;
 
+	DEBUGP ("usm_generate_out_msg():%s,%d: USM processing begun\n",
+		__FILE__,__LINE__);
 
 	if (secStateRef != NULL) free (secStateRef);
 
@@ -378,6 +386,8 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	if ((user = usm_get_user(secEngineID, secEngineIDLen, secName)) == NULL)
 	{
 		/* RETURN: unknownSecurityName */
+		DEBUGP ("usm_generate_out_msg():%s,%d: Unknown User\n",
+			__FILE__,__LINE__);
 		return USM_ERR_UNKNOWN_SECURITY_NAME;
 	}
 
@@ -386,28 +396,34 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	if (usm_check_secLevel(secLevel, user) == 1)
 	{
 		/* RETURN: unsupportedSecurityLevel */
+		DEBUGP ("usm_generate_out_msg():%s,%d: Unsupported Security Level\n",
+			__FILE__,__LINE__);
 		return USM_ERR_UNSUPPORTED_SECURITY_LEVEL;
 	}
 
 	/* Retrieve the engine information */
 
-	if (get_enginetime(secEngineID, secEngineIDLen, &boot_uint, &time_uint)==-1)
+	if (get_enginetime(secEngineID,secEngineIDLen,&boots_uint,&time_uint)==-1)
 	{
+		DEBUGP ("usm_generate_out_msg():%s,%d: Failed to find engine data\n",
+			__FILE__,__LINE__);
 		return USM_ERR_GENERIC_ERROR;
 	}
 
-	boot_long = boot_uint;
+	boots_long = boots_uint;
 	time_long = time_uint;
 	
 	/* Set up the Offsets */
 
 	if (usm_calc_offsets (globalDataLen, secLevel, secEngineIDLen,
-							secNameLen, scopedPduLen, boot_long, time_long,
+							secNameLen, scopedPduLen, boots_long, time_long,
 							&theTotalLength, &authParamsOffset,
 							&privParamsOffset, &dataOffset, &datalen,
 							&msgAuthParmLen, &msgPrivParmLen,
 							&otstlen, &seq_len, &msgSecParmLen) == -1)
 	{
+		DEBUGP ("usm_generate_out_msg():%s,%d: Failed calculating offsets\n",
+			__FILE__,__LINE__);
 		return USM_ERR_GENERIC_ERROR;
 	}
 
@@ -418,10 +434,12 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		new buffer, etc.
 	*/
 
-	/* For now, fuck it, *wholeMsg is globalData, regardless */
+	/* For now, the hell with it, *wholeMsg is globalData, regardless */
 	ptr = *wholeMsg = globalData;
 	if (theTotalLength > *wholeMsgLen)
 	{
+		DEBUGP ("usm_generate_out_msg():%s,%d: Message won't fit in buffer\n",
+			__FILE__,__LINE__);
 		return USM_ERR_GENERIC_ERROR;
 	}
 
@@ -439,6 +457,8 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		if (usm_set_salt (&ptr[privParamsOffset], &iv_length,
 						user->privKey, user->privKeyLen) == -1)
 		{
+			DEBUGP ("usm_generate_out_msg():%s,%d: Can't set CBC-DES salt\n",
+				__FILE__,__LINE__);
 			return USM_ERR_GENERIC_ERROR;
 		}
 
@@ -450,14 +470,21 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 											!= SNMP_ERR_NOERROR)
 		{
 			/* RETURN: encryptionError */
+			DEBUGP ("usm_generate_out_msg():%s,%d: CBC-DES error\n",
+				__FILE__,__LINE__);
 			return USM_ERR_ENCRYPTION_ERROR;
 		}
 
 		if (encrypted_length != datalen || iv_length != msgPrivParmLen)
 		{
 			/* RETURN: encryptionError */
+			DEBUGP ("usm_generate_out_msg():%s,%d: CBC-DES length error\n",
+				__FILE__,__LINE__);
 			return USM_ERR_ENCRYPTION_ERROR;
 		}
+
+		DEBUGP ("usm_generate_out_msg():%s,%d: encryption successful\n",
+				__FILE__,__LINE__);
 	}
 	else
 	{
@@ -488,7 +515,7 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	offSet = ptr_len - remaining;
 	asn_build_int (&ptr[offSet], &remaining,
 					(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-					&boot_long, sizeof(long));
+					&boots_long, sizeof(long));
 	
 	offSet = ptr_len - remaining;
 	asn_build_int (&ptr[offSet], &remaining,
@@ -568,6 +595,8 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 
 		if (temp_sig == NULL)
 		{
+			DEBUGP ("usm_generate_out_msg():%s,%d: out of memory\n",
+				__FILE__,__LINE__);
 			return USM_ERR_GENERIC_ERROR;
 		}
 
@@ -579,6 +608,8 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		{
 			free (temp_sig);
 			/* RETURN: authenticationFailure */
+			DEBUGP ("usm_generate_out_msg():%s,%d: signing failed\n",
+				__FILE__,__LINE__);
 			return USM_ERR_AUTHENTICATION_FAILURE;
 		}
 
@@ -586,6 +617,8 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		{
 			free (temp_sig);
 			/* RETURN: authenticationFailure */
+			DEBUGP ("usm_generate_out_msg():%s,%d: signing lengths failed\n",
+				__FILE__,__LINE__);
 			return USM_ERR_AUTHENTICATION_FAILURE;
 		}
 
@@ -593,12 +626,15 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 
 		free (temp_sig);
 	}
+
+	DEBUGP ("usm_generate_out_msg():%s,%d: USM processing completed\n",
+		__FILE__,__LINE__);
 	
 	return USM_ERR_NO_ERROR;
 }
 
 int
-usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel, 
+usm_process_in_msg_NULL (msgProcModel, maxMsgSize, secParams, secModel, secLevel, 
 		    wholeMsg, wholeMsgLen, secEngineID, secEngineIDLen, 
 		    secName, secNameLen, scopedPdu, scopedPduLen, 
 		    maxSizeResponse, secStateRef)
@@ -656,8 +692,545 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
   return 0;
 }
 
+int
+usm_parse_security_parameters (secParams, remaining, secEngineID,
+			secEngineIDLen, boots_uint, time_uint, secName, secNameLen,
+			signature, signature_length, salt, salt_length, data_ptr)
+	u_char *secParams;
+	u_int  remaining;
+	u_char *secEngineID;
+	int    *secEngineIDLen;
+	u_int  *boots_uint;
+	u_int  *time_uint;
+	u_char *secName;
+	int    *secNameLen;
+	u_char *signature;
+	u_int  *signature_length;
+	u_char *salt;
+	u_int  *salt_length;
+	u_char *data_ptr;
+{
+	u_char *parse_ptr = secParams;
+	u_char *value_ptr;
+	u_char *next_ptr;
+	u_char type_value;
+
+	u_int octet_string_length = remaining;
+	u_int sequence_length;
+	u_int remaining_bytes;
+
+	long boots_long;
+	long time_long;
+
+	/* Eat the first octet header */
+
+	if ((value_ptr = asn_parse_header (parse_ptr, &octet_string_length,
+			&type_value)) == NULL)
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR))
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	/* Eat the sequence header */
+
+	parse_ptr = value_ptr;
+	sequence_length = octet_string_length;
+
+	if ((value_ptr = asn_parse_header (parse_ptr, &sequence_length,
+			&type_value)) == NULL)
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	if (type_value != (u_char) (ASN_SEQUENCE | ASN_CONSTRUCTOR))
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	/* Retrieve the engineID */
+
+	parse_ptr = value_ptr;
+	remaining_bytes = sequence_length;
+
+	if ((next_ptr = asn_parse_string (parse_ptr, &remaining_bytes, &type_value,
+						secEngineID, secEngineIDLen)) == NULL)
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR))
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	/* Retrieve the engine boots, notice switch in the way next_ptr and
+		remaining_bytes are used (to accomodate the asn code) */
+
+	if ((next_ptr = asn_parse_int (next_ptr, &remaining_bytes, &type_value,
+						&boots_long, sizeof(long))) == NULL)
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_INTEGER))
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	*boots_uint = (u_int) boots_long;
+
+	/* Retrieve the time value */
+
+	if ((next_ptr = asn_parse_int (next_ptr, &remaining_bytes, &type_value,
+						&time_long, sizeof(long))) == NULL)
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_INTEGER))
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	*time_uint = (u_int) time_long;
+
+	/* Retrieve the secName */
+
+	if ((next_ptr = asn_parse_string (next_ptr, &remaining_bytes, &type_value,
+						secName, secNameLen)) == NULL)
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR))
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	/* Retrieve the signature and blank it if there */
+
+	if ((next_ptr = asn_parse_string (next_ptr, &remaining_bytes, &type_value,
+						signature, signature_length)) == NULL)
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR))
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	if (*signature_length != 0) /* Blanking for authentication step later */
+	{
+		memset (next_ptr-(u_long)*signature_length, 0, *signature_length);
+	}
+
+	/* Retrieve the salt */
+	/* Note that the next ptr is where the data section starts. */
+
+	if ((data_ptr = asn_parse_string (next_ptr, &remaining_bytes, &type_value,
+						salt, salt_length)) == NULL)
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR))
+	{
+		/* RETURN parse error */ return -1;
+	}
+
+	return 0;
+}
+
+int
+usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
+		time_uint, error)
+	u_char *secEngineID;
+	int    secEngineIDLen;
+	u_int  boots_uint;
+	u_int  time_uint;
+	int    *error;
+{
+#define USM_MAX_ID_LENGTH 1024
+	u_char myID[USM_MAX_ID_LENGTH];
+
+	int myIDLength = snmpv3_get_engineID (myID);
+	u_int myBoots;
+	u_int myTime;
+
+	if (myIDLength > USM_MAX_ID_LENGTH)
+	{
+		DEBUGP ("usm_check_and_update_timeliness():%s,%d: Buffer overflow\n",
+			__FILE__,__LINE__);
+
+		/* We're probably already screwed...buffer overwrite */
+		*error = USM_ERR_GENERIC_ERROR;
+		return -1;
+	}
+
+	myBoots = snmpv3_get_engine_boots();
+	myTime = snmpv3_get_engineTime();
+
+	/* If the time involved is local */
+		/* Make sure  message is inside the time window */
+	/* else */
+		/* if the boots is higher or boots is the same and time is higher */
+			/* remember this new data */
+		/* else */
+			/* if !(boots is the same and the time is within 150 secs) */
+				/* Message is too old */
+			/* else */
+				/* Message is ok, but don't take time */
+
+	if (secEngineIDLen == myIDLength && memcmp (secEngineID, myID, myIDLength))
+	{
+		/* This is a local reference */
+
+		u_int time_difference = myTime > time_uint ?
+				myTime - time_uint : time_uint - myTime;
+
+		if (boots_uint == 2147483647 /* Is there a defined const.? */
+			|| boots_uint != myBoots
+			|| time_difference > 150) /* Ditto */
+		{
+			/* INCREMENT usmStatsNotInTimeWindows */
+			if (snmp_increment_statistic (STAT_USMSTATSNOTINTIMEWINDOWS)==0)
+			{
+			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+					__FILE__,__LINE__,
+					"Failed to increment statistic");
+				*error = USM_ERR_GENERIC_ERROR;
+			}
+			else
+			{
+			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+				__FILE__,__LINE__, "Not in local time window");
+				*error = USM_ERR_NOT_IN_TIME_WINDOW;
+			}
+			return -1;
+		}
+	}
+	else
+	{
+		/* This is a remote reference */
+
+		u_int theirBoots, theirTime;
+		u_int time_difference;
+
+		if (get_enginetime(secEngineID,secEngineIDLen,&theirBoots,&theirTime)
+			!= SNMPERR_SUCCESS)
+		{
+			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+					__FILE__,__LINE__,
+					"Failed to get remote engine's times");
+
+			*error = USM_ERR_GENERIC_ERROR;
+			return -1;
+		}
+
+		time_difference = theirTime > time_uint ?
+				theirTime - time_uint : time_uint - theirTime;
+
+		/* Contrary to the pseudocode: */
+		/* See if boots is invalid first */
+
+		if (theirBoots == 2147483647 /* See comment above */
+			|| theirBoots > boots_uint)
+		{
+			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+					__FILE__,__LINE__,
+					"Remote boot count invalid");
+
+			*error = USM_ERR_NOT_IN_TIME_WINDOW;
+			return -1;
+		}
+
+		/* Boots is ok, see if the boots is the same but the time is old */
+
+		if (theirBoots == boots_uint && theirTime > time_uint)
+		{
+			if(time_difference > 150)
+			{
+				DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+					__FILE__,__LINE__,
+					"Message too old");
+
+				*error = USM_ERR_NOT_IN_TIME_WINDOW;
+				return -1;
+			}
+			else
+			{
+				*error = USM_ERR_NO_ERROR;
+				return 0; /* Old, but acceptable */
+			}
+		}
+
+		/*
+			Message is ok, either boots has been advanced, or time is
+			greater than before with the same boots.
+		*/
+
+		if (set_enginetime (secEngineID,secEngineIDLen,boots_uint,time_uint)
+			!= SNMPERR_SUCCESS)
+		{
+			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+				__FILE__,__LINE__,
+				"Failed updating remote boot/time");
+
+			*error = USM_ERR_GENERIC_ERROR;
+			return -1;
+		}
+
+		*error = USM_ERR_NO_ERROR;
+		return 0; /* Fresh message and time updated */
+	}
+}
+
+int
+usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel, 
+		    wholeMsg, wholeMsgLen, secEngineID, secEngineIDLen, 
+		    secName, secNameLen, scopedPdu, scopedPduLen, 
+		    maxSizeResponse, secStateRef)
+     int msgProcModel;          /* not used */
+     int maxMsgSize;            /* IN - used to calc maxSizeResponse */
+     u_char *secParams;         /* IN - BER encoded securityParameters */
+     int secModel;              /* not used */
+     int secLevel;              /* IN - authNoPriv, authPriv etc. */
+     u_char *wholeMsg;          /* IN - auth/encrypted data */
+     int wholeMsgLen;           /* IN - msg length */
+     u_char *secEngineID;       /* OUT - pointer snmpEngineID */
+     int *secEngineIDLen;       /* IN/OUT - len available, len returned */
+                                /* NOTE: memory provided by caller */
+     u_char *secName;           /* OUT - pointer to securityName */
+     int *secNameLen;           /* IN/OUT - len available, len returned */
+     u_char **scopedPdu;        /* OUT - pointer to plaintext scopedPdu */
+     int *scopedPduLen;         /* IN/OUT - len available, len returned */
+     int *maxSizeResponse;      /* OUT - max size of Response PDU */
+     void **secStateRef;        /* OUT - ref to security state */
+{
+#define USM_MAX_SALT_LENGTH			64
+#define USM_MAX_KEYEDHASH_LENGTH	64
+
+	u_int  remaining =
+		wholeMsgLen - (u_int)((u_long)*secParams-(u_long)*wholeMsg);
+
+	u_int  boots_uint;
+	u_int  time_uint;
+	u_char signature[USM_MAX_KEYEDHASH_LENGTH];
+	u_int  signature_length = USM_MAX_KEYEDHASH_LENGTH;
+	u_char salt[USM_MAX_KEYEDHASH_LENGTH];
+	u_int  salt_length = USM_MAX_KEYEDHASH_LENGTH;
+	u_char *data_ptr;
+	u_char *value_ptr;
+	u_char type_value;
+	u_char *end_of_overhead;
+	int    reportErrorOnUnknownID = 0; /* Should be configurable item */
+	int    error;
+
+	struct usmUser *user;
+
+	/* Make sure the *secParms is an OCTET STRING */
+	/* Extract the user name, engine ID, and security level */
+
+	DEBUGP ("usm_process_in_msg():%s,%d: USM processing begun\n",
+		__FILE__,__LINE__);
+
+	if (usm_parse_security_parameters (secParams, remaining,
+		secEngineID, secEngineIDLen, &boots_uint, &time_uint, secName,
+		secNameLen, signature, &signature_length, salt, &salt_length,
+		data_ptr) == -1)
+	{
+		DEBUGP ("usm_process_in_msg():%s,%d: Parsing failed\n",
+			__FILE__,__LINE__);
+
+		/* INCREMENT snmpInASNParseErrs */
+		if (snmp_increment_statistic (STAT_SNMPINASNPARSEERRS)==0)
+			return USM_ERR_GENERIC_ERROR;
+
+		return USM_ERR_PARSE_ERROR;
+	}
+	
+	/* Locate the engine ID record */
+	/* If it is unknown, then either create one or note this as an error */
+
+	printf ("UNIMPLEMENTED PORTION\n");
+
+	if (reportErrorOnUnknownID)
+	{
+		/* If name is not known */
+		{
+			/* Report error */
+			/* INCREMENT usmStatsUnknownEngineIDs */
+			DEBUGP ("usm_process_in_msg():%s,%d: Unknown Engine ID\n",
+				__FILE__,__LINE__);
+
+			if (snmp_increment_statistic (STAT_USMSTATSUNKNOWNENGINEIDS)==0)
+				return USM_ERR_GENERIC_ERROR;
+	
+			return USM_ERR_UNKNOWN_ENGINE_ID;
+		}
+	}
+	else
+	{
+		/* Ensure there is a record */
+	}
+
+	/* Locate the User record */
+	/* If the user/engine ID is unknown, report this as an error */
+
+	if ((user = usm_get_user(secEngineID, *secEngineIDLen, secName)) == NULL)
+	{
+		DEBUGP ("usm_process_in_msg():%s,%d: Unknown User\n",
+			__FILE__,__LINE__);
+
+		/* INCREMENT usmStatsUnknownUserNames */
+		if (snmp_increment_statistic (STAT_USMSTATSUNKNOWNUSERNAMES)==0)
+			return USM_ERR_GENERIC_ERROR;
+
+		return USM_ERR_UNKNOWN_SECURITY_NAME;
+	}
+
+	/* Make sure the security level is appropriate */
+
+	if (usm_check_secLevel(secLevel, user) == 1)
+	{
+		DEBUGP ("usm_process_in_msg():%s,%d: Unsupported Security Level\n",
+			__FILE__,__LINE__);
+
+		/* INCREMENT usmStatsUnsupportedSecLevels */
+		if (snmp_increment_statistic (STAT_USMSTATSUNSUPPORTEDSECLEVELS)==0)
+			return USM_ERR_GENERIC_ERROR;
+
+		return USM_ERR_UNSUPPORTED_SECURITY_LEVEL;
+	}
+
+	/* Check the authentication credentials of the message */
+
+	if (sc_check_keyed_hash (user->authProtocol, user->authProtocolLen,
+									user->authKey, user->authKeyLen,
+									wholeMsg, wholeMsgLen,
+									signature, signature_length)
+											!= SNMP_ERR_NOERROR)
+	{
+			DEBUGP ("usm_process_in_msg():%s,%d: Verification failed\n",
+				__FILE__,__LINE__);
+
+			/* INCREMENT usmStatsWrongDigests */
+			if (snmp_increment_statistic (STAT_USMSTATSWRONGDIGESTS)==0)
+				return USM_ERR_GENERIC_ERROR;
+
+			return USM_ERR_AUTHENTICATION_FAILURE;
+	}
+
+	DEBUGP ("usm_process_in_msg():%s,%d: Verification succeeded\n",
+		__FILE__,__LINE__);
 
 
+	/* Perform the timeliness/time manager functions */
+
+	if (usm_check_and_update_timeliness (secEngineID, *secEngineIDLen,
+		boots_uint, time_uint, &error)==-1)
+	{
+		return error;
+	}
+
+	/* If needed, decrypt the scoped PDU */
+
+	if (secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
+	{
+		/* We have an encrypted message */
+		remaining = wholeMsgLen - (data_ptr - wholeMsg);
+
+		if ((value_ptr = asn_parse_header (data_ptr, &remaining,
+				&type_value)) == NULL)
+		{
+			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+				__FILE__,__LINE__,
+				"Failed parseing encrypted sPDU");
+
+			/* INCREMENT snmpInASNParseErrs */
+
+			if (snmp_increment_statistic (STAT_SNMPINASNPARSEERRS)==0)
+			{
+				DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+					__FILE__,__LINE__,
+					"Failed increment statistic");
+				return USM_ERR_GENERIC_ERROR;
+			}
+
+			return USM_ERR_PARSE_ERROR;
+		}
+	
+		if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR))
+		{
+			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+				__FILE__,__LINE__,
+				"Failed parseing encrypted sPDU, wrong type");
+
+			/* INCREMENT snmpInASNParseErrs */
+			if (snmp_increment_statistic (STAT_SNMPINASNPARSEERRS)==0)
+			{
+				DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+					__FILE__,__LINE__,
+					"Failed increment statistic");
+
+				return USM_ERR_GENERIC_ERROR;
+			}
+
+			return USM_ERR_PARSE_ERROR;
+		}
+
+		end_of_overhead = value_ptr;
+
+		if (sc_decrypt (user->privProtocol, user->privProtocolLen,
+						user->privKey, user->privKeyLen,
+						salt, salt_length,
+						value_ptr, remaining,
+						*scopedPdu, scopedPduLen)
+											!= SNMP_ERR_NOERROR)
+		{
+			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+				__FILE__,__LINE__, "Failed decryption");
+
+			/* INCREMENT usmStatsDecryptionErrors */
+			if (snmp_increment_statistic (STAT_USMSTATSDECRYPTIONERRORS)==0)
+			{
+				DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+					__FILE__,__LINE__, "Failed increment statistic");
+
+				return USM_ERR_GENERIC_ERROR;
+			}
+
+			return USM_ERR_DECRYPTION_ERROR;
+		}
+	}
+	else
+	{
+		/* sPDU is in plaintext */
+
+		*scopedPdu = data_ptr;
+		*scopedPduLen = wholeMsgLen - (data_ptr - wholeMsg);
+		end_of_overhead = data_ptr;
+	}
+
+	/* Calculate the biggest sPDU for the response (i.e., whole - ovrhd) */
+
+	*maxSizeResponse = maxMsgSize - (int)
+				((u_long)end_of_overhead - (u_long)wholeMsg);
+
+	/* Steps 10-11, don't know why */
+
+	*secStateRef = NULL;
+
+	DEBUGP ("usm_process_in_msg():%s,%d: USM processing completed\n",
+		__FILE__,__LINE__);
+
+	return USM_ERR_NO_ERROR;
+}
 
 /* 
  * Local storage (LCD) of the default user list.
