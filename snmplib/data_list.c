@@ -26,16 +26,18 @@ create_data_list(const char *name, void *data,
    
     
 inline void
-add_list_data(data_list *head, data_list *node) 
+add_list_data(data_list **head, data_list *node) 
 {
-  if (!head)
-    return;
+    if (!*head) {
+        *head = node;
+        return;
+    }
 
-  /* xxx-rks: check for duplicate names? */
-  while(head->next != NULL)
-    head = head->next;
+    /* xxx-rks: check for duplicate names? */
+    while((*head)->next != NULL)
+        (*head) = (*head)->next;
 
-  head->next = node;
+    (*head)->next = node;
 }
 
 inline void *
