@@ -4,9 +4,16 @@
 
 #include <config.h>
 
+#if HAVE_STRING_H
+#include <string.h>
+#else
+#include <strings.h>
+#endif
+
 #include "mibincl.h"
 #include "snmpusm.h"
 #include "snmpv3.h"
+#include "snmp-tc.h"
 
 #include "usmUser.h"
 
@@ -44,7 +51,7 @@ oid *usm_generate_OID(oid *prefix, int prefixLen, struct usmUser *uptr,
   return indexOid;
 }
 
-/* parse_oid(): parses an index to the usmTable to break it down into
+/* usm_parse_oid(): parses an index to the usmTable to break it down into
    a engineID component and a name component.  The results are stored in:
 
    **engineID:   a newly malloced string.
@@ -85,14 +92,14 @@ int usm_parse_oid(oid *oidIndex, int oidLen,
     return 1;
   }
 
-  *engineID = (unsigned char *) malloc(sizeof(engineIDL)*sizeof(unsigned char));
+  *engineID = (unsigned char *) malloc(engineIDL*sizeof(unsigned char));
   if (*engineID == NULL) {
     DEBUGP("parse_oid: malloc of the engineID failed\n");
     return 1;
   }
   *engineIDLen = engineIDL;
 
-  *name = (unsigned char *) malloc(sizeof(nameL)*sizeof(unsigned char));
+  *name = (unsigned char *) malloc((nameL+1)*sizeof(unsigned char));
   if (*name == NULL) {
     DEBUGP("parse_oid: malloc of the name failed\n");
     return 1;
@@ -100,10 +107,11 @@ int usm_parse_oid(oid *oidIndex, int oidLen,
   *nameLen = nameL;
   
   for(i = 0; i < engineIDL; i++)
-    (*engineID)[i] = oidIndex[i+1];
+    engineID[0][i] = oidIndex[i+1];
 
   for(i = 0; i < nameL; i++)
-    (*name)[i] = oidIndex[i+2+engineIDL];
+    name[0][i] = oidIndex[i+2+engineIDL];
+  name[0][nameL] = 0;
 
   return 0;
 }
@@ -169,16 +177,12 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
             continue;
           }
         } else {
-          if (result > 0) {
-            free(indexOid);
-            uptr = pptr;
-            continue;
-          } else if (result == 0) {
+          if (result == 0) {
             /* found an exact match.  Need the next one for !exact */
             free(indexOid);
             uptr = nptr->next;
             continue;
-          } else if (result == -1) {
+          } else if (result == 1) {
             free(indexOid);
             uptr = nptr;
             continue;
@@ -216,68 +220,103 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
       return (unsigned char *) &long_ret;
 
     case USMUSERSECURITYNAME:
-      *var_len = strlen(uptr->secName);
-      return (unsigned char *) uptr->secName;
+      if (uptr) {
+        *var_len = strlen(uptr->secName);
+        return (unsigned char *) uptr->secName;
+      }
+      return NULL;
 
     case USMUSERCLONEFROM:
       *write_method = write_usmUserCloneFrom;
-      *var_len = uptr->cloneFromLen*sizeof(oid);
-      return (unsigned char *) uptr->cloneFrom;
+      if (uptr) {
+        objid[0] = 0; /* "When this object is read, the ZeroDotZero OID */
+        objid[1] = 0; /*  is returned." */
+        *var_len = sizeof(oid)*2;
+        return (unsigned char *) objid;
+      }
+      return NULL;
 
     case USMUSERAUTHPROTOCOL:
       *write_method = write_usmUserAuthProtocol;
-      *var_len = uptr->authProtocolLen*sizeof(oid);
-      return (unsigned char *) uptr->authProtocol;
+      if (uptr) {
+        *var_len = uptr->authProtocolLen*sizeof(oid);
+        return (unsigned char *) uptr->authProtocol;
+      }
+      return NULL;
 
     case USMUSERAUTHKEYCHANGE:
       *write_method = write_usmUserAuthKeyChange;
-      *string = 0; /* always return a NULL string */
-      *var_len = strlen(string);
-      return (unsigned char *) string;
+      if (uptr) {
+        *string = 0; /* always return a NULL string */
+        *var_len = strlen(string);
+        return (unsigned char *) string;
+      }
+      return NULL;
 
     case USMUSEROWNAUTHKEYCHANGE:
       *write_method = write_usmUserOwnAuthKeyChange;
-      *string = 0; /* always return a NULL string */
-      *var_len = strlen(string);
-      return (unsigned char *) string;
+      if (uptr) {
+        *string = 0; /* always return a NULL string */
+        *var_len = strlen(string);
+        return (unsigned char *) string;
+      }
+      return NULL;
 
     case USMUSERPRIVPROTOCOL:
       *write_method = write_usmUserPrivProtocol;
-      *var_len = uptr->privProtocolLen*sizeof(oid);
-      return (unsigned char *) uptr->privProtocol;
+      if (uptr) {
+        *var_len = uptr->privProtocolLen*sizeof(oid);
+        return (unsigned char *) uptr->privProtocol;
+      }
+      return NULL;
 
     case USMUSERPRIVKEYCHANGE:
       *write_method = write_usmUserPrivKeyChange;
-      *string = 0; /* always return a NULL string */
-      *var_len = strlen(string);
-      return (unsigned char *) string;
+      if (uptr) {
+        *string = 0; /* always return a NULL string */
+        *var_len = strlen(string);
+        return (unsigned char *) string;
+      }
+      return NULL;
 
     case USMUSEROWNPRIVKEYCHANGE:
       *write_method = write_usmUserOwnPrivKeyChange;
-      *string = 0; /* always return a NULL string */
-      *var_len = strlen(string);
-      return (unsigned char *) string;
+      if (uptr) {
+        *string = 0; /* always return a NULL string */
+        *var_len = strlen(string);
+        return (unsigned char *) string;
+      }
+      return NULL;
 
     case USMUSERPUBLIC:
       *write_method = write_usmUserPublic;
-      if (uptr->userPublicString) {
-        *var_len = strlen(uptr->userPublicString);
-        return uptr->userPublicString;
+      if (uptr) {
+        if (uptr->userPublicString) {
+          *var_len = strlen(uptr->userPublicString);
+          return uptr->userPublicString;
+        }
+        *string = 0;
+        *var_len = strlen(string); /* return an empty string if the public
+                                      string hasn't been defined yet */
+        return (unsigned char *) string;
       }
-      *string = 0;
-      *var_len = strlen(string); /* return an empty string if the public string
-                                    hasn't been defined yet */
-      return (unsigned char *) string;
+      return NULL;
 
     case USMUSERSTORAGETYPE:
       *write_method = write_usmUserStorageType;
-      long_ret = uptr->userStorageType;
-      return (unsigned char *) &long_ret;
+      if (uptr) {
+        long_ret = uptr->userStorageType;
+        return (unsigned char *) &long_ret;
+      }
+      return NULL;
 
     case USMUSERSTATUS:
       *write_method = write_usmUserStatus;
-      long_ret = uptr->userStatus;
-      return (unsigned char *) &long_ret;
+      if (uptr) {
+        long_ret = uptr->userStatus;
+        return (unsigned char *) &long_ret;
+      }
+      return NULL;
 
     default:
       ERROR_MSG("");
@@ -336,10 +375,15 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
   /* variables we may use later */
   static long long_ret;
   static unsigned char string[1500];
-  static oid objid[30];
+  static oid objid[30], *oidptr;
   static struct counter64 c64;
   int size, bigsize=1000;
-
+  unsigned char *engineID;
+  int engineIDLen;
+  struct usmUser *uptr;
+  unsigned char *newName;
+  int nameLen;
+  
   if (var_val_type != ASN_OBJECT_ID){
       DEBUGP("write to usmUserCloneFrom not ASN_OBJECT_ID\n");
       return SNMP_ERR_WRONGTYPE;
@@ -349,11 +393,39 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT){
-      size = sizeof(objid);
-      asn_parse_objid(var_val, &bigsize, &var_val_type, objid, &size);
-      /* Here, the variable has been stored in objid for
-      you to use, and you have just been asked to do something with
-      it... Your code goes here. */
+    /* parse the clonefrom objid */
+    size = sizeof(objid);
+    if(!asn_parse_objid(var_val, &bigsize, &var_val_type, objid, &size))
+      return SNMP_ERR_GENERR;
+
+    /* see if we can parse the oid for engineID/name first */
+    if (usm_parse_oid(&(name[USM_MIB_LENGTH]), name_len-USM_MIB_LENGTH,
+                      &engineID, &engineIDLen, &newName, &nameLen))
+      return SNMP_ERR_NOSUCHNAME;
+
+    /* Now see if a user already exists with these index values */
+    uptr = usm_get_user(engineID, engineIDLen, newName, userList);
+    free(engineID);
+    free(newName);
+
+    if (uptr == NULL) 
+      /* if not, we don't allow creations here */
+      return SNMP_ERR_INCONSISTENTNAME;
+
+    /* see if the user has been clone previously, and if so ignore this set */
+/*    if ((oidptr = snmp_duplicate_oid(objid, size)) == NULL)
+      return SNMP_ERR_GENERR;
+      if (uptr->cloneFrom)
+      free(uptr->cloneFrom);
+      uptr->cloneFrom = oidptr;
+      } else { */
+    /* Else we create a new user based on this cloneFromValue */
+    
+
+
+    /* Here, the variable has been stored in objid for
+       you to use, and you have just been asked to do something with
+       it... Your code goes here. */
   }
   return SNMP_ERR_NOERROR;
 }
@@ -676,6 +748,11 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
   static oid objid[30];
   static struct counter64 c64;
   int size, bigsize=1000;
+  unsigned char *engineID;
+  int engineIDLen;
+  unsigned char *newName;
+  int nameLen;
+  struct usmUser *uptr;
 
   if (var_val_type != ASN_INTEGER){
       DEBUGP("write to usmUserStatus not ASN_INTEGER\n");
@@ -686,11 +763,86 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT){
-      size = sizeof(long_ret);
-      asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
-      /* Here, the variable has been stored in long_ret for
-      you to use, and you have just been asked to do something with
-      it... Your code goes here. */
+    size = sizeof(long_ret);
+    asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
+
+    /* ditch illegal values now */
+    if (long_ret == RS_NOTINSERVICE || long_ret < 1 || long_ret > 6)
+      return SNMP_ERR_INCONSISTENTVALUE;
+
+    /* see if we can parse the oid for engineID/name first */
+    if (usm_parse_oid(&(name[USM_MIB_LENGTH]), name_len-USM_MIB_LENGTH,
+                      &engineID, &engineIDLen, &newName, &nameLen))
+      return SNMP_ERR_NOSUCHNAME;
+
+    /* Now see if a user already exists with these index values */
+    uptr = usm_get_user(engineID, engineIDLen, newName, userList);
+
+    /* If so, we set the appropriate value */
+
+    /* else we create a new user */
+    if (uptr) {
+      free(engineID);
+      free(newName);
+      if (long_ret == RS_CREATEANDGO || long_ret == RS_CREATEANDWAIT) {
+        return SNMP_ERR_INCONSISTENTVALUE;
+      }
+      uptr->userStatus = long_ret;
+    } else {
+      /* check for a valid status column set */
+      if (long_ret == RS_ACTIVE || long_ret == RS_NOTINSERVICE) {
+        free(engineID);
+        free(newName);
+        return SNMP_ERR_INCONSISTENTVALUE;
+      }
+      if (long_ret == RS_DESTROY) {
+        free(engineID);
+        free(newName);
+        return SNMP_ERR_NOERROR;
+      }
+
+      /* generate a new user */
+      if ((uptr = usm_clone_user(NULL)) == NULL) {
+        free(engineID);
+        free(newName);
+        return SNMP_ERR_GENERR;
+      }
+
+      /* copy in the engineID */
+      uptr->engineID =
+        (unsigned char *) malloc(sizeof(unsigned char)*engineIDLen);
+      if (uptr->engineID == NULL) {
+        free(engineID);
+        free(newName);
+        free(uptr);
+        return SNMP_ERR_GENERR;
+      }
+      uptr->engineIDLen = engineIDLen;
+      memcpy(uptr->engineID, engineID, engineIDLen*sizeof(unsigned char));
+      free(engineID);
+
+      /* copy in the name and secname */
+      uptr->name = (unsigned char *) malloc(strlen(newName));
+      if ((uptr->name = strdup(newName)) == NULL) {
+        free(newName);
+        usm_free_user(uptr);
+        return SNMP_ERR_GENERR;
+      }
+      free(newName);
+      if ((uptr->secName = strdup(uptr->name)) == NULL) {
+        usm_free_user(uptr);
+        return SNMP_ERR_GENERR;
+      }
+
+      /* set the status of the row based on the request */
+      if (long_ret == RS_CREATEANDGO)
+        uptr->userStatus = RS_ACTIVE;
+      else if (long_ret = RS_CREATEANDWAIT)
+        uptr->userStatus = RS_NOTINSERVICE;
+
+      /* finally, add it to our list of users */
+      userList = usm_add_user(uptr, userList);
+    }
   }
   return SNMP_ERR_NOERROR;
 }
