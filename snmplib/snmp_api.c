@@ -650,21 +650,6 @@ snmp_sess_open(in_session)
         session->securityPrivProtoLen = i;
     }
 
-    if (session->contextEngineIDLen > 0) {
-      cp = (u_char*)malloc((unsigned)session->contextEngineIDLen *
-			   sizeof(u_char));
-      if (cp == NULL) {
-	snmp_errno = SNMPERR_GENERR;
-	in_session->s_snmp_errno = SNMPERR_GENERR;
-	snmp_sess_close(slp);
-	return(NULL);
-      }
-      memmove(cp, session->contextEngineID,
-	      session->contextEngineIDLen * sizeof(u_char));
-      session->contextEngineID = cp;
-
-    }
-
     if (session->securityEngineIDLen > 0) {
       cp = (u_char*)malloc((unsigned)session->securityEngineIDLen *
 			   sizeof(u_char));
@@ -678,6 +663,34 @@ snmp_sess_open(in_session)
 	      session->securityEngineIDLen * sizeof(u_char));
       session->securityEngineID = cp;
 
+    }
+
+    if (session->contextEngineIDLen > 0) {
+      cp = (u_char*)malloc((unsigned)session->contextEngineIDLen *
+			   sizeof(u_char));
+      if (cp == NULL) {
+	snmp_errno = SNMPERR_GENERR;
+	in_session->s_snmp_errno = SNMPERR_GENERR;
+	snmp_sess_close(slp);
+	return(NULL);
+      }
+      memmove(cp, session->contextEngineID,
+	      session->contextEngineIDLen * sizeof(u_char));
+      session->contextEngineID = cp;
+    } else if (session->securityEngineIDLen > 0) {
+      /* default contextEngineID to securityEngineIDLen if defined */
+      cp = (u_char*)malloc((unsigned)session->securityEngineIDLen *
+			   sizeof(u_char));
+      if (cp == NULL) {
+	snmp_errno = SNMPERR_GENERR;
+	in_session->s_snmp_errno = SNMPERR_GENERR;
+	snmp_sess_close(slp);
+	return(NULL);
+      }
+      memmove(cp, session->securityEngineID,
+	      session->securityEngineIDLen * sizeof(u_char));
+      session->contextEngineID = cp;
+      session->contextEngineIDLen = session->securityEngineIDLen;
     }
 
     if (session->contextName) {
@@ -1196,10 +1209,7 @@ snmpv3_calc_msg_flags (sec_level, msg_command, flags)
   else if (sec_level == SNMP_SEC_LEVEL_AUTHPRIV)
     *flags = SNMP_MSG_FLAG_AUTH_BIT | SNMP_MSG_FLAG_PRIV_BIT;
 
-  if (msg_command == SNMP_MSG_GET || msg_command == SNMP_MSG_GETNEXT ||
-      msg_command == SNMP_MSG_SET || msg_command == SNMP_MSG_GETBULK ||
-      msg_command == SNMP_MSG_INFORM)
-    *flags |= SNMP_MSG_FLAG_RPRT_BIT;
+  if (SNMP_CMD_CONFIRMED(msg_command)) *flags |= SNMP_MSG_FLAG_RPRT_BIT;
 
   return;
 }
@@ -1317,7 +1327,7 @@ EM(-1);
 		       &max_size, sizeof(max_size));
     if (cp == NULL) return NULL;
 
-    							/* msgFlags */
+    /* msgFlags */
     snmpv3_calc_msg_flags(pdu->securityLevel, pdu->command, &msg_flags);
     cp = asn_build_string(cp, out_length,
 			  (u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
@@ -1745,9 +1755,11 @@ snmp_parse_version (data, length)
   long version;
 
   data = asn_parse_header(data, &length, &type);
+  if (!data) return SNMPERR_BAD_VERSION;
 
   if (type == (ASN_SEQUENCE | ASN_CONSTRUCTOR)) {
     data = asn_parse_int(data, &length, &type, &version, sizeof(version));
+    if (!data) return SNMPERR_BAD_VERSION;
   }
 #ifdef USE_V2PARTY_PROTOCOL
   else {
@@ -1764,7 +1776,7 @@ snmpv3_parse(pdu, data, length, after_header)
      int    		 *length;
      u_char 		**after_header;
 {
-  u_char	 type;
+  u_char	 type, msg_flags;
   long		 ver, msg_max_size, msg_sec_model;
   int		 max_size_response;
   u_char	 tmp_buf[SNMP_MAX_MSG_SIZE];
@@ -1788,37 +1800,39 @@ EM(-1);
   data = asn_parse_header(data, length, &type);
   if (data == NULL){
     ERROR_MSG("bad header");
-    return -1;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
   }
   if (type != (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
     ERROR_MSG("wrong message header type");
-    return -1;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
   }
-
 
   /* parse msgVersion
    */
   data = asn_parse_int(data, length, &type, &ver, sizeof(ver));
   if (data == NULL){
     ERROR_MSG("bad parse of version");
-    return -1;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
   }
   pdu->version = ver;
-
 
   /* parse msgGlobalData sequence
    */
   cp	  = data;
   asn_len = *length;
   data	  = asn_parse_header(data, &asn_len, &type);
-
   if (data == NULL){
     ERROR_MSG("bad header");
-    return -1;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
   }
   if (type != (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
     ERROR_MSG("wrong msgGlobalData  header type");
-    return -1;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
   }
   *length -= data - cp;  /* subtract off the length of the header */
 
@@ -1826,43 +1840,59 @@ EM(-1);
   data = asn_parse_int(data, length, &type, &pdu->msgid, sizeof(pdu->msgid));
   if (data == NULL) {
     ERROR_MSG("error parsing msgID");
-    return -1;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
   }
 
-  							/* msgMaxSize */
+  /* msgMaxSize */
   data = asn_parse_int(data, length, &type, &msg_max_size,
-		       sizeof(msg_max_size));	/* FIX -- correct? */
+		       sizeof(msg_max_size));
   if (data == NULL) {
     ERROR_MSG("error parsing msgMaxSize");
-    return -1;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
   }
+
+  /* msgFlags */
   tmp_buf_len = SNMP_MAX_MSG_SIZE;
-
-  							/* msgFlags */
   data = asn_parse_string(data, length, &type, tmp_buf, &tmp_buf_len);
-  if (data == NULL) {
+  if (data == NULL || tmp_buf_len != 1) {
     ERROR_MSG("error parsing msgFlags");
-    return -1;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
   }
-  pdu->securityLevel = ( (*tmp_buf & SNMP_MSG_FLAG_AUTH_BIT)
-				?  ( (*tmp_buf & SNMP_MSG_FLAG_PRIV_BIT)
-					? SNMP_SEC_LEVEL_AUTHPRIV
-					: SNMP_SEC_LEVEL_AUTHNOPRIV )
-				: SNMP_SEC_LEVEL_NOAUTH );
+  msg_flags = *tmp_buf;
+  pdu->reportableFlag = msg_flags & SNMP_MSG_FLAG_RPRT_BIT;
 
-  							/* msgSecurityModel */
+  /* msgSecurityModel */
   data = asn_parse_int(data, length, &type, &msg_sec_model,
 		       sizeof(msg_sec_model));
   if (data == NULL) {
     ERROR_MSG("error parsing msgSecurityModel");
-    return -1;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
+  }
+  if (msg_sec_model != SNMP_SEC_MODEL_USM) {
+    ERROR_MSG("unknown security model");
+    snmp_increment_statistic(STAT_SNMPUNKNOWNSECURITYMODELS);
+    return SNMPERR_UNKNOWN_SEC_MODEL;
   }
   pdu->securityModel = msg_sec_model;
 
+  if (msg_flags & SNMP_MSG_FLAG_PRIV_BIT && 
+      !(msg_flags & SNMP_MSG_FLAG_AUTH_BIT)) {
+    ERROR_MSG("invalid message, illegal msgFlags");
+    snmp_increment_statistic(STAT_SNMPINVALIDMSGS);
+    return SNMPERR_INVALID_MSG;
+  }
+  pdu->securityLevel = ( (msg_flags & SNMP_MSG_FLAG_AUTH_BIT)
+				?  ( (msg_flags & SNMP_MSG_FLAG_PRIV_BIT)
+					? SNMP_SEC_LEVEL_AUTHPRIV
+					: SNMP_SEC_LEVEL_AUTHNOPRIV )
+				: SNMP_SEC_LEVEL_NOAUTH );
   /* end of msgGlobalData */
 
-  /* securtityParameters OCTET STRING begins after msgGlobalData
-   */
+  /* securtityParameters OCTET STRING begins after msgGlobalData */
   sec_params			= data;
   pdu->contextEngineID		= SNMP_MALLOC(SNMP_MAX_ENG_SIZE);
   pdu->contextEngineIDLen	= SNMP_MAX_ENG_SIZE;
@@ -1874,71 +1904,26 @@ EM(-1);
   memset(pdu_buf, 0, pdu_buf_len);
   cp = pdu_buf;
 
-  ret_val = 
-    usm_process_in_msg(
-	 SNMP_VERSION_3,	 msg_max_size,
-	 sec_params,		 msg_sec_model,		pdu->securityLevel,
-	 msg_data,		 msg_len,
-         pdu->securityEngineID,	&pdu->securityEngineIDLen,
-         pdu->securityName,	&pdu->securityNameLen,
-        &cp,
-	&pdu_buf_len,		&max_size_response,
-	&pdu->securityStateRef);
+  ret_val = usm_process_in_msg(SNMP_VERSION_3, msg_max_size,
+			       sec_params, msg_sec_model, pdu->securityLevel,
+			       msg_data, msg_len,
+			       pdu->securityEngineID, &pdu->securityEngineIDLen,
+			       pdu->securityName, &pdu->securityNameLen,
+			       &cp,
+			       &pdu_buf_len, &max_size_response,
+			       &pdu->securityStateRef);
 
   if (ret_val != USM_ERR_NO_ERROR) {
-    snmp_errno = ret_val;
-    return -1;
+    snmpv3_scopedPDU_parse(pdu, cp, &pdu_buf_len);
+    return ret_val;
   }
   
-
-  /* parse plaintext ScopedPDU sequence
-   */
-  asn_len = *length = pdu_buf_len;
-  data = asn_parse_header(cp, &asn_len, &type);
-  if (data == NULL){
-    ERROR_MSG("bad plaintext header");
-    return -1;
-  }
-  if (type != (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
-    ERROR_MSG("wrong plaintext header type");
-    return -1;
-  }
-  *length -= data - cp;
-
-
-  /* parse contextEngineID from scopedPdu 
-   */
-  data = asn_parse_string(data, length, &type, 
-			  pdu->contextEngineID, & pdu->contextEngineIDLen);
+  /* parse plaintext ScopedPDU sequence */
+  *length = pdu_buf_len;
+  data = snmpv3_scopedPDU_parse(pdu, cp, length);
   if (data == NULL) {
-    ERROR_MSG("error parsing contextEngineID from scopedPdu");
-    return -1;
-  }
-
-  /* check that it agrees with engineID returned from USM above
-   * only a warning because this could be legal from a proxy
-   */
-  if (pdu->securityEngineIDLen != pdu->contextEngineIDLen ||
-      memcmp(pdu->securityEngineID, pdu->contextEngineID,
-	     pdu->securityEngineIDLen) != 0) {
-    DEBUGP("inconsistent engineID information in message");
-  }
-
-  /* parse contextName from scopedPdu
-   */
-  tmp_buf_len = SNMP_MAX_CONTEXT_SIZE;
-  data = asn_parse_string(data, length, &type, tmp_buf, &tmp_buf_len);
-  if (data == NULL) {
-    ERROR_MSG("error parsing contextName from scopedPdu");
-    return -1;
-  }
-
-  if (tmp_buf_len) {
-    pdu->contextName	 = strdup(tmp_buf);
-    pdu->contextNameLen	 = tmp_buf_len;
-  } else {
-    pdu->contextName	 = strdup("");
-    pdu->contextNameLen	 = 0;
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
   }
 
   /* parse the PDU.
@@ -1948,65 +1933,108 @@ EM(-1);
     *after_header	 = data;
   }
 
-  ret = snmp_pdu_parse((struct snmp_pdu *)pdu, data, length);
+  ret = snmp_pdu_parse(pdu, data, length);
 
   if (after_header != NULL)
     *length = tmp_buf_len;
 
+  if (ret != SNMPERR_SUCCESS) {
+    ERROR_MSG("error parsing PDU");
+    snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+    return SNMPERR_ASN_PARSE_ERR;
+  }
 
-  return ret;
+  return SNMPERR_SUCCESS;
 }  /* end snmpv3_parse() */
-
+#define ERROR_STAT_LENGTH 11
 int
-snmpv3_make_report(u_char *out_data, int *out_length,
-                       struct snmp_pdu *pdu,
-                       int error, oid *err_var, int err_var_len,
-                       u_char *engineID, int engineIDLen)
+snmpv3_make_report(struct snmp_pdu *pdu, int error)
 {
 
   long ltmp;
-  char buf[SNMP_MAXBUF];
-  
-  /* 
-   * unknown incoming security engineID, return ours and a varbind
-   */
+  static oid unknownSecurityLevel[] = {1,3,6,1,6,3,15,1,1,1,0};
+  static oid notInTimeWindow[]      = {1,3,6,1,6,3,15,1,1,2,0};
+  static oid unknownUserName[]      = {1,3,6,1,6,3,15,1,1,3,0};
+  static oid unknownEngineID[]      = {1,3,6,1,6,3,15,1,1,4,0};
+  static oid wrongDigest[]          = {1,3,6,1,6,3,15,1,1,5,0};
+  static oid decryptionError[]      = {1,3,6,1,6,3,15,1,1,6,0};
+  oid *err_var;
+  int err_var_len;
+  int stat_ind;
+
+  switch (error) {
+  case USM_ERR_UNKNOWN_ENGINE_ID:
+    stat_ind = STAT_USMSTATSUNKNOWNENGINEIDS;
+    err_var = unknownEngineID;
+    err_var_len = ERROR_STAT_LENGTH;
+    break;
+  case USM_ERR_UNKNOWN_SECURITY_NAME:
+    stat_ind = STAT_USMSTATSUNKNOWNUSERNAMES;
+    err_var = unknownUserName;
+    err_var_len = ERROR_STAT_LENGTH;
+    break;
+  case USM_ERR_UNSUPPORTED_SECURITY_LEVEL:
+    stat_ind = STAT_USMSTATSUNSUPPORTEDSECLEVELS;
+    err_var = unknownSecurityLevel;
+    err_var_len = ERROR_STAT_LENGTH;
+    break;
+  case USM_ERR_AUTHENTICATION_FAILURE:
+    stat_ind = STAT_USMSTATSWRONGDIGESTS;
+    err_var = wrongDigest;
+    err_var_len = ERROR_STAT_LENGTH;
+    break;
+  case USM_ERR_NOT_IN_TIME_WINDOW:
+    stat_ind = STAT_USMSTATSNOTINTIMEWINDOWS;
+    err_var = notInTimeWindow;
+    err_var_len = ERROR_STAT_LENGTH;
+    break;
+  case USM_ERR_DECRYPTION_ERROR:
+    stat_ind = STAT_USMSTATSDECRYPTIONERRORS;
+    err_var = decryptionError;
+    err_var_len = ERROR_STAT_LENGTH;
+    break;
+  default:
+    return SNMPERR_GENERR;
+    break;
+  }
+
   snmp_free_varbind(pdu->variables);	/* free the current varbind */
 
-  pdu->variables		= NULL;
-  pdu->securityEngineID		= engineID;
-  pdu->securityEngineIDLen	= engineIDLen;
-  pdu->command		 	= SNMP_MSG_REPORT;
-  pdu->errstat		 	= 0;
-  pdu->errindex		 	= 0;
-  pdu->contextName		= strdup("");
-  pdu->contextNameLen		= strlen(pdu->contextName);
+  pdu->variables	= NULL;
+  _snmp_free(pdu->securityEngineID);
+  pdu->securityEngineID	= snmpv3_generate_engineID(&pdu->securityEngineIDLen);
+  _snmp_free(pdu->contextEngineID);
+  pdu->contextEngineID	= snmpv3_generate_engineID(&pdu->contextEngineIDLen);
+  pdu->command		= SNMP_MSG_REPORT;
+  pdu->errstat		= 0;
+  pdu->errindex		= 0;
+  pdu->contextName	= strdup("");
+  pdu->contextNameLen	= strlen(pdu->contextName);
 
   /* reports shouldn't cache previous data. */
+  /* FIX - yes they should but USM needs to follow new EoP to determine
+     which cached values to use 
+  */
   if (pdu->securityStateRef) {
     usm_free_usmStateReference(pdu->securityStateRef);
     pdu->securityStateRef = NULL;
   }
   
-  if (error != STAT_USMSTATSNOTINTIMEWINDOWS) 
+  if (error != SNMPERR_USM_NOTINTIMEWINDOW) 
     pdu->securityLevel          = SNMP_SEC_LEVEL_NOAUTH;
   else
     pdu->securityLevel          = SNMP_SEC_LEVEL_AUTHNOPRIV;
 
   /* find the appropriate error counter
    */
-  ltmp = snmp_get_statistic(error);
+  ltmp = snmp_get_statistic(stat_ind);
 
   /* return the appropriate error counter
    */
   snmp_pdu_add_variable(pdu, err_var, err_var_len,
                         ASN_COUNTER, (u_char *) &ltmp, sizeof(ltmp));
-  snmpv3_packet_build(pdu, out_data, out_length, NULL, 0);
-  sprint_objid(buf, err_var, err_var_len);
-  DEBUGP("sending report with:\n  %s = %d\n", buf, ltmp);
-  snmp_free_pdu(pdu);
 
-  return 1;
-
+  return SNMPERR_SUCCESS;
 }  /* end snmpv3_make_report() */
 
 
@@ -2144,31 +2172,50 @@ snmp_parse(session, pdu, data, length)
 #endif /* USE_V2PARTY_PROTOCOL */
 
     case SNMP_VERSION_3:
-      result = snmpv3_parse((struct snmp_pdu *)pdu, data, &length, NULL);
+      result = snmpv3_parse(pdu, data, &length, NULL);
       if (!result) {
 	DEBUGP("Parsed SNMPv3 message (secName:%s, secLevel:%s).\n",
 	       pdu->securityName, usmSecLevelName[pdu->securityLevel]);
       } else {
 	DEBUGP("Error parsing SNMPv3 message (secName:%s, secLevel:%s).\n",
 	       pdu->securityName, usmSecLevelName[pdu->securityLevel]);
+	/* handle reportable errors */
+	switch (result) {
+	case USM_ERR_UNKNOWN_ENGINE_ID:
+	case USM_ERR_UNKNOWN_SECURITY_NAME:
+	case USM_ERR_UNSUPPORTED_SECURITY_LEVEL:
+	case USM_ERR_AUTHENTICATION_FAILURE:
+	case USM_ERR_NOT_IN_TIME_WINDOW:
+	case USM_ERR_DECRYPTION_ERROR:
+          if (SNMP_CMD_CONFIRMED(pdu->command) ||
+	      (pdu->command == 0 && pdu->reportableFlag)) {
+	    snmpv3_make_report(pdu, result);
+	    snmp_send(session, pdu);
+	  }
+	  break;
+	default:
+	  break;
+	}
       }
       break;
-
+    case SNMPERR_BAD_VERSION:
+      ERROR_MSG("error parsing snmp message version");
+      snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
+      break;
     case SNMP_VERSION_sec:
     case SNMP_VERSION_2u:
     case SNMP_VERSION_2star:
     default:
-        ERROR_MSG("unsupported/unknown message header type");
-	return -1;
+        ERROR_MSG("unsupported snmp message version");
+	snmp_increment_statistic(STAT_SNMPINBADVERSIONS);
     }
 
     if (result == 0) {
       snmp_errno = 0;
       session->s_snmp_errno = 0;
       return 0;
-    } else {
-      return -1;
-    }
+    } 
+    return -1;
 }
 
 int
@@ -2385,6 +2432,83 @@ snmp_pdu_parse(pdu, data, length)
   return badtype;
 }
 
+
+/* snmp v3 utility function to parse into the scopedPdu. stores contextName
+   and contextEngineID in pdu struct. Also stores pdu->command (handy for 
+   Report generation).
+
+   returns pointer to begining of PDU or NULL on error.
+*/
+u_char *
+snmpv3_scopedPDU_parse(pdu, cp, length)
+    struct snmp_pdu *pdu;
+    u_char  *cp;
+    int	    *length;
+{
+  u_char  tmp_buf[SNMP_MAX_MSG_SIZE];
+  int     tmp_buf_len;
+  u_char  type;
+  int     asn_len;
+  u_char* data;
+
+  pdu->command = 0; /* initialize so we know if it got parsed */
+  asn_len = *length;
+  data = asn_parse_header(cp, &asn_len, &type);
+  if (data == NULL){
+    ERROR_MSG("bad plaintext scopedPDU header");
+    return NULL;
+  }
+  if (type != (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
+    ERROR_MSG("wrong plaintext scopedPDU header type");
+    return NULL;
+  }
+  *length -= data - cp;
+
+  /* contextEngineID from scopedPdu  */
+  data = asn_parse_string(data, length, &type, pdu->contextEngineID, 
+			  &pdu->contextEngineIDLen);
+  if (data == NULL) {
+    ERROR_MSG("error parsing contextEngineID from scopedPdu");
+    return NULL;
+  }
+
+  /* check that it agrees with engineID returned from USM above
+   * only a warning because this could be legal if we are a proxy
+   */
+  if (pdu->securityEngineIDLen != pdu->contextEngineIDLen ||
+      memcmp(pdu->securityEngineID, pdu->contextEngineID,
+	     pdu->securityEngineIDLen) != 0) {
+    DEBUGP("inconsistent engineID information in message");
+  }
+
+  /* parse contextName from scopedPdu
+   */
+  tmp_buf_len = SNMP_MAX_CONTEXT_SIZE;
+  data = asn_parse_string(data, length, &type, tmp_buf, &tmp_buf_len);
+  if (data == NULL) {
+    ERROR_MSG("error parsing contextName from scopedPdu");
+    return NULL;
+  }
+
+  if (tmp_buf_len) {
+    pdu->contextName	 = strdup(tmp_buf);
+    pdu->contextNameLen	 = tmp_buf_len;
+  } else {
+    pdu->contextName	 = strdup("");
+    pdu->contextNameLen	 = 0;
+  }
+
+  /* Get the PDU type */
+  asn_len = *length;
+  cp = asn_parse_header(data, &asn_len, &type);
+  if (cp == NULL)
+    return NULL;
+
+  pdu->command = type;
+
+  return data;
+}
+
 /*
  * Sends the input pdu on the session after calling snmp_build to create
  * a serialized packet.  If necessary, set some of the pdu data from the
@@ -2553,6 +2677,13 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	    pdu->time = DEFAULT_TIME;
         /* don't expect a response */
         expect_response = 0;
+    } else if (pdu->command == SNMP_MSG_REPORT) {
+        if (pdu->version != SNMP_VERSION_3) {
+          snmp_errno = SNMPERR_UNKNOWN_PDU;
+          session->s_snmp_errno = SNMPERR_UNKNOWN_PDU;
+          return 0;
+        }
+        expect_response = 0;
     } else {
         /* some unknown PDU type */
         snmp_errno = SNMPERR_UNKNOWN_PDU;
@@ -2645,11 +2776,11 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 				&pdu->contextEngineIDLen,
 				session->contextEngineID,
 				session->contextEngineIDLen);
-	} else if (session->securityEngineIDLen) {
+	} else if (pdu->securityEngineIDLen) {
 	  snmpv3_clone_engineID(&pdu->contextEngineID, 
 				&pdu->contextEngineIDLen,
-				session->securityEngineID,
-				session->securityEngineIDLen);
+				pdu->securityEngineID,
+				pdu->securityEngineIDLen);
 	}
       }
 
@@ -2944,6 +3075,12 @@ snmp_sess_read(sessp, fdset)
 		memcpy(sp->securityEngineID, pdu->securityEngineID,
 		       pdu->securityEngineIDLen);
 		sp->securityEngineIDLen = pdu->securityEngineIDLen;
+		if (!sp->contextEngineIDLen) {
+		sp->contextEngineID = malloc(pdu->securityEngineIDLen);
+		memcpy(sp->contextEngineID, pdu->securityEngineID,
+		       pdu->securityEngineIDLen);
+		sp->contextEngineIDLen = pdu->securityEngineIDLen;
+		}
 	      }
 	    }
 	    /* successful, so delete request */

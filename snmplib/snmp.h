@@ -90,7 +90,7 @@ SOFTWARE.
 #define SNMP_VERSION_1	   0
 #define SNMP_VERSION_2c    1
 #define SNMP_VERSION_2u    2   /* not (will never be) supported by this code */
-#define SNMP_VERSION_3     3   /* not yet supported by this code */
+#define SNMP_VERSION_3     3   
 
 /* versions not based on a version field */
 #define SNMP_VERSION_sec   128 /* not (will never be) supported by this code */
@@ -113,6 +113,11 @@ SOFTWARE.
 
 /* PDU types in SNMPv2u, SNMPv2*, and SNMPv3 */
 #define SNMP_MSG_REPORT	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x8)
+
+/* test for member of Confirmed Class i.e., reportable */
+#define SNMP_CMD_CONFIRMED(c) (c == SNMP_MSG_INFORM || c == SNMP_MSG_GETBULK ||\
+                               c == SNMP_MSG_GETNEXT || c == SNMP_MSG_GET || \
+                               c == SNMP_MSG_SET)
 
 /* Exception values for SNMPv2p, SNMPv2c, SNMPv2u, SNMPv2*, and SNMPv3 */
 #define SNMP_NOSUCHOBJECT    (ASN_CONTEXT | ASN_PRIMITIVE | 0x0)

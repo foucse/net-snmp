@@ -2,8 +2,6 @@
  * snmpd.h
  */
 
-#define MAX_SNMP_MESSAGE_SIZE	1500
-
 extern int snmp_dump_packet;
 extern int verbose;
 extern int (*sd_handlers[])__P((int));

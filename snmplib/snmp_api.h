@@ -81,7 +81,7 @@ struct snmp_pdu {
     long    trap_type;	/* trap type */
     long    specific_type;  /* specific type */
     u_long  time;	/* Uptime */
-
+    u_char  reportableFlag;
     void * securityStateRef;
 
     struct variable_list *variables;
@@ -175,7 +175,7 @@ struct request_list {
 #define SNMP_DEFAULT_ENTERPRISE_LENGTH	0
 #define SNMP_DEFAULT_TIME	    0
 #define SNMP_DEFAULT_VERSION	    -1
-#define SNMP_MAX_MSG_SIZE           (2 * 1024) /* XXX  this is provisional */
+#define SNMP_MAX_MSG_SIZE          1472 /* ethernet MTU minus IP/UDP header */
 #define SNMP_MAX_ENG_SIZE          32
 #define SNMP_MAX_SEC_NAME_SIZE     256
 #define SNMP_MAX_SEC_NAME_SIZE     256
@@ -480,12 +480,10 @@ void init_snmp __P((char *));
 u_char * snmp_pdu_build __P((struct snmp_pdu *, u_char *, int *));
 int snmpv3_parse(struct snmp_pdu *, u_char *, int *, u_char  **);
 int snmpv3_packet_build(struct snmp_pdu *pdu, u_char *packet, int *out_length, u_char *pdu_data, int pdu_data_len);
-int snmpv3_make_report(u_char *out_data, int *out_length,
-			   struct snmp_pdu *pdu,
-			   int error, oid *err_var, int err_var_len,
-			   u_char *engineID, int engineIDLen);
+int snmpv3_make_report(struct snmp_pdu *pdu, int error);
 int snmpv3_get_report_type(struct snmp_pdu *pdu);
 int snmp_pdu_parse(struct snmp_pdu *pdu, u_char *data, int *length);
+u_char* snmpv3_scopedPDU_parse(struct snmp_pdu *pdu, u_char *cp, int *length);
 void set_pre_parse( struct snmp_session *sp, int (*hook) (struct snmp_session *, snmp_ipaddr) );
 /*void set_pre_parse(struct snmp_session *, int* (struct snmp_session *, snmp_ipaddr));*/
 void set_post_parse (struct snmp_session *, int (*hook) (struct snmp_session *, struct snmp_pdu *,int));

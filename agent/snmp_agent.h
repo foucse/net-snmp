@@ -7,6 +7,9 @@
 #ifndef SNMP_AGENT_H
 #define SNMP_AGENT_H
 
+#define SNMP_MAX_PDU_SIZE 64000 /* local constraint on PDU size sent by agent
+                                  (see also SNMP_MAX_MSG_SIZE in snmp_api.h) */
+
 struct agent_snmp_session {
     int		mode;
     struct variable_list *start, *end;
