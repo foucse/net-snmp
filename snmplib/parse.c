@@ -3494,6 +3494,9 @@ parse(FILE *fp,
 	case IPADDR:
 	case NETADDR:
 	case NSAPADDRESS:
+	case OBJSYNTAX:
+	case APPSYNTAX:
+	case SIMPLESYNTAX:
 	case KW_OPAQUE:
 	case TIMETICKS:
             break;
