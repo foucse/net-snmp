@@ -429,7 +429,8 @@ handle_master_agentx_packet(int operation,
 	asp->pdu->time    = calculate_time_diff( &now, &starttime );
         asp->pdu->command = AGENTX_MSG_RESPONSE;
 	asp->pdu->errstat = asp->status;
-	snmp_send( asp->session, asp->pdu );
+	if (!snmp_send( asp->session, asp->pdu ))
+	    snmp_free_pdu(asp->pdu);
 	free(asp);
     }
 

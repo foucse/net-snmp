@@ -338,7 +338,8 @@ handle_agentx_packet(int operation, struct snmp_session *session, int reqid,
     if ( asp->outstanding_requests == NULL ) {
 	asp->pdu->command = AGENTX_MSG_RESPONSE;
 	asp->pdu->errstat = status;
-	snmp_send( asp->session, asp->pdu );
+	if (!snmp_send( asp->session, asp->pdu ))
+	    snmp_free_pdu(asp->pdu);
 	free( asp );
     }
     DEBUGMSGTL(("agentx/subagent","  FINISHED\n\n"));
