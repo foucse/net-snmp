@@ -277,7 +277,7 @@ setPass(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    oid      *name;
    int      name_len;
 {
-  int i, j, rtest, tmplen=1000, last;
+  int i, j, rtest, last;
   struct extensible *passthru;
 
   static char buf[300], buf2[300];

@@ -283,7 +283,7 @@ fixExecError(action, var_val, var_val_type, var_val_len, statP, name, name_len)
   
   struct extensible *exten;
   long tmp=0;
-  int tmplen=1000, fd;
+  int fd;
   static struct extensible ex;
   FILE *file;
 

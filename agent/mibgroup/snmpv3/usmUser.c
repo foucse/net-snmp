@@ -437,7 +437,6 @@ write_usmUserSpinLock(action, var_val, var_val_type, var_val_len, statP, name, n
 {
   /* variables we may use later */
   static long long_ret;
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
 
   if (var_val_type != ASN_INTEGER){
       DEBUGP("write to usmUserSpinLock not ASN_INTEGER\n");
@@ -495,8 +494,8 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
 {
   /* variables we may use later */
   static oid objid[USM_LENGTH_OID_MAX], *oidptr;
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   struct usmUser *uptr, *cloneFrom;
+  int size;
   
   if (var_val_type != ASN_OBJECT_ID){
       DEBUGP("write to usmUserCloneFrom not ASN_OBJECT_ID\n");
@@ -580,9 +579,9 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
 {
   /* variables we may use later */
   static oid objid[USM_LENGTH_OID_MAX];
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   static oid *optr;
   struct usmUser *uptr;
+  int size;
 
   if (var_val_type != ASN_OBJECT_ID){
       DEBUGP("write to usmUserAuthProtocol not ASN_OBJECT_ID\n");
@@ -663,7 +662,6 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
    int      name_len;
 {
   static unsigned char   string[SNMP_MAXBUF_SMALL];
-  int                    size, bigsize = SNMP_MAXBUF_SMALL;
   struct usmUser        *uptr;
   unsigned char          buf[SNMP_MAXBUF_SMALL];
   int                    buflen = SNMP_MAXBUF_SMALL;
@@ -724,9 +722,9 @@ write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, nam
 {
   /* variables we may use later */
   static oid objid[USM_LENGTH_OID_MAX];
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   static oid *optr;
   struct usmUser *uptr;
+  int size;
 
   if (var_val_type != ASN_OBJECT_ID){
       DEBUGP("write to usmUserPrivProtocol not ASN_OBJECT_ID\n");
@@ -783,7 +781,6 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
    int      name_len;
 {
   static unsigned char   string[SNMP_MAXBUF_SMALL];
-  int                    size, bigsize = SNMP_MAXBUF_SMALL;
   struct usmUser        *uptr;
   unsigned char          buf[SNMP_MAXBUF_SMALL];
   int                    buflen = SNMP_MAXBUF_SMALL;
@@ -844,7 +841,6 @@ write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, nam
 {
   /* variables we may use later */
   static unsigned char string[SNMP_MAXBUF];
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
 
   struct usmUser *uptr;
 
@@ -887,7 +883,6 @@ write_usmUserStorageType(action, var_val, var_val_type, var_val_len, statP, name
 {
   /* variables we may use later */
   static long long_ret;
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   struct usmUser *uptr;
   
   if (var_val_type != ASN_INTEGER){
@@ -946,7 +941,6 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
 {
   /* variables we may use later */
   static long long_ret;
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   unsigned char *engineID;
   int engineIDLen;
   unsigned char *newName;

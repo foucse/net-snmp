@@ -107,7 +107,6 @@ update_hook(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      name_len;
 {
   long tmp=0;
-  int tmplen=1000;
 
   if (var_val_type != ASN_INTEGER) {
     printf("Wrong type != int\n");
@@ -131,7 +130,6 @@ debugging_hook(action, var_val, var_val_type, var_val_len, statP, name, name_len
    int      name_len;
 {
   long tmp=0;
-  int tmplen=1000;
 
   if (var_val_type != ASN_INTEGER) {
     printf("Wrong type != int\n");

@@ -194,7 +194,6 @@ fixProcError(action, var_val, var_val_type, var_val_len, statP, name, name_len)
   
   struct myproc *proc;
   long tmp=0;
-  int tmplen=1000;
 
   if ((proc = get_proc_instance(procwatch,name[10]))) {
     if (var_val_type != ASN_INTEGER) {
