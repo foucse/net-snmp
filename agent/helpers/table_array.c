@@ -443,19 +443,26 @@ process_set_group( oid_array_header* o, void *c )
     set_context * context = (set_context *)c;
     array_group * ag = (array_group *)o;
 
-    if(context->status != SNMP_ERR_NOERROR)
-        return;
-
     switch(context->agtreq_info->mode) {
 
     case MODE_SET_RESERVE1: /** -> SET_RESERVE2 || SET_FREE */
         if(context->tad->cb->set_reserve1)
-            /**context->status =*/ context->tad->cb->set_reserve1( ag );
+            context->tad->cb->set_reserve1( ag );
+
+        if(!ag->new_row && context->tad->cb->duplicate_row &&
+           ag->status == SNMP_ERR_NOERROR) {
+            ag->new_row = context->tad->cb->duplicate_row( ag->old_row );
+            if(!ag->new_row) {
+                set_mode_request_error(MODE_SET_BEGIN, ag->list->ri,
+                                       SNMP_ERR_RESOURCEUNAVAILABLE);
+                return;
+            }
+        }
         break;
         
     case MODE_SET_RESERVE2: /** -> SET_ACTION || SET_FREE */
         if(context->tad->cb->set_reserve2)
-            /**context->status =*/ context->tad->cb->set_reserve2( ag );
+            context->tad->cb->set_reserve2( ag );
         break;
         
     case MODE_SET_ACTION: /** -> SET_COMMIT || SET_UNDO */
@@ -474,12 +481,12 @@ process_set_group( oid_array_header* o, void *c )
         }
         
         if(context->tad->cb->set_action)
-            /**context->status =*/ context->tad->cb->set_action( ag );
+            context->tad->cb->set_action( ag );
         break;
         
     case MODE_SET_COMMIT: /** FINAL CHANCE ON SUCCESS */
         if(context->tad->cb->set_commit)
-            /**context->status =*/ context->tad->cb->set_commit( ag );
+            context->tad->cb->set_commit( ag );
 
         /** old row inserted in action, so delete old one */
         if(ag->old_row && context->tad->cb->delete_row) {
@@ -490,7 +497,7 @@ process_set_group( oid_array_header* o, void *c )
         
     case MODE_SET_FREE: /** FINAL CHANCE ON FAILURE */
         if(context->tad->cb->set_free)
-            /**context->status =*/ context->tad->cb->set_free( ag );
+            context->tad->cb->set_free( ag );
 
         if(ag->old_row && context->tad->cb->delete_row) {
             context->tad->cb->delete_row(ag->new_row);
