@@ -135,6 +135,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     pi->source.sin_addr.s_addr = sourceip;
     if (type == (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
         asn_parse_int(cp, &len, &type, &version, sizeof(version));
+        DEBUGP("parsing SNMPv%d message\n", (version));
         if (version == SNMP_VERSION_3) {
           pdu = snmp_pdu_create(SNMP_MSG_RESPONSE);
           snmpv3_parse(pdu, data, &length, &data);
@@ -153,6 +154,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
             pdu->contextEngineID = engineID;
             pdu->contextEngineIDLen = engineIDLen;
             pdu->command = SNMP_MSG_REPORT;
+            pdu->errstat = 0;
+            pdu->errindex = 0;
             /* increment the unknown engineID counter */
             ltmp = snmp_increment_statistic(STAT_USMSTATSUNKNOWNENGINEIDS);
             /* return  the unknown engineID counter */
@@ -193,6 +196,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
           pi->sec_level = SNMP_SEC_LEVEL_NOAUTH;
         }
     } else if (type == (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)){
+        DEBUGP("parsing SNMPv2p message\n");
         pi->srcPartyLength = sizeof(pi->srcParty)/sizeof(oid);
         pi->dstPartyLength = sizeof(pi->dstParty)/sizeof(oid);
         pi->contextLength = sizeof(pi->context)/sizeof(oid);
@@ -450,6 +454,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 				&dummyindex, pi, FREE);
 	}
     }
+    DEBUGP("building SNMPv%d message\n", pi->version);
     switch((short)errstat){
 	case SNMP_ERR_NOERROR:
           if (pi->version == SNMP_VERSION_3) {
