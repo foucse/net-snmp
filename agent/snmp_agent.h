@@ -7,6 +7,10 @@
 #ifndef SNMP_AGENT_H
 #define SNMP_AGENT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "snmp_impl.h"
 #include "tools.h"
 
@@ -133,5 +137,10 @@ struct _snmp_transport;
  
 int	register_agent_nsap	(struct _snmp_transport *t);
 void	deregister_agent_nsap	(int handle);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif
