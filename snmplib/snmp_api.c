@@ -418,6 +418,7 @@ init_snmp(char *type)
 	sprintf(file, "%s/%s.persistent.conf", PERSISTENTDIR, type);
 	read_config_with_type(file, type);
 
+        init_usm_post_config();
 	init_snmp_session();
 
 }  /* end init_snmp() */
@@ -803,9 +804,10 @@ create_user_from_session(struct snmp_session *session) {
 
   /* now that we have the engineID, create an entry in the USM list
      for this user using the information in the session */
-  user = usm_get_user(session->contextEngineID,
-                      session->contextEngineIDLen,
-                      session->securityName);
+  user = usm_get_user_from_list(session->contextEngineID,
+                                session->contextEngineIDLen,
+                                session->securityName,
+                                usm_get_userList(), 0);
   if (user == NULL) {
     DEBUGP("building user %s\n",session->securityName);
     /* user doesn't exist so we create and add it */
@@ -2902,6 +2904,7 @@ snmp_pdu_add_variable(pdu, name, name_length, type, value, len)
       case ASN_UNSIGNED:
       case ASN_TIMETICKS:
       case ASN_IPADDRESS:
+      case ASN_COUNTER:
         vars->val.integer = (long *)malloc(sizeof(long));
         memmove(vars->val.integer, value, vars->val_len);
         vars->val_len = sizeof(long);
