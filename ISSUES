@@ -27,7 +27,7 @@
     snmplib/snmpusm.c: snmp_clone_user() should be split into two
     functions, namely snmp_create_new_user() and snmp_clone_user().
 
-* hardaker/Sep 23
+* hardaker/Sep 23 : hardaker/Sep 23
     snmplib/snmpusm.c: snmp_clone_user() shouldn't clone the name and
     engineid when cloneFrom is set?
 
