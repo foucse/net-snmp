@@ -36,6 +36,10 @@ extern "C" {
 #define DS_LIB_REGEX_ACCESS	   15 /* regex matching to oid labels */
 #define DS_LIB_DONT_CHECK_RANGE    16 /* don't check values for ranges on send*/
 #define DS_LIB_NO_TOKEN_WARNINGS   17 /* no warn about unknown config tokens */
+#define DS_LIB_NUMERIC_TIMETICKS   18 /* print timeticks as a number */
+#define DS_LIB_ESCAPE_QUOTES       19 /* shell escape quote marks in oids */
+#define DS_LIB_REVERSE_ENCODE      20 /* encode packets from back to front */
+#define DS_LIB_PRINT_BARE_VALUE	   21 /* just print value (not OID = value) */
 
 /* library integers */
 #define DS_LIB_MIB_WARNINGS  0
@@ -72,6 +76,8 @@ int ds_set_int(int storeid, int which, int value);
 int ds_get_int(int storeid, int which);
 int ds_set_string(int storeid, int which, const char *value);
 char *ds_get_string(int storeid, int which);
+int ds_set_void(int storeid, int which, void *value);
+void *ds_get_void(int storeid, int which);
 int ds_register_config(u_char type, const char *ftype, const char *token,
                        int storeid, int which);
 int ds_register_premib(u_char type, const char *ftype, const char *token,

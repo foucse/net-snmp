@@ -138,13 +138,11 @@ register_config_handler(const char *type_param,
 
   if (*ctmp == NULL) {
     *ctmp = (struct config_files *)
-      malloc(sizeof(struct config_files));
+      calloc(1,sizeof(struct config_files));
     if ( !*ctmp ) {
       return NULL;
     }
 
-    (*ctmp)->next		 = NULL;
-    (*ctmp)->start		 = NULL;
     (*ctmp)->fileHeader	 = strdup(type);
   }
 
@@ -160,20 +158,15 @@ register_config_handler(const char *type_param,
 
   if (*ltmp == NULL) {
     *ltmp = (struct config_line *)
-      malloc(sizeof(struct config_line));
+      calloc(1,sizeof(struct config_line));
     if ( !*ltmp ) {
       return NULL;
     }
 
-    (*ltmp)->next		 = NULL;
     (*ltmp)->config_time	 = NORMAL_CONFIG;
-    (*ltmp)->parse_line	 = 0;
-    (*ltmp)->free_func	 = 0;
     (*ltmp)->config_token	 = strdup(token);
     if (help != NULL)
       (*ltmp)->help = strdup(help);
-    else (*ltmp)->help = NULL;
-
   }
 
   /* 
@@ -224,10 +217,11 @@ unregister_config_handler(const char *type_param,
   }
   if (strcmp((*ltmp)->config_token,token) == 0) {
     /* found it at the top of the list */
-    (*ctmp)->start = (*ltmp)->next;
+    ltmp2 = (*ltmp)->next;
     free((*ltmp)->config_token);
     SNMP_FREE((*ltmp)->help);
     free(*ltmp);
+    (*ctmp)->start = ltmp2;
     return;
   }
   while ((*ltmp)->next != NULL && strcmp((*ltmp)->next->config_token,token)) {
@@ -265,13 +259,21 @@ void print_config_handlers (void)
 int linecount;
 const char *curfilename;
 
+struct config_line *
+read_config_get_handlers(const char *type) {
+    struct config_files *ctmp = config_files;
+    for(;ctmp != NULL && strcmp(ctmp->fileHeader,type); ctmp = ctmp->next);
+    if (ctmp)
+        return ctmp->start;
+    return NULL;
+}
+
 void read_config_with_type(const char *filename, 
 			   const char *type)
 {
-  struct config_files *ctmp = config_files;
-  for(;ctmp != NULL && strcmp(ctmp->fileHeader,type); ctmp = ctmp->next);
+  struct config_line *ctmp = read_config_get_handlers(type);
   if (ctmp)
-    read_config(filename, ctmp->start, EITHER_CONFIG);
+    read_config(filename, ctmp, EITHER_CONFIG);
   else
     DEBUGMSGTL(("read_config", "read_config: I have no registrations for type:%s,file:%s\n",
            type, filename));
@@ -345,12 +347,34 @@ void read_config(const char *filename,
       if ((cptr = skip_white(cptr)))
 	{
           cptr = copy_word(cptr,token);
+          if (token[0] == '[') {
+              token[strlen(token)-1] = '\0';
+              lptr = read_config_get_handlers(&token[1]);
+              if (lptr == NULL) {
+                  sprintf(tmpbuf,"No handlers regestered for type %s.",
+                          &token[1]);
+                  config_perror(tmpbuf);
+                  continue;
+              }
+              DEBUGMSGTL(("read_config","Switching to new context: %s%s\n",
+                          ((cptr)?"(this line only) ":""),&token[1]));
+              if (cptr == NULL) {
+                  /* change context permanently */
+                  line_handler = lptr;
+                  continue;
+              } else {
+                  /* the rest of this line only applies. */
+                  cptr = copy_word(cptr,token);
+              }
+          } else {
+              lptr = line_handler;
+          }
           if (cptr == NULL) {
             sprintf(tmpbuf,"Blank line following %s token.", token);
             config_perror(tmpbuf);
           } else {
-            for(lptr = line_handler, done=0;
-                lptr != NULL && !done;
+              
+            for(done=0; lptr != NULL && !done;
                 lptr = lptr->next) {
               if (!strcasecmp(token,lptr->config_token)) {
                 if (when == EITHER_CONFIG || lptr->config_time == when) {
@@ -465,9 +489,9 @@ read_config_files (int when)
   struct config_files *ctmp = config_files;
   struct config_line *ltmp;
   struct stat statbuf;
-  
-  config_errors = 0;
 
+  config_errors = 0;
+  
   if (when == PREMIB_CONFIG)
     free_config();
 
@@ -551,9 +575,19 @@ void read_config_print_usage(const char *lead)
     snmp_log(LOG_INFO, "%sIn %s.conf and %s.local.conf:\n", lead, ctmp->fileHeader,
             ctmp->fileHeader);
     for(ltmp = ctmp->start; ltmp != NULL; ltmp = ltmp->next) {
-      if (ltmp->help != NULL)
-        snmp_log(LOG_INFO, "%s%s%-15s %s\n", lead, lead, ltmp->config_token,
-                 ltmp->help);
+        if (ltmp->help != NULL ||
+            (_DBG_IF_ && debug_is_token_registered("read_config") == SNMPERR_SUCCESS)) {
+            if (ltmp->config_time == PREMIB_CONFIG)
+                DEBUGMSG(("read_config", "*"));
+            else
+                DEBUGMSG(("read_config", " "));
+            if (ltmp->help)
+                snmp_log(LOG_INFO, "%s%s%-15s %s\n", lead, lead,
+                         ltmp->config_token, ltmp->help);
+            else
+                snmp_log(LOG_INFO, "%s%s%-15s [NO HELP]\n", lead, lead,
+                         ltmp->config_token);
+        }
     }
   }
 }
@@ -726,7 +760,6 @@ void config_pwarn(const char *string)
    line or a comment character */
 char *skip_white(char *ptr)
 {
-
   if (ptr == NULL) return (NULL);
   while (*ptr != 0 && isspace(*ptr)) ptr++;
   if (*ptr == 0 || *ptr == '#') return (NULL);
@@ -735,7 +768,6 @@ char *skip_white(char *ptr)
 
 char *skip_not_white(char *ptr)
 {
-  
   if (ptr == NULL) return (NULL);
   while (*ptr != 0 && !isspace(*ptr)) ptr++;
   if (*ptr == 0 || *ptr == '#') return (NULL);
@@ -795,17 +827,27 @@ char *copy_word(char *from, char *to)
    followed by a string of hex */
 char *read_config_save_octet_string(char *saveto, u_char *str, size_t len) {
   int i;
-  if (str != NULL) {
-    sprintf(saveto, "0x");
-    saveto += 2;
-    for(i = 0; i < (int)len; i++) {
-      sprintf(saveto,"%02x", str[i]);
-      saveto = saveto + 2;
-    }
-    return saveto;
+  char *cp;
+
+  /* is everything easily printable */
+  for(i=0, cp=str; i < (int)len && cp &&
+          (isalpha(*cp) || isdigit(*cp) || *cp == ' '); cp++, i++);
+
+  if (len != 0 && i == (int)len) {
+      sprintf(saveto, "\"%s\"", str);
+      saveto += strlen(saveto);
   } else {
-    sprintf(saveto,"\"\"");
-    saveto += 2;
+      if (str != NULL) {
+          sprintf(saveto, "0x");
+          saveto += 2;
+          for(i = 0; i < (int)len; i++) {
+              sprintf(saveto,"%02x", str[i]);
+              saveto = saveto + 2;
+          }
+      } else {
+          sprintf(saveto,"\"\"");
+          saveto += 2;
+      }
   }
   return saveto;
 }
@@ -836,13 +878,9 @@ char *read_config_read_octet_string(char *readfrom, u_char **str, size_t *len) {
     }
     *len = *len / 2;
 
-    /* malloc data space if needed */
+    /* malloc data space if needed (+1 for good measure) */
     if (*str == NULL) {
-      if (*len == 0) {
-        /* null length string found */
-        cptr = NULL;
-
-      } else if (*len > 0 && (str == NULL || (cptr = (u_char *)malloc(*len)) == NULL)) {
+      if ((cptr = (u_char *)malloc(*len + 1)) == NULL) {
         return NULL;
       }
       *str = cptr;
@@ -850,26 +888,28 @@ char *read_config_read_octet_string(char *readfrom, u_char **str, size_t *len) {
       cptr = *str;
     }
 
-    /* copy data */
+    /* copy validated data */
     for(i = 0; i < (int)*len; i++) {
-      sscanf(readfrom,"%2x",&tmp);
-      *cptr++ = (u_char) tmp;
+      if (1 == sscanf(readfrom,"%2x",&tmp))
+        *cptr++ = (u_char) tmp;
+      else {
+        /* we may lose memory, but don't know caller's buffer XX free(cptr); */
+        return (NULL);
+      }
       readfrom += 2;
     }
+    *cptr++ = '\0';
     readfrom = skip_white(readfrom);
   } else {
     /* Normal string */
 
-    /* malloc data space if needed */
+    /* malloc string space if needed (including NULL terminator) */
     if (*str == NULL) {
       char buf[SNMP_MAXBUF];
       readfrom = copy_word(readfrom, buf);
 
       *len = strlen(buf);
-      /* malloc an extra space to add a null */
-      if (*len > 0 && (str == NULL ||
-                       (cptr = (u_char *) malloc(*len + 1))
-                       == NULL))
+      if (*len > 0 && ((cptr = (u_char *) malloc(*len + 1)) == NULL))
         return NULL;
       *str = cptr;
       if (cptr)
@@ -907,48 +947,29 @@ char *read_config_read_objid(char *readfrom, oid **objid, size_t *len) {
   if (objid == NULL || readfrom == NULL)
     return NULL;
 
-  if (*objid != NULL) {
-    char buf[SPRINT_MAX_LEN];
+  if (*objid == NULL) {
+      *len = 0;
+      if ((*objid = (oid*)malloc(MAX_OID_LEN * sizeof(oid))) == NULL)
+        return NULL;
+      *len = MAX_OID_LEN;
+  }
 
-    if (strncmp(readfrom,"NULL",4) == 0) {
+  if (strncmp(readfrom,"NULL",4) == 0) {
       /* null length oid */
       *len = 0;
-    } else {
-      /* read_objid is touchy with trailing stuff */
+  } else {
+      /* qualify the string for read_objid */
+      char buf[SPRINT_MAX_LEN];
       copy_word(readfrom, buf);
 
-      /* read the oid into the buffer passed to us */
       if (!read_objid(buf, *objid, len)) {
         DEBUGMSGTL(("read_config_read_objid","Invalid OID"));
+        *len = 0;
         return NULL;
       }
-    }
-    
-    readfrom = skip_token(readfrom);
-  } else {
-    if (strncmp(readfrom,"NULL",4) == 0) {
-      /* null length oid */
-      *len = 0;
-      readfrom = skip_token(readfrom);
-    } else {
-      /* space needs to be malloced.  Call ourself recursively to figure
-       out how long the oid actually is */
-      oid obuf[MAX_OID_LEN];
-      size_t obuflen = MAX_OID_LEN;
-      oid *oidp = obuf;
-      oid **oidpp = &oidp;   /* done this way for odd, untrue, gcc warnings */
-
-      readfrom = read_config_read_objid(readfrom, oidpp, &obuflen);
-
-      /* Then malloc and copy the results */
-      *len = obuflen;
-      if (*len > 0 && (*objid = (oid*)malloc(*len * sizeof(oid))) == NULL)
-        return NULL;
-
-      if (obuflen > 0)
-        memcpy(*objid, obuf, obuflen*sizeof(oid));
-    }
   }
+    
+  readfrom = skip_token(readfrom);
   return readfrom;
 }
 
@@ -960,14 +981,11 @@ char *read_config_read_objid(char *readfrom, oid **objid, size_t *len) {
             NULL if an unknown type.
 */
 char *read_config_read_data(int type, char *readfrom, void *dataptr, size_t *len) {
-
   int *intp;
   char **charpp;
   oid  **oidpp;
 
-  if (dataptr == NULL || readfrom == NULL)
-    return NULL;
-  
+  if (dataptr && readfrom)
   switch(type) {
     case ASN_INTEGER:
       intp = (int *) dataptr;
@@ -998,14 +1016,11 @@ char *read_config_read_data(int type, char *readfrom, void *dataptr, size_t *len
             NULL if an unknown type.
 */
 char *read_config_store_data(int type, char *storeto, void *dataptr, size_t *len) {
-
   int *intp;
   u_char **charpp;
   oid  **oidpp;
 
-  if (dataptr == NULL || storeto == NULL)
-    return NULL;
-  
+  if (dataptr && storeto)
   switch(type) {
     case ASN_INTEGER:
       intp = (int *) dataptr;
@@ -1013,10 +1028,12 @@ char *read_config_store_data(int type, char *storeto, void *dataptr, size_t *len
       return (storeto + strlen(storeto));
       
     case ASN_OCTET_STR:
+      *storeto++ = ' ';
       charpp = (u_char **) dataptr;
       return read_config_save_octet_string(storeto, *charpp, *len);
 
     case ASN_OBJECT_ID:
+      *storeto++ = ' ';
       oidpp = (oid **) dataptr;
       return read_config_save_objid(storeto, *oidpp, *len);
 

@@ -19,7 +19,7 @@
 .\" ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 .\" SOFTWARE.
 .\" ******************************************************************/
-.TH SNMPCMD 1 "23 Aug 2000"
+.TH SNMPCMD 1 "21 Sep 2000"
 .UC 4
 .SH NAME
 snmpcmd - commmands to communicate with a network entity using SNMP Requests.
@@ -84,7 +84,7 @@ or 3 (RFC 2571-2574)
 The default is -v 1
 .IP "-P wWecduR"
 specifies MIB parsing options. See MIB PARSING OPTIONS below.
-.IP "-O nebqfsS"
+.IP "-O nEebqfsSv"
 specifies output printing options. See OUTPUT OPTIONS below.
 .IP "-I Rb"
 specifies input parsing options. See INPUT OPTIONS below.
@@ -252,6 +252,16 @@ down by default and the string hidden in the oid is shown to you as
 vacmSecurityModel.0."wes".
 The -Ob option diables this feature and displays it as
 vacmSecurityModel.0.3.119.101.115 again.
+.IP -OE
+This modifies the index strings to include a \\ to escape the quotes,
+to allow them to be reused in shell commands, such as
+vacmSecurityModel.0.\\"wes\\"
+.IP -Ov
+Output only the variable name, not the OID:
+.br
+snmpget -c public -Ov localhost ip.ipForwarding.0
+.br
+forwarding(1)
 .PP
 Note that most of these options can be turned on or off by default by
 tuning the snmp.conf file.  See the snmp.conf(5) manual page for
