@@ -92,6 +92,7 @@ inline int call_handler(mib_handler          *next_handler,
                         agent_request_info   *reqinfo,
                         request_info         *requests) {
     NodeHandler *nh;
+    int ret;
     
     if (next_handler == NULL || reginfo == NULL || reqinfo == NULL ||
         requests == NULL) {
@@ -109,7 +110,12 @@ inline int call_handler(mib_handler          *next_handler,
     DEBUGMSGTL(("handler:calling", "calling handler %s\n",
                  next_handler->handler_name));
 
-    return (*nh)(next_handler, reginfo, reqinfo, requests);
+    ret = (*nh)(next_handler, reginfo, reqinfo, requests);
+
+    DEBUGMSGTL(("handler:returned", "handler %s returned %d\n",
+                 next_handler->handler_name, ret));
+
+    return ret;
 }
 
 inline int call_next_handler(mib_handler          *current,
