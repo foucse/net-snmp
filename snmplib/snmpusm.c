@@ -39,14 +39,31 @@
 #define TRUE	1
 #define FALSE	0
 
-
-
 /*
 	This is the seed for the salt (an arbitrary number - RFC2274,
 	Sect 8.1.1.1.)
 */
 
 static u_int salt_integer = 4985517;
+
+void
+emergency_print (u_char *field, u_int length)
+{
+	int index;
+	int start=0;
+	int stop=25;
+
+	while (start < stop)
+	{
+		for (index = start; index < stop; index++)
+			printf ("%02X ", field[index]);
+
+		printf ("\n");
+		start = stop;
+		stop = stop+25<length?stop+25:length;
+	}
+	fflush (0);
+}
 
 int
 asn_predict_int_length (int type, long number, int len)
@@ -109,7 +126,7 @@ usm_calc_offsets (
 
 	/* If doing authentication, msgAuthParmLen = 12 else msgAuthParmLen = 0 */
 	*msgAuthParmLen = (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
-						|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)?12:0;
+		|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)?12:0;
 
 	/* If doing encryption, msgPrivParmLen = 8 else msgPrivParmLen = 0 */
 	*msgPrivParmLen = (secLevel == SNMP_SEC_LEVEL_AUTHPRIV)?8:0;
@@ -120,12 +137,12 @@ usm_calc_offsets (
 		return -1;
 	}
 	if ((engBtlen = asn_predict_length (ASN_INTEGER,
-					(u_char*)&engineboots,sizeof(long)))==-1)
+		(u_char*)&engineboots,sizeof(long)))==-1)
 	{
 		return -1;
 	}
 	if ((engTmlen = asn_predict_length (ASN_INTEGER,
-					(u_char*)&enginetime,sizeof(long)))==-1)
+		(u_char*)&enginetime,sizeof(long)))==-1)
 	{
 		return -1;
 	}
@@ -422,11 +439,11 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	/* Set up the Offsets */
 
 	if (usm_calc_offsets (globalDataLen, secLevel, secEngineIDLen,
-							secNameLen, scopedPduLen, boots_long, time_long,
-							&theTotalLength, &authParamsOffset,
-							&privParamsOffset, &dataOffset, &datalen,
-							&msgAuthParmLen, &msgPrivParmLen,
-							&otstlen, &seq_len, &msgSecParmLen) == -1)
+		secNameLen, scopedPduLen, boots_long, time_long,
+		&theTotalLength, &authParamsOffset,
+		&privParamsOffset, &dataOffset, &datalen,
+		&msgAuthParmLen, &msgPrivParmLen,
+		&otstlen, &seq_len, &msgSecParmLen) == -1)
 	{
 		DEBUGP ("usm_generate_out_msg():%s,%d: Failed calculating offsets\n",
 			__FILE__,__LINE__);
@@ -451,6 +468,8 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 
 	ptr_len = *wholeMsgLen = theTotalLength;
 
+memset (&ptr[globalDataLen], 0xFF, theTotalLength-globalDataLen);
+
 	/* Do the encryption */
 
 	if (secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
@@ -461,7 +480,7 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		int iv_length = msgPrivParmLen;
 
 		if (usm_set_salt (&ptr[privParamsOffset], &iv_length,
-						user->privKey, user->privKeyLen) == -1)
+			user->privKey, user->privKeyLen) == -1)
 		{
 			DEBUGP ("usm_generate_out_msg():%s,%d: Can't set CBC-DES salt\n",
 				__FILE__,__LINE__);
@@ -469,11 +488,10 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		}
 
 		if (sc_encrypt (user->privProtocol, user->privProtocolLen,
-						user->privKey, user->privKeyLen,
-						&ptr[privParamsOffset], iv_length,
-						scopedPdu, scopedPduLen,
-						&ptr[dataOffset], &encrypted_length)
-											!= SNMP_ERR_NOERROR)
+			user->privKey, user->privKeyLen,
+			&ptr[privParamsOffset], iv_length,
+			scopedPdu, scopedPduLen,
+			&ptr[dataOffset], &encrypted_length) != SNMP_ERR_NOERROR)
 		{
 			/* RETURN: encryptionError */
 			DEBUGP ("usm_generate_out_msg():%s,%d: CBC-DES error\n",
@@ -490,14 +508,12 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		}
 
 		DEBUGP ("usm_generate_out_msg():%s,%d: encryption successful\n",
-				__FILE__,__LINE__);
+			__FILE__,__LINE__);
 	}
 	else
 	{
 		/* No encryption for you! */
 		memcpy (&ptr[dataOffset],scopedPdu,scopedPduLen);
-		/* I don't think I need to do this:
-				 memset (&ptr[privParamsOffset],0,1);*/
 	}
 
 	/* Start filling in the other fields (in prep for authentication) */
@@ -505,96 +521,90 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	remaining = ptr_len - globalDataLen;
 
 	offSet =  ptr_len - remaining;
+	/* Need to build an octet string header, which is different from all
+		other header */
 	asn_build_header (&ptr[offSet], &remaining, 
-					(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
-					msgSecParmLen);
+		(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR), otstlen);
 
 	offSet = ptr_len - remaining;
-	asn_build_header (&ptr[offSet], &remaining, 
-					(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), otstlen);
+	asn_build_sequence (&ptr[offSet], &remaining, 
+		(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), seq_len);
 	
 	offSet = ptr_len - remaining;
 	asn_build_string (&ptr[offSet], &remaining,
-					(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
-					secEngineID, secEngineIDLen);
+		(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+		secEngineID, secEngineIDLen);
 	
 	offSet = ptr_len - remaining;
 	asn_build_int (&ptr[offSet], &remaining,
-					(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-					&boots_long, sizeof(long));
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
+		&boots_long, sizeof(long));
 	
 	offSet = ptr_len - remaining;
 	asn_build_int (&ptr[offSet], &remaining,
-					(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-					&time_long, sizeof(long));
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
+		&time_long, sizeof(long));
 	
 	offSet = ptr_len - remaining;
 	asn_build_string (&ptr[offSet], &remaining,
-					(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
-					secName, secNameLen);
+		(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+		secName, secNameLen);
 
 	/* Time for the authentication area - for now, blank sig if signing */
 
+	/*
+		Note: if there is no authentication being done, msgAuthParmLen is 0,
+		and there is no effect (other than inserting a zero-length header)
+		of the following statements.
+	*/
+
 	offSet = ptr_len - remaining;
+	asn_build_header(&ptr[offSet], &remaining,
+		(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),msgAuthParmLen);
+
 	if (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
-						|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
+		|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
 	{
-		asn_build_header(&ptr[offSet], &remaining,
-						(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
-						msgAuthParmLen);
 		offSet = ptr_len - remaining;
 		memset (&ptr[offSet],0,msgAuthParmLen);
 	}
-	else
-	{
-		asn_build_string(&ptr[offSet], &remaining,
-							(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
-							NULL, msgAuthParmLen);
-	}
+
+	remaining -= msgAuthParmLen;
 
 	/* Time for the encryption parameters - if privacy is applied, the
 		parameters are already in there, just the header is needed. */
 
-	offSet = ptr_len - remaining;
-	if (secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
-	{
-		asn_build_header(&ptr[offSet], &remaining,
-							(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
-							msgPrivParmLen);
-		/* Privacy parameters are already in there */
-	}
-	else
-	{
-		asn_build_string(&ptr[offSet], &remaining,
-							(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
-							NULL, msgPrivParmLen);
-	}
+	/*
+		Note: if there is no encryption being done, msgPrivParmLen is 0,
+		and there is no effect (other than inserting a zero-length header)
+		of the following statements.
+	*/
 
 	offSet = ptr_len - remaining;
 	asn_build_header(&ptr[offSet], &remaining,
-						(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
-						msgPrivParmLen);
+		(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),msgPrivParmLen);
 
-	/* In doing encyption, need to add the octet string header for it */
+	remaining -= msgPrivParmLen; /* Skipping the IV already there */
+
+	/* For privacy, need to add the octet string header for it */
 
 	if (secLevel==SNMP_SEC_LEVEL_AUTHPRIV)
 	{
 		offSet = ptr_len - remaining;
 		asn_build_header(&ptr[offSet], &remaining,
-						(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
-						scopedPduLen);
+			(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR), scopedPduLen);
 	}
 
 	/* Need to adjust overall length */
 
 	remaining = theTotalLength;
 	asn_build_sequence (ptr, &remaining, 
-				(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), theTotalLength-4);
+		(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), theTotalLength-4);
 
 	/* Now, time to consider / do authentication */
 
 	if (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
-						|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
+		|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
 	{
 		int temp_sig_len = msgAuthParmLen;
 		u_char *temp_sig = (u_char *) malloc (temp_sig_len);
@@ -607,12 +617,11 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		}
 
 		if (sc_generate_keyed_hash (user->authProtocol, user->authProtocolLen,
-									user->authKey, user->authKeyLen,
-									ptr, ptr_len,
-									temp_sig, &temp_sig_len)
-											!= SNMP_ERR_NOERROR)
+			user->authKey, user->authKeyLen, ptr, ptr_len,
+			temp_sig, &temp_sig_len) != SNMP_ERR_NOERROR)
 		{
 			free (temp_sig);
+
 			/* RETURN: authenticationFailure */
 			DEBUGP ("usm_generate_out_msg():%s,%d: signing failed\n",
 				__FILE__,__LINE__);
@@ -622,6 +631,7 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		if (temp_sig_len != msgAuthParmLen)
 		{
 			free (temp_sig);
+
 			/* RETURN: authenticationFailure */
 			DEBUGP ("usm_generate_out_msg():%s,%d: signing lengths failed\n",
 				__FILE__,__LINE__);
@@ -714,7 +724,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 	u_int  *signature_length;
 	u_char *salt;
 	u_int  *salt_length;
-	u_char *data_ptr;
+	u_char **data_ptr;
 {
 	u_char *parse_ptr = secParams;
 	u_char *value_ptr;
@@ -731,7 +741,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 	/* Eat the first octet header */
 
 	if ((value_ptr = asn_parse_header (parse_ptr, &octet_string_length,
-			&type_value)) == NULL)
+		&type_value)) == NULL)
 	{
 		/* RETURN parse error */ return -1;
 	}
@@ -747,7 +757,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 	sequence_length = octet_string_length;
 
 	if ((value_ptr = asn_parse_header (parse_ptr, &sequence_length,
-			&type_value)) == NULL)
+		&type_value)) == NULL)
 	{
 		/* RETURN parse error */ return -1;
 	}
@@ -763,7 +773,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 	remaining_bytes = sequence_length;
 
 	if ((next_ptr = asn_parse_string (parse_ptr, &remaining_bytes, &type_value,
-						secEngineID, secEngineIDLen)) == NULL)
+		secEngineID, secEngineIDLen)) == NULL)
 	{
 		/* RETURN parse error */ return -1;
 	}
@@ -777,7 +787,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 		remaining_bytes are used (to accomodate the asn code) */
 
 	if ((next_ptr = asn_parse_int (next_ptr, &remaining_bytes, &type_value,
-						&boots_long, sizeof(long))) == NULL)
+		&boots_long, sizeof(long))) == NULL)
 	{
 		/* RETURN parse error */ return -1;
 	}
@@ -792,7 +802,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 	/* Retrieve the time value */
 
 	if ((next_ptr = asn_parse_int (next_ptr, &remaining_bytes, &type_value,
-						&time_long, sizeof(long))) == NULL)
+		&time_long, sizeof(long))) == NULL)
 	{
 		/* RETURN parse error */ return -1;
 	}
@@ -807,7 +817,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 	/* Retrieve the secName */
 
 	if ((next_ptr = asn_parse_string (next_ptr, &remaining_bytes, &type_value,
-						secName, secNameLen)) == NULL)
+		secName, secNameLen)) == NULL)
 	{
 		/* RETURN parse error */ return -1;
 	}
@@ -820,7 +830,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 	/* Retrieve the signature and blank it if there */
 
 	if ((next_ptr = asn_parse_string (next_ptr, &remaining_bytes, &type_value,
-						signature, signature_length)) == NULL)
+		signature, signature_length)) == NULL)
 	{
 		/* RETURN parse error */ return -1;
 	}
@@ -838,8 +848,8 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 	/* Retrieve the salt */
 	/* Note that the next ptr is where the data section starts. */
 
-	if ((data_ptr = asn_parse_string (next_ptr, &remaining_bytes, &type_value,
-						salt, salt_length)) == NULL)
+	if ((*data_ptr = asn_parse_string (next_ptr, &remaining_bytes, &type_value,
+		salt, salt_length)) == NULL)
 	{
 		/* RETURN parse error */ return -1;
 	}
@@ -854,7 +864,7 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 
 int
 usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
-		time_uint, error)
+	time_uint, error)
 	u_char *secEngineID;
 	int    secEngineIDLen;
 	u_int  boots_uint;
@@ -897,7 +907,7 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 		/* This is a local reference */
 
 		u_int time_difference = myTime > time_uint ?
-				myTime - time_uint : time_uint - myTime;
+			myTime - time_uint : time_uint - myTime;
 
 		if (boots_uint == 2147483647 /* Is there a defined const.? */
 			|| boots_uint != myBoots
@@ -906,15 +916,15 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 			/* INCREMENT usmStatsNotInTimeWindows */
 			if (snmp_increment_statistic (STAT_USMSTATSNOTINTIMEWINDOWS)==0)
 			{
-			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+				DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
 					__FILE__,__LINE__,
 					"Failed to increment statistic");
 				*error = USM_ERR_GENERIC_ERROR;
 			}
 			else
 			{
-			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
-				__FILE__,__LINE__, "Not in local time window");
+				DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
+					__FILE__,__LINE__, "Not in local time window");
 				*error = USM_ERR_NOT_IN_TIME_WINDOW;
 			}
 			return -1;
@@ -939,7 +949,7 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 		}
 
 		time_difference = theirTime > time_uint ?
-				theirTime - time_uint : time_uint - theirTime;
+			theirTime - time_uint : time_uint - theirTime;
 
 		/* Contrary to the pseudocode: */
 		/* See if boots is invalid first */
@@ -998,25 +1008,25 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 
 int
 usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel, 
-		    wholeMsg, wholeMsgLen, secEngineID, secEngineIDLen, 
-		    secName, secNameLen, scopedPdu, scopedPduLen, 
-		    maxSizeResponse, secStateRef)
-     int msgProcModel;          /* not used */
-     int maxMsgSize;            /* IN - used to calc maxSizeResponse */
-     u_char *secParams;         /* IN - BER encoded securityParameters */
-     int secModel;              /* not used */
-     int secLevel;              /* IN - authNoPriv, authPriv etc. */
-     u_char *wholeMsg;          /* IN - auth/encrypted data */
-     int wholeMsgLen;           /* IN - msg length */
-     u_char *secEngineID;       /* OUT - pointer snmpEngineID */
-     int *secEngineIDLen;       /* IN/OUT - len available, len returned */
-                                /* NOTE: memory provided by caller */
-     u_char *secName;           /* OUT - pointer to securityName */
-     int *secNameLen;           /* IN/OUT - len available, len returned */
-     u_char **scopedPdu;        /* OUT - pointer to plaintext scopedPdu */
-     int *scopedPduLen;         /* IN/OUT - len available, len returned */
-     int *maxSizeResponse;      /* OUT - max size of Response PDU */
-     void **secStateRef;        /* OUT - ref to security state */
+    wholeMsg, wholeMsgLen, secEngineID, secEngineIDLen, 
+    secName, secNameLen, scopedPdu, scopedPduLen, 
+    maxSizeResponse, secStateRef)
+	int msgProcModel;          /* not used */
+	int maxMsgSize;            /* IN - used to calc maxSizeResponse */
+	u_char *secParams;         /* IN - BER encoded securityParameters */
+	int secModel;              /* not used */
+	int secLevel;              /* IN - authNoPriv, authPriv etc. */
+	u_char *wholeMsg;          /* IN - auth/encrypted data */
+	int wholeMsgLen;           /* IN - msg length */
+	u_char *secEngineID;       /* OUT - pointer snmpEngineID */
+	int *secEngineIDLen;       /* IN/OUT - len available, len returned */
+	                           /* NOTE: memory provided by caller */
+	u_char *secName;           /* OUT - pointer to securityName */
+	int *secNameLen;           /* IN/OUT - len available, len returned */
+	u_char **scopedPdu;        /* OUT - pointer to plaintext scopedPdu */
+	int *scopedPduLen;         /* IN/OUT - len available, len returned */
+	int *maxSizeResponse;      /* OUT - max size of Response PDU */
+	void **secStateRef;        /* OUT - ref to security state */
 {
 #define USM_MAX_SALT_LENGTH			64
 #define USM_MAX_KEYEDHASH_LENGTH	64
@@ -1048,7 +1058,7 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 	if (usm_parse_security_parameters (secParams, remaining,
 		secEngineID, secEngineIDLen, &boots_uint, &time_uint, secName,
 		secNameLen, signature, &signature_length, salt, &salt_length,
-		data_ptr) == -1)
+		&data_ptr) == -1)
 	{
 		DEBUGP ("usm_process_in_msg():%s,%d: Parsing failed\n",
 			__FILE__,__LINE__);
@@ -1121,25 +1131,26 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 
 	/* Check the authentication credentials of the message */
 
-	if (sc_check_keyed_hash (user->authProtocol, user->authProtocolLen,
-									user->authKey, user->authKeyLen,
-									wholeMsg, wholeMsgLen,
-									signature, signature_length)
-											!= SNMP_ERR_NOERROR)
+	if (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
+		|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
 	{
-			DEBUGP ("usm_process_in_msg():%s,%d: Verification failed\n",
-				__FILE__,__LINE__);
+		if (sc_check_keyed_hash (user->authProtocol, user->authProtocolLen,
+			user->authKey, user->authKeyLen, wholeMsg, wholeMsgLen,
+			signature, signature_length) != SNMP_ERR_NOERROR)
+		{
+				DEBUGP ("usm_process_in_msg():%s,%d: Verification failed\n",
+					__FILE__,__LINE__);
 
-			/* INCREMENT usmStatsWrongDigests */
-			if (snmp_increment_statistic (STAT_USMSTATSWRONGDIGESTS)==0)
-				return USM_ERR_GENERIC_ERROR;
+				/* INCREMENT usmStatsWrongDigests */
+				if (snmp_increment_statistic (STAT_USMSTATSWRONGDIGESTS)==0)
+					return USM_ERR_GENERIC_ERROR;
 
-			return USM_ERR_AUTHENTICATION_FAILURE;
+				return USM_ERR_AUTHENTICATION_FAILURE;
+		}
+
+		DEBUGP ("usm_process_in_msg():%s,%d: Verification succeeded\n",
+			__FILE__,__LINE__);
 	}
-
-	DEBUGP ("usm_process_in_msg():%s,%d: Verification succeeded\n",
-		__FILE__,__LINE__);
-
 
 	/* Perform the timeliness/time manager functions */
 
@@ -1157,7 +1168,7 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 		remaining = wholeMsgLen - (data_ptr - wholeMsg);
 
 		if ((value_ptr = asn_parse_header (data_ptr, &remaining,
-				&type_value)) == NULL)
+			&type_value)) == NULL)
 		{
 			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
 				__FILE__,__LINE__,
@@ -1198,11 +1209,8 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 		end_of_overhead = value_ptr;
 
 		if (sc_decrypt (user->privProtocol, user->privProtocolLen,
-						user->privKey, user->privKeyLen,
-						salt, salt_length,
-						value_ptr, remaining,
-						*scopedPdu, scopedPduLen)
-											!= SNMP_ERR_NOERROR)
+			user->privKey, user->privKeyLen, salt, salt_length,
+			value_ptr, remaining, *scopedPdu, scopedPduLen) != SNMP_ERR_NOERROR)
 		{
 			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
 				__FILE__,__LINE__, "Failed decryption");
@@ -1235,7 +1243,8 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 
 	/* Steps 10-11, don't know why */
 
-	*secStateRef = NULL;
+	if (secStateRef)
+		*secStateRef = NULL;
 
 	DEBUGP ("usm_process_in_msg():%s,%d: USM processing completed\n",
 		__FILE__,__LINE__);
@@ -1260,12 +1269,12 @@ usm_check_secLevel(int level, struct usmUser *user)
 {
   if (level == SNMP_SEC_LEVEL_AUTHPRIV &&
       compare(user->privProtocol, user->privProtocolLen, usmNoPrivProtocol,
-              sizeof(usmNoPrivProtocol)/sizeof(oid)))
+              sizeof(usmNoPrivProtocol)/sizeof(oid))==0)
     return 1;
   if ((level == SNMP_SEC_LEVEL_AUTHPRIV ||
        level == SNMP_SEC_LEVEL_AUTHNOPRIV) &&
       compare(user->authProtocol, user->authProtocolLen, usmNoAuthProtocol,
-              sizeof(usmNoAuthProtocol)/sizeof(oid)))
+              sizeof(usmNoAuthProtocol)/sizeof(oid))==0)
     return 1;
   return 0; /* success */
 }
