@@ -20,6 +20,10 @@ extern "C" {
 #define RS_CREATEANDWAIT	5
 #define RS_DESTROY		6
 
+#define RS_IS_GOING_ACTIVE( x ) ( x == RS_CREATEANDGO || x == RS_ACTIVE )
+#define RS_IS_ACTIVE( x ) ( x == RS_ACTIVE )
+#define RS_IS_NOT_ACTIVE( x ) ( ! RS_GOING_ACTIVE(x) )
+
 /* StorageType */
 #define ST_NONE 0
 #define ST_OTHER	1
