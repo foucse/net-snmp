@@ -225,7 +225,7 @@ unsigned char *var_extensible_pass(struct variable *vp,
           return((unsigned char *) &long_ret);
         } else if (!strncasecmp(buf,"counter",7)) {
           *var_len = sizeof(long_ret);
-          long_ret = atoi(buf2);
+          long_ret = strtoul(buf2, NULL, 10);
           vp->type = ASN_COUNTER;
           return((unsigned char *) &long_ret);
         } else if (!strncasecmp(buf,"octet",5)) {
@@ -234,7 +234,7 @@ unsigned char *var_extensible_pass(struct variable *vp,
           return((unsigned char *) buf2);
         } else if (!strncasecmp(buf,"gauge",5)) {
           *var_len = sizeof(long_ret);
-          long_ret = atoi(buf2);
+          long_ret = strtoul(buf2, NULL, 10);
           vp->type = ASN_GAUGE;
           return((unsigned char *) &long_ret);
         } else if (!strncasecmp(buf,"objectid",8)) {
@@ -244,7 +244,7 @@ unsigned char *var_extensible_pass(struct variable *vp,
           return((unsigned char *) objid);
         } else if (!strncasecmp(buf,"timetick",8)) {
           *var_len = sizeof(long_ret);
-          long_ret = atoi(buf2);
+          long_ret = strtoul(buf2, NULL, 10);
           vp->type = ASN_TIMETICKS;
           return((unsigned char *) &long_ret);
         } else if (!strncasecmp(buf,"ipaddress",9)) {
