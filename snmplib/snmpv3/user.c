@@ -283,237 +283,6 @@ user_print(netsnmp_user *info)
                  **************************************/
                 /** @package snmpv3_internals */
 
-#define USM_MD5_AUTHLEN 12		/* Also used for SHA */
-#define USM_MAX_AUTHLEN USM_MD5_AUTHLEN
-
-   /**
-    *  ASN.1-encode a USM header structure.
-    *  Returns 0 if successful, -ve otherwise
-    *
-    *  When called, the buffer should contain a scopedPDU
-    */
-int
-user_encode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
-{
-    int start_len;
-
-    if ((NULL == buf ) || (NULL == v3info)) {
-        return -1;
-    }
-    if (!(buf->flags & NETSNMP_BUFFER_REVERSE)) {
-        return -1;	/* XXX - or set the flag ? */
-    }
-    if (NULL == userinfo) {
-        if (NULL == v3info->sec_name) {
-            userinfo = user_create("", 0, v3info->sec_engine);
-        } else {
-            userinfo = user_create(v3info->sec_name->string,
-                                   v3info->sec_name->cur_len,
-                                   v3info->sec_engine);
-        }
-    }
-
-    if (NETSNMP_AUTH_PROTOCOL_DEFAULT == userinfo->auth_protocol) {
-        userinfo->auth_protocol = NETSNMP_AUTH_PROTOCOL_MD5;
-    }
-    if (NETSNMP_PRIV_PROTOCOL_DEFAULT == userinfo->priv_protocol) {
-        userinfo->priv_protocol = NETSNMP_PRIV_PROTOCOL_DES;
-    }
-
-    start_len = buf->cur_len;	/* Remember the length before we start */
-
-
-    if ( v3info->v3_flags & PRIV_FLAG ) {
-        /*
-         * If this message requires privacy,
-         * replace the scoped PDU in the buffer with the encrypted
-         *   version, and note the new length (which will probably
-         *   be different from the original scoped PDU).
-         *
-         * Then add the privParameters value from the userinfo structure
-         *   (which should be set up by the encryption routine).
-         * This is done here (rather than within the encryption routine
-         *   itself) so that this value can be correctly included within
-         *   the UsmSecurityParameters SEQUENCE header
-         */
-	__B(priv_encrypt(buf, v3info, userinfo))
-        start_len = buf->cur_len;
-        __B(encode_bufstr(buf, userinfo->priv_params ))
-    }
-    else {
-        __B(encode_bufstr(buf, NULL))
-    }
-
-    if ( v3info->v3_flags & AUTH_FLAG ) {
-        /*
-         * If this message requires authentication,
-         *   add the authParameters field.
-         *
-         * Note that this may often contain a dummy 'placeholder'
-         *   value, as the full authenticated signature probably
-         *   cannot be calculated until the rest of the
-         *   UsmSecurityParameters have been provided.
-         * We therefore need to remember the appropriate location
-         *   in the encoded PDU, and fill in the real value later.
-         */
-        userinfo->auth_saved_len = buf->cur_len;
-        __B(auth_stamp_pre(buf, v3info, userinfo))
-    }
-    else {
-        __B(encode_bufstr(buf, NULL))
-    }
-
-    /*
-     * Now encode the rest of the UsmSecurityParameters header...
-     */
-    __B(encode_bufstr( buf, userinfo->user_name))
-    __B(engine_encode( buf, userinfo->sec_engine))
-    __B(encode_sequence(buf, (buf->cur_len - start_len)))
-
-    /*
-     * .... and wrap the whole thing within an OCTET STRING
-     */
-    __B(encode_asn1_header(buf, ASN_OCTET_STR, (buf->cur_len - start_len)))
-
-
-#ifdef NOT_HERE
-    /*
-     * If this message requires authentication, we can now calculate
-     *  the real authentication signature and insert it into the encoded PDU.
-     */
-    if ( v3info->v3_flags & AUTH_FLAG ) {
-        __B(auth_stamp_post(buf, v3info, userinfo, auth_saved_len))
-    }
-#endif
-    return 0;
-}
-
-
-netsnmp_user*
-user_decode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
-{
-    netsnmp_buf    *user_params = NULL;
-    netsnmp_buf    *seq      = NULL;
-    netsnmp_engine *sec_eng  = NULL;
-    netsnmp_buf    *user_name = NULL;
-    netsnmp_user   *user     = NULL;
-    char *cp;
-
-    if ((NULL == buf)          ||
-        (NULL == buf->string)  ||
-        (0    == buf->cur_len)) {
-        return NULL;
-    }
-
-
-    /*
-     * Unpack the UsmSecurityParameters header from the
-     *   enclosing OCTET STRING and sequence
-     */
-    user_params = decode_string(buf, NULL);
-    if (NULL == user_params) {
-        goto fail;
-    }
-    seq = decode_sequence(user_params);
-    if ((NULL == seq) || (0 != user_params->cur_len)) {
-        goto fail;
-    }
-    sec_eng = engine_decode( seq, NULL );
-    if (NULL == sec_eng ) {
-        goto fail;
-    }
-    user_name   = decode_string( seq, NULL );
-    if (NULL == user_name ) {
-        goto fail;
-    }
-
-    /*
-     * Retrieve (or create) the user structure for this user
-     * This can legitimately fail for non-authenticated requests
-     *    (e.g. engine probes)
-     */
-    user = user_create( user_name->string, user_name->cur_len, sec_eng);
-    if (NULL == user) {
-        if (NULL != user_name->string) {
-            goto fail;
-        }
-
-        /*
-         *  If there wasn't a security name specified, and so
-         *    the 'user_create' call failed, then we still
-         *    need something to hang everything else off.
-         */
-        if (NULL == userinfo) {
-            user = (netsnmp_user *)calloc(1, sizeof(netsnmp_user));
-            if (NULL == user) {
-                return NULL;
-            }
-        } else {
-            user = userinfo;
-        }
-        user->user_name = user_name;
-        user->sec_engine = sec_eng;
-        user->ref_count++;
-    }
-
-    /*
-     * Extract the authParameters, and attempt to authenticate
-     *   the request if so indicated.
-     * Note that for unauthenticated requests, the authParameters field
-     *   will result in a non-NULL buffer, containing an empty string.
-     */
-    cp = seq->string;
-    user->auth_params= decode_string( seq, NULL );
-    if (NULL == user->auth_params ) {
-        goto fail;
-    }
-    if ( v3info->v3_flags & AUTH_FLAG ) {
-
-        /*
-         * Blank out the signature from the original message,
-         *   so we can authenticate it later.
-         */
-        memset(cp, 0, user->auth_params->cur_len);
-        /*
-         * The signature itself needs to be calculate over the *whole*
-         *  message buffer, which we don't actually have access to here.
-         *  So we'll postpone calling 'auth_verify' until we return to 'decode_pdu'.
-         * This doesn't feel right in terms of modular programming,
-         *  (since it hardwires using USM at a much too high level in the code)
-         *  but I can't see any alternative just at the moment.
-         */
-    }
-
-    /*
-     * Extract the privParameters (which may also be an empty string)
-     * If the request has been encrypted, replace the contents of the
-     *   input 'buf' with the decrypted version.
-     */
-    user->priv_params= decode_string( seq, NULL );
-    if (NULL == user->priv_params ) {
-        goto fail;
-    }
-    if (0 != seq->cur_len) {
-        goto fail;
-    }
-    if ( v3info->v3_flags & PRIV_FLAG ) {
-        if (-1 == priv_decrypt(buf, v3info, user)) {
-            goto fail;
-        }
-    }
-    v3info->sec_engine = engine_copy(user->sec_engine);
-    return user;
-
-fail:
-    buffer_free( user_params );
-    buffer_free( seq );
-    buffer_free( user_name );
-    engine_free( sec_eng );
-    user_free( user );
-    return NULL;
-}
-
-
    /**
     *  Find the given User in the internal list.
     *  Returns a pointer to the relevant structure if successful, NULL otherwise.
@@ -676,3 +445,296 @@ user_session_defaults(struct snmp_session *session, netsnmp_user *info)
                                     session->securityNameLen, 0);
     }
 }
+
+
+                /**************************************
+                 *
+                 *      Security Model Processing routines
+                 *
+                 **************************************/
+
+
+#define USM_MD5_AUTHLEN 12		/* Also used for SHA */
+#define USM_MAX_AUTHLEN USM_MD5_AUTHLEN
+
+   /**
+    *  ASN.1-encode a UserSM-based PDU.
+    *  Returns 0 if successful, -ve otherwise
+    *
+    *  When called, the buffer should contain a scopedPDU
+    */
+int
+user_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
+{
+    int start_len;
+    int hdr_start_len;
+    int auth_saved_len = -1;
+    netsnmp_v3info *v3info   = NULL;
+    netsnmp_user   *userinfo = NULL;
+
+    if ((NULL == buf ) || (NULL == pdu) || (NULL == pdu->v3info)) {
+        return -1;
+    }
+    if (!(buf->flags & NETSNMP_BUFFER_REVERSE)) {
+        return -1;	/* XXX - or set the flag ? */
+    }
+    v3info   = pdu->v3info;
+    userinfo = pdu->userinfo;
+
+    if (NULL == userinfo) {
+        if (NULL == v3info->sec_name) {
+            userinfo = user_create("", 0, v3info->sec_engine);
+        } else {
+            userinfo = user_create(v3info->sec_name->string,
+                                   v3info->sec_name->cur_len,
+                                   v3info->sec_engine);
+        }
+    }
+
+    if (NETSNMP_AUTH_PROTOCOL_DEFAULT == userinfo->auth_protocol) {
+        userinfo->auth_protocol = NETSNMP_AUTH_PROTOCOL_MD5;
+    }
+    if (NETSNMP_PRIV_PROTOCOL_DEFAULT == userinfo->priv_protocol) {
+        userinfo->priv_protocol = NETSNMP_PRIV_PROTOCOL_DES;
+    }
+
+    start_len     = 0;		/* XXX - we really want the value of 'start_len' from
+					from the routine that called this one.
+					But since we'll be starting from an empty buffer,
+					it should be safe(-ish) to hardwire this.	*/
+    hdr_start_len = buf->cur_len;	/* Remember the length before we start */
+
+
+    if ( v3info->v3_flags & PRIV_FLAG ) {
+        /*
+         * If this message requires privacy,
+         * replace the scoped PDU in the buffer with the encrypted
+         *   version, and note the new length (which will probably
+         *   be different from the original scoped PDU).
+         *
+         * Then add the privParameters value from the userinfo structure
+         *   (which should be set up by the encryption routine).
+         * This is done here (rather than within the encryption routine
+         *   itself) so that this value can be correctly included within
+         *   the UsmSecurityParameters SEQUENCE header
+         */
+	__B(priv_encrypt(buf, v3info, userinfo))
+        hdr_start_len = buf->cur_len;
+        __B(encode_bufstr(buf, userinfo->priv_params ))
+    }
+    else {
+        __B(encode_bufstr(buf, NULL))
+    }
+
+    if ( v3info->v3_flags & AUTH_FLAG ) {
+        /*
+         * If this message requires authentication,
+         *   add the authParameters field.
+         *
+         * Note that this may often contain a dummy 'placeholder'
+         *   value, as the full authenticated signature probably
+         *   cannot be calculated until the rest of the
+         *   UsmSecurityParameters have been provided.
+         * We therefore need to remember the appropriate location
+         *   in the encoded PDU, and fill in the real value later.
+         */
+        auth_saved_len = buf->cur_len;
+        __B(auth_stamp_pre(buf, v3info, userinfo))
+    }
+    else {
+        __B(encode_bufstr(buf, NULL))
+    }
+
+    /*
+     * Now encode the rest of the UsmSecurityParameters header...
+     */
+    __B(encode_bufstr( buf, userinfo->user_name))
+    __B(engine_encode( buf, userinfo->sec_engine))
+    __B(encode_sequence(buf, (buf->cur_len - hdr_start_len)))
+
+    /*
+     * .... and wrap the whole thing within an OCTET STRING
+     */
+    __B(encode_asn1_header(buf, ASN_OCTET_STR, (buf->cur_len - hdr_start_len)))
+
+
+    /*
+     * Finish encoding the full v3 PDU
+     */
+    __B(v3info_encode( buf, pdu->v3info))
+    __B(encode_integer(buf, ASN_INTEGER, pdu->version))
+    __B(encode_sequence(buf, (buf->cur_len - start_len)))
+
+
+    /*
+     * If this message requires authentication, we can now calculate
+     *  the real authentication signature and insert it into the encoded PDU.
+     */
+    if ( pdu->v3info->v3_flags & AUTH_FLAG ) {
+        __B(auth_stamp_post(buf, pdu->v3info, pdu->userinfo, auth_saved_len))
+    }
+
+    return 0;
+}
+
+
+netsnmp_pdu*
+user_decode_pdu(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_buf *wholeMsg)
+{
+    netsnmp_buf    *user_params = NULL;
+    netsnmp_buf    *seq      = NULL;
+    netsnmp_engine *sec_eng  = NULL;
+    netsnmp_buf    *user_name = NULL;
+    netsnmp_buf    *tmp      = NULL;
+    netsnmp_user   *user     = NULL;
+    netsnmp_pdu    *pdu      = NULL;
+    char *cp;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+
+    /*
+     * Unpack the UsmSecurityParameters header from the
+     *   enclosing OCTET STRING and sequence
+     */
+    user_params = decode_string(buf, NULL);
+    if (NULL == user_params) {
+        goto fail;
+    }
+    seq = decode_sequence(user_params);
+    if ((NULL == seq) || (0 != user_params->cur_len)) {
+        goto fail;
+    }
+    sec_eng = engine_decode( seq, NULL );
+    if (NULL == sec_eng ) {
+        goto fail;
+    }
+    user_name   = decode_string( seq, NULL );
+    if (NULL == user_name ) {
+        goto fail;
+    }
+
+    /*
+     * Retrieve (or create) the user structure for this user
+     * This can legitimately fail for non-authenticated requests
+     *    (e.g. engine probes)
+     */
+    user = user_create( user_name->string, user_name->cur_len, sec_eng);
+    if (NULL == user) {
+        if (NULL != user_name->string) {
+            goto fail;
+        }
+
+        /*
+         *  If there wasn't a security name specified, and so
+         *    the 'user_create' call failed, then we still
+         *    need something to hang everything else off.
+         */
+        user = (netsnmp_user *)calloc(1, sizeof(netsnmp_user));
+        if (NULL == user) {
+            return NULL;
+        }
+        user->user_name = user_name;
+        user->sec_engine = sec_eng;
+        user->ref_count++;
+    }
+
+    /*
+     * Extract the authParameters, and attempt to authenticate the
+     *   request if so indicated.  Remember the current location, so we
+     *   can blank out the signature before authenticating the message.
+     * Note that for unauthenticated requests, the authParameters field
+     *   will result in a non-NULL buffer, containing an empty string.
+     */
+    user->auth_params = decode_string( seq, NULL );
+    if (NULL == user->auth_params ) {
+        goto fail;
+    }
+    if ( v3info->v3_flags & AUTH_FLAG ) {
+
+        /*
+         * Blank out the signature from the original message,
+         *   so we can authenticate it.
+         *
+         * The good news is that the working copy and 'wholeMsg'
+         *   share a common underlying buffer, so blanking this in
+         *   the current working copy (via 'cp') works as expected.
+         *
+         * The bad news is that the 'auth_params' structure also
+         *   uses this common underlying buffer.  So we need to
+         *   make a copy of the authentication parameters before
+         *   wiping them from the original message.
+         */
+        cp  = seq->string - user->auth_params->cur_len;
+        tmp = buffer_copy(user->auth_params);
+        buffer_free(user->auth_params);
+        user->auth_params = tmp;
+        memset(cp, 0, user->auth_params->cur_len);
+
+        /*
+         * The signature itself needs to be calculated over the
+         *  whole message buffer.
+         */
+        if (-1 == auth_verify(wholeMsg, user)) {
+            goto fail;
+        }
+    }
+
+
+    /*
+     * Extract the privParameters (which may also be an empty string)
+     * If the request has been encrypted, replace the contents of the
+     *   input 'buf' with the decrypted version.
+     */
+    user->priv_params= decode_string( seq, NULL );
+    if (NULL == user->priv_params ) {
+        goto fail;
+    }
+    if (0 != seq->cur_len) {
+        goto fail;
+    }
+    buffer_free(seq);
+    if ( v3info->v3_flags & PRIV_FLAG ) {
+        if (-1 == priv_decrypt(buf, v3info, user)) {
+            goto fail;
+        }
+    }
+
+
+    /*
+     *  Now decode the rest of the scopedPDU.
+     */
+    v3info->sec_engine = engine_copy(user->sec_engine);
+    v3info->sec_name   = buffer_copy(user->user_name);
+
+    seq = decode_sequence( buf );
+    if (NULL == seq) {
+        goto fail;
+    }
+    v3info->context_engine = engine_decode_ID(seq, NULL);
+    v3info->context_name   = decode_string(seq, NULL);
+    pdu = decode_basic_pdu(seq, NULL);
+    if (NULL == pdu) {
+        goto fail;
+    }
+
+    pdu->v3info   = v3info;
+    pdu->userinfo = user;
+
+    return pdu;
+
+fail:
+    buffer_free( user_params );
+    buffer_free( seq );
+    buffer_free( user_name );
+    engine_free( sec_eng );
+    user_free( user );
+    /* v3info_free( v3info ); */
+    return NULL;
+}
+
+

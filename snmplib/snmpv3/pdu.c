@@ -122,29 +122,9 @@ snmpv3_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
 
 		/*
 		 * XXX - use the security-model registry,
-		 *	 rather than hardwiring USM
+		 *	 rather than hardwiring UserSM
 		 */
-    __B(user_encode(buf, pdu->v3info, pdu->userinfo))
-
-    /*
-     * Now finish encoding the full v3 PDU
-     */
-    __B(v3info_encode( buf, pdu->v3info))
-    __B(encode_integer(buf, ASN_INTEGER, pdu->version))
-    __B(encode_sequence(buf, (buf->cur_len - start_len)))
-
-
-    /*
-     *  Having finished constructing the PDU,
-     *    we can now authenticate it.
-     *
-     *  XXX - Are we sure that this should be done here, not earlier ?
-     */
-    if ( pdu->v3info->v3_flags & AUTH_FLAG ) {
-        __B(auth_stamp_post(buf, pdu->v3info, pdu->userinfo, pdu->userinfo->auth_saved_len))
-    }
-
-    return 0;
+    return user_encode_pdu(buf, pdu);
 }
 
 
@@ -243,7 +223,7 @@ snmpv3_check_pdu(netsnmp_pdu *pdu)
 }
 
 netsnmp_pdu*
-snmpv3_decode_pdu(netsnmp_buf *buf)
+snmpv3_decode_pdu(netsnmp_buf *buf, netsnmp_buf *wholeMsg)
 {
     netsnmp_buf    *seq    = NULL;
     netsnmp_pdu    *pdu    = NULL;
@@ -260,31 +240,13 @@ snmpv3_decode_pdu(netsnmp_buf *buf)
     if (NULL == v3info) {
         return NULL;
     }
-    user   = user_decode(buf, v3info, NULL);
-    if (NULL == user) {
-        v3info_free( v3info );
-        return NULL;
-    }
-    v3info->sec_name = buffer_copy(user->user_name);
 
-    seq = decode_sequence( buf );
-    if (NULL == seq) {
-        v3info_free( v3info );
-        user_free( user );
-        return NULL;
-    }
-    v3info->context_engine = engine_decode_ID(seq, NULL);
-    v3info->context_name   = decode_string(seq, NULL);
-    pdu = decode_basic_pdu(seq, NULL);
+	/* XXX - use the Security Model registry */
+    pdu   = user_decode_pdu(buf, v3info, wholeMsg);
     if (NULL == pdu) {
         v3info_free( v3info );
-        user_free( user );
-        buffer_free( seq );
         return NULL;
     }
-
-    pdu->v3info   = v3info;
-    pdu->userinfo = user;
 
     return pdu;
 }
@@ -345,6 +307,7 @@ snmpv3_parse_pdu(netsnmp_buf *buf)
 {
     netsnmp_buf *seq  = NULL;
     netsnmp_pdu *pdu  = NULL;
+    netsnmp_buf *wholeMsg  = NULL;
     netsnmp_buf *tmp  = NULL;
     char *cp;
     int   i;
@@ -356,6 +319,7 @@ snmpv3_parse_pdu(netsnmp_buf *buf)
         return NULL;
     }
 
+    wholeMsg = buffer_new(buf->string, buf->cur_len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     cp = buf->string;
     i  = buf->cur_len;
     seq = decode_sequence(buf);
@@ -370,7 +334,7 @@ snmpv3_parse_pdu(netsnmp_buf *buf)
 		/*
 		 * XXX - Check version
 		 */
-    pdu = snmpv3_decode_pdu(seq);
+    pdu = snmpv3_decode_pdu(seq, wholeMsg);
     if ((NULL == pdu) ||
         (NULL == pdu->v3info)) {
         buffer_free(seq);
@@ -380,17 +344,6 @@ snmpv3_parse_pdu(netsnmp_buf *buf)
         pdu_free(pdu);
         buffer_free(seq);
         return NULL;
-    }
-
-    if (AUTH_FLAG & pdu->v3info->v3_flags) {
-        tmp = buffer_new(cp, i, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
-        if (-1 == auth_verify(tmp, pdu->v3info, pdu->userinfo)) {
-            pdu_free(pdu);
-            buffer_free(seq);
-            buffer_free(tmp);
-            return NULL;
-        }
-        buffer_free(tmp);
     }
 
     pdu->version = version;

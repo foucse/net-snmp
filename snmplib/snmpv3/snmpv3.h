@@ -4,14 +4,14 @@
 
 #include "ucd/ucd_api.h"
 
-int             user_encode(     netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo);
-netsnmp_user*   user_decode(     netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo);
+int             user_encode_pdu( netsnmp_buf *buf, netsnmp_pdu    *pdu);
+netsnmp_pdu*    user_decode_pdu( netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_buf *wholeMsg);
 netsnmp_v3info* v3info_decode(   netsnmp_buf *buf, netsnmp_v3info *info);
 int             v3info_encode(   netsnmp_buf *buf, netsnmp_v3info *info);
 int             engine_encode(   netsnmp_buf *buf, netsnmp_engine *engine);
 netsnmp_engine* engine_decode(   netsnmp_buf *buf, netsnmp_engine *e);
 netsnmp_engine* engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e);
-netsnmp_pdu*    snmpv3_decode_pdu(netsnmp_buf *buf);
+netsnmp_pdu*    snmpv3_decode_pdu(netsnmp_buf *buf,netsnmp_buf *wholeMsg);
 int             snmpv3_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf);
 
 void user_session_defaults(  struct snmp_session *session, netsnmp_user *info);
@@ -34,7 +34,6 @@ int auth_stamp_post(netsnmp_buf *buf,
                 netsnmp_user    *userinfo,
                 int              auth_len);
 int auth_verify(netsnmp_buf     *buf,
-               netsnmp_v3info  *v3info,
-               netsnmp_user    *userinfo);
+                netsnmp_user    *userinfo);
 
 #endif /* _SNMPV3_SNMPV3_H */

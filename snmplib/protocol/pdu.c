@@ -381,7 +381,8 @@ netsnmp_pdu*
 pdu_parse(netsnmp_buf *buf)
 {
     netsnmp_buf *seq  = NULL;
-    netsnmp_pdu *pdu = NULL;
+    netsnmp_pdu *pdu  = NULL;
+    netsnmp_buf *wholeMsg  = NULL;
     long version;
 
     if ((NULL == buf)          ||
@@ -390,6 +391,7 @@ pdu_parse(netsnmp_buf *buf)
         return NULL;
     }
 
+    wholeMsg = buffer_new(buf->string, buf->cur_len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     seq = decode_sequence(buf);
     if (NULL == seq) {
         return NULL;
@@ -405,7 +407,7 @@ pdu_parse(netsnmp_buf *buf)
         pdu = community_decode_pdu(seq);
         break;
     case SNMP_VERSION_3:
-        pdu = snmpv3_decode_pdu(seq);
+        pdu = snmpv3_decode_pdu(seq, wholeMsg);
         break;
     default:
         /* UNKNOWN VERSION */

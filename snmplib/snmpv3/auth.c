@@ -252,11 +252,9 @@ auth_generate_keyed_hash(netsnmp_user *info,
     */
 int
 auth_verify(netsnmp_buf     *buf,
-               netsnmp_v3info  *v3info,
-               netsnmp_user    *userinfo)
+            netsnmp_user    *userinfo)
 {
     if ((NULL == buf)      || 
-        (NULL == v3info)   || 
         (NULL == userinfo)) {
         return -1;
     }
