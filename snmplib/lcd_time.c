@@ -331,6 +331,7 @@ hash_engineID_quit:
 
 
 
+#ifdef SNMP_TESTING_CODE
 /*******************************************************************-o-******
  * dump_etimelist_entry
  *
@@ -416,3 +417,4 @@ EM(-1); /* */
 
 }  /* end dump_etimelist() */
 
+#endif /* SNMP_TESTING_CODE */
