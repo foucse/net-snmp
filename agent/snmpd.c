@@ -623,8 +623,8 @@ main(argc, argv)
     printf ("%s UCD-SNMP version %s\n", sprintf_stamp (NULL), VersionInfo);
     if (!dont_fork && fork() != 0)   /* detach from shell */
       exit(0);
-    init_agent();            /* register our .conf handlers */
     init_snmpv3("snmpd");    /* register the v3 handlers */
+    init_agent();            /* register our .conf handlers */
     register_mib_handlers(); /* snmplib .conf handlers */
     read_premib_configs();   /* read pre-mib-reading .conf handlers */
     init_mib();              /* initialize the mib structures */
