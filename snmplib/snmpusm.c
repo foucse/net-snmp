@@ -1276,6 +1276,7 @@ usm_check_secLevel(int level, struct usmUser *user)
 struct usmUser *
 usm_get_user(char *engineID, int engineIDLen, char *name)
 {
+  DEBUGPL(("getting user %s\n", name));
   return usm_get_user_from_list(engineID, engineIDLen, name, userList);
 }
 
@@ -1284,10 +1285,15 @@ usm_get_user_from_list(char *engineID, int engineIDLen,
                                        char *name, struct usmUser *userList)
 {
   struct usmUser *ptr;
+  char *noName = "";
+  if (name == NULL)
+    name = noName;
   for (ptr = userList; ptr != NULL; ptr = ptr->next) {
     if (ptr->engineIDLen == engineIDLen &&
-        memcmp(ptr->engineID, engineID, engineIDLen) == 0 &&
-        !strcmp(ptr->name, name))
+        !strcmp(ptr->name, name) &&
+        ((ptr->engineID == NULL && engineID == NULL) ||
+         (ptr->engineID != NULL && engineID != NULL &&
+          memcmp(ptr->engineID, engineID, engineIDLen) == 0)))
       return ptr;
   }
   return NULL;
@@ -1324,20 +1330,28 @@ usm_add_user_to_list(struct usmUser *user,
     if (nptr->engineIDLen > user->engineIDLen)
       break;
 
+    if (user->engineID == NULL && nptr->engineID != NULL)
+      break;
+    
     if (nptr->engineIDLen == user->engineIDLen &&
-        memcmp(nptr->engineID, user->engineID, user->engineIDLen) > 0)
+        (nptr->engineID != NULL && user->engineID != NULL &&
+         memcmp(nptr->engineID, user->engineID, user->engineIDLen) > 0))
       break;
 
-    if (nptr->engineIDLen == user->engineIDLen &&
-        memcmp(nptr->engineID, user->engineID, user->engineIDLen) == 0 &&
-        strlen(nptr->name) > strlen(user->name))
-      break;
+    if (!(nptr->engineID == NULL && user->engineID != NULL)) {
+      if (nptr->engineIDLen == user->engineIDLen &&
+          ((nptr->engineID == NULL && user->engineID == NULL) ||
+           memcmp(nptr->engineID, user->engineID, user->engineIDLen) == 0) &&
+          strlen(nptr->name) > strlen(user->name))
+        break;
 
-    if (nptr->engineIDLen == user->engineIDLen &&
-        memcmp(nptr->engineID, user->engineID, user->engineIDLen) == 0 &&
-        strlen(nptr->name) == strlen(user->name) &&
-        strcmp(nptr->name, user->name) > 0)
-      break;
+      if (nptr->engineIDLen == user->engineIDLen &&
+          ((nptr->engineID == NULL && user->engineID == NULL) ||
+           memcmp(nptr->engineID, user->engineID, user->engineIDLen) == 0) &&
+          strlen(nptr->name) == strlen(user->name) &&
+          strcmp(nptr->name, user->name) > 0)
+        break;
+    }
   }
 
   /* nptr should now point to the user that we need to add ourselves
@@ -1525,11 +1539,16 @@ usm_clone_user(struct usmUser *from)
 
   /* copy the engineID & it's length */
   if (from->engineIDLen > 0) {
-    if ((newUser->engineID = (char *) malloc(from->engineIDLen*sizeof(char)))
-        == NULL);
+    if (from->engineID != NULL) {
+      if ((newUser->engineID = (char *) malloc(from->engineIDLen*sizeof(char)))
+          == NULL);
       return usm_free_user(newUser);
-    newUser->engineIDLen = from->engineIDLen;
-    memcpy(newUser->engineID, from->engineID, from->engineIDLen*sizeof(char));
+      newUser->engineIDLen = from->engineIDLen;
+      memcpy(newUser->engineID, from->engineID, from->engineIDLen*sizeof(char));
+    } else {
+      newUser->engineIDLen = from->engineIDLen;
+      newUser->engineID = NULL;
+    }
   }
 
   /* copy the name of the user */
@@ -1782,7 +1801,6 @@ usm_set_password(char *token, char *line)
 
   u_char	**key;
   int		 *keyLen;
-
   u_char	  userKey[SNMP_MAXBUF_SMALL];
   int		  userKeyLen = SNMP_MAXBUF_SMALL;
   int		  type, ret;
