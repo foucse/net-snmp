@@ -47,7 +47,7 @@ char *local_progname;
 
 #define USAGE	"Usage: %s [-fhPvV] -t (md5|sha1) [-O \"<old_passphrase>\"][-N \"<new_passphrase>\"][-E [0x]<engineID>]"
 
-#define OPTIONLIST	"E:fhN:O:Pt:vV"
+#define OPTIONLIST	"E:fhN:O:Pt:vVD"
 
 #define PASSPHRASE_DIR		".snmp"
 	/* Rooted at $HOME.
@@ -73,10 +73,11 @@ int	forcepassphrase		= 0,	/* Always prompt for passphrases. */
 	verbose			= 0,	/* Output progress to stderr. 	  */
 	engineid_len		= 0;
 
-char	*engineid		= NULL,	/* Both input & final binary form.*/
+u_char	*engineid		= NULL,	/* Both input & final binary form.*/
 	*newpass		= NULL,
-	*oldpass		= NULL,
-	*transform_type_input	= NULL;
+        *oldpass		= NULL;
+
+char	*transform_type_input	= NULL;
 
 oid	*transform_type		= NULL;	/* Type of HMAC hash to use.	  */
 
@@ -98,32 +99,36 @@ int	get_user_passphrases(void);
 int
 main(int argc, char **argv)
 {
-	int		  rval		= SNMPERR_SUCCESS,
-			  oldKu_len	= SNMP_MAXBUF_SMALL,
+	int		  rval		= SNMPERR_SUCCESS;
+	u_int		  oldKu_len	= SNMP_MAXBUF_SMALL,
 			  newKu_len	= SNMP_MAXBUF_SMALL,
 			  oldkul_len	= SNMP_MAXBUF_SMALL,
 			  newkul_len	= SNMP_MAXBUF_SMALL,
 			  keychange_len	= SNMP_MAXBUF_SMALL;
 
-	char		  ch,
-			  oldKu[SNMP_MAXBUF_SMALL],
+        char              ch,
+			 *s = NULL;
+	u_char		  oldKu[SNMP_MAXBUF_SMALL],
 			  newKu[SNMP_MAXBUF_SMALL],
 			  oldkul[SNMP_MAXBUF_SMALL],
 			  newkul[SNMP_MAXBUF_SMALL],
-			  keychange[SNMP_MAXBUF_SMALL],
-			 *s = NULL;
+			  keychange[SNMP_MAXBUF_SMALL];
 
-	local_progname = argv[0];
+        int               i;
+
+ 	local_progname = argv[0];
 
 EM(-1);	/* */
 
-
+ 
 	/*
 	 * Parse.
 	 */
 	while ( (ch = getopt(argc, argv, OPTIONLIST)) != EOF )
 	{
 		switch(ch) {
+
+                case 'D':       snmp_set_do_debugging(1);       break;
 		case 'E':	engineid = optarg;		break;
 		case 'f':	forcepassphrase = 1;		break;
 		case 'N':	newpass = optarg;		break;
@@ -198,7 +203,8 @@ EM(-1);	/* */
 	if ( engineid && (tolower(*(engineid+1)) == 'x') ) {
 		engineid_len = hex_to_binary2(	engineid+2,
 						strlen(engineid)-2,
-						&engineid);
+						(char **) &engineid);
+                DEBUGP("engineIDLen: %d\n", engineid_len);
 	} else {
 		engineid_len = setup_engineID(&engineid, engineid);
 
@@ -258,6 +264,16 @@ EM(-1);	/* */
 	QUITFUN(rval, main_quit);
 
 
+        DEBUGP("EID (%d): ", engineid_len);
+        for(i=0; i < engineid_len; i++)
+          DEBUGP("%02x",(int) (engineid[i]));
+        DEBUGP("\n");
+
+        DEBUGP("old Ku (%d) (from %s): ", oldKu_len, oldpass);
+        for(i=0; i < oldKu_len; i++)
+          DEBUGP("%02x",(int) (oldKu[i]));
+        DEBUGP("\n");
+
 	rval = generate_kul(	transform_type, USM_LENGTH_OID_TRANSFORM,
 				engineid, engineid_len,
 				oldKu, oldKu_len,
@@ -265,12 +281,21 @@ EM(-1);	/* */
 	QUITFUN(rval, main_quit);
 
 
+        DEBUGP("generating old Kul (%d) (from Ku): ", oldkul_len);
+        for(i=0; i < oldkul_len; i++)
+          DEBUGP("%02x",(int) (oldkul[i]));
+        DEBUGP("\n");
+
 	rval = generate_kul(	transform_type, USM_LENGTH_OID_TRANSFORM,
 				engineid, engineid_len,
 				newKu, newKu_len,
 				newkul, &newkul_len);
 	QUITFUN(rval, main_quit);
-
+        
+        DEBUGP("generating new Kul (%d) (from Ku): ", oldkul_len);
+        for(i=0; i < newkul_len; i++)
+          DEBUGP("%02x",newkul[i]);
+        DEBUGP("\n");
 
 	rval = encode_keychange(transform_type, USM_LENGTH_OID_TRANSFORM,
 				oldkul, oldkul_len,
@@ -405,9 +430,10 @@ get_user_passphrases(void)
 	int		 rval = SNMPERR_SUCCESS,
 			 len;
 
-	char		*obuf = NULL,
-			*nbuf = NULL,
-			 path[SNMP_MAXBUF],
+	u_char		*obuf = NULL,
+			*nbuf = NULL;
+        
+	char		 path[SNMP_MAXBUF],
 			 buf[SNMP_MAXBUF],
 			*s    = NULL;
 
