@@ -256,6 +256,8 @@ static char *api_errors[-SNMPERR_MAX+1] = {
     "SCAPI sub-system not configured",	/* SNMPERR_SC_NOT_CONFIGURED */
 };
 
+static char * usmSecLevelName[] = { "BAD_SEC_LEVEL", "noAuthNoPriv", "authNoPriv", "authPriv" };
+
 /*
  * Multiple threads may changes these variables.
  * Suggest using the Single API, which does not use Sessions.
@@ -871,7 +873,7 @@ snmp_sess_open(in_session)
         return (void *)slp;
       }
       user->engineIDLen = slp->session->contextEngineIDLen;
-      
+
       /* copy the auth protocol */
       if (slp->session->securityAuthProto != NULL) {
         user->authProtocol =
@@ -895,7 +897,7 @@ snmp_sess_open(in_session)
         }
         user->privProtocolLen = slp->session->securityPrivProtoLen;
       }
-      
+
       /* copy in the authentication Key */
       if (memdup(&user->authKey, slp->session->securityAuthKey,
                  slp->session->securityAuthKeyLen) != SNMPERR_SUCCESS) {
@@ -1711,6 +1713,7 @@ snmp_parse(session, pdu, data, length)
     switch (pdu->version) {
     case SNMP_VERSION_1:
     case SNMP_VERSION_2c:
+        DEBUGP("parsing SNMPv%d message\n", pdu->version);
 
 	/* authenticates message and returns length if valid */
 	data = snmp_comstr_parse(data, &length,
@@ -1741,6 +1744,7 @@ snmp_parse(session, pdu, data, length)
         if (type != (ASN_CONTEXT | ASN_CONSTRUCTOR | 1))
 	    return -1;
 
+        DEBUGP("parsing SNMPv2p message\n");
         /* authenticate the message and possibly decrypt it */
 	pdu->srcParty = pdu->srcPartyBuf;
 	pdu->dstParty = pdu->dstPartyBuf;
@@ -1765,6 +1769,9 @@ snmp_parse(session, pdu, data, length)
 
     case SNMP_VERSION_3:
       result = snmpv3_parse((struct snmp_pdu *)pdu, data, &length, NULL);
+      if (!result) DEBUGP("parsed SNMPv3 message(secName:%s:secLevel:%s)\n",
+                          pdu->securityName, usmSecLevelName[pdu->securityLevel]);
+
       break;
 
     case SNMP_VERSION_sec:
@@ -2210,6 +2217,7 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
                         session->community_len);
 	    pdu->community_len = session->community_len;
 	}
+        DEBUGP("building SNMPv%d message\n", pdu->version);
         break;
 
     case SNMP_VERSION_2p:
@@ -2247,6 +2255,7 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 		    session->contextLen * sizeof(oid));
 	    pdu->contextLen = session->contextLen;
 	}
+        DEBUGP("building SNMPv2p message\n");
         break;
 #endif /* USE_V2PARTY_PROTOCOL */
     case SNMP_VERSION_3:
@@ -2309,6 +2318,7 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	}
 	pdu->securityLevel = session->securityLevel;
       }
+      DEBUGP("building SNMPv3 message(secName:%s:secLevel:%s)\n", session->securityName, usmSecLevelName[pdu->securityLevel]);
       break;
 
     case SNMP_VERSION_sec:
