@@ -256,6 +256,7 @@ unsigned char *var_extensible_pass(struct variable *vp,
           }
           long_ret = (objid[0] << (8*3)) + (objid[1] << (8*2)) +
             (objid[2] << 8) + objid[3];
+	  long_ret = htonl(long_ret);
           *var_len = sizeof(long_ret);
           vp->type = ASN_IPADDRESS;
           return((unsigned char *) &long_ret);
