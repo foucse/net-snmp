@@ -1,3 +1,9 @@
+/*
+ * parse.h
+ *
+ * Update: 1998-07-17 <jhy@gsu.edu>
+ * Added prototypes for print_subtree_oid_report* functions.
+ */
 /***********************************************************
         Copyright 1989 by Carnegie Mellon University
 
@@ -19,9 +25,6 @@ WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 ******************************************************************/
-/*
- * parse.h
- */
 
 #define MAXLABEL        64      /* maximum characters in a label */
 #define MAXTOKEN        128     /* maximum characters in a token */
@@ -160,3 +163,13 @@ struct tree *find_node __P((char *, struct tree*));
 struct module *find_module __P((int));
 void snmp_set_mib_warnings __P((int));
 void snmp_set_save_descriptions __P((int));
+
+void print_subtree_oid_report __P((FILE *, struct tree *, int));
+void print_subtree_oid_report_enable_labeledoid __P((void));
+void print_subtree_oid_report_enable_oid __P((void));
+void print_subtree_oid_report_enable_suffix __P((void));
+void print_subtree_oid_report_enable_symbolic __P((void));
+void print_subtree_oid_report_disable_labeledoid __P((void));
+void print_subtree_oid_report_disable_oid __P((void));
+void print_subtree_oid_report_disable_suffix __P((void));
+void print_subtree_oid_report_disable_symbolic __P((void));

@@ -1,3 +1,9 @@
+/*
+ * parse.c
+ *
+ * Update: 1998-07-17 <jhy@gsu.edu>
+ * Added print_subtree_oid_report* and related functions and variables.
+ */
 /******************************************************************
         Copyright 1989, 1991, 1992 by Carnegie Mellon University
 
@@ -19,9 +25,7 @@ WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 ******************************************************************/
-/*
- * parse.c
- */
+
 #include <config.h>
 
 #if STDC_HEADERS
@@ -305,6 +309,11 @@ static struct module_import	root_imports[NUMBER_OF_ROOT_NODES];
 static int current_module = 0;
 static int     max_module = 0;
 
+static print_subtree_oid_report_labeledoid = 0;
+static print_subtree_oid_report_oid = 0;
+static print_subtree_oid_report_symbolic = 0;
+static print_subtree_oid_report_suffix = 0;
+
 static void do_subtree __P((struct tree *, struct node **));
 static int get_token __P((FILE *, char *,int));
 static char last = ' ';
@@ -346,6 +355,10 @@ static void read_import_replacements __P((char *, char *));
 
 static void  new_module  __P((char *, char *));
 
+static struct tree *get_next_subid __P((u_long *, struct tree *tree));
+static void print_parent_labeledoid __P((FILE *, struct tree *));
+static void print_parent_oid __P((FILE *, struct tree *));
+static void print_parent_label __P((FILE *, struct tree *));
 
 void snmp_set_mib_warnings(warn)
     int warn;
@@ -2857,4 +2870,212 @@ find_module(mid)
   if (mp != 0)
     return mp;
   return NULL;
+}
+
+/*
+ * get_next_subid():
+ *
+ * This function assumes that it's presented the first entry in
+ * a linked list of tree objects.
+ *
+ * This function assumes that no entry will ever have a subid value
+ * of zero (0). (Is this true?)
+ *
+ * This function assumes that no two entries in the same linked list will
+ * ever have the same subid value.
+ *
+ * It will compare the value of the supplied current_subid against
+ * the value of the subid value for each of the list entries.
+ *
+ * It will return the pointer to the entry with the "next highest" subid
+ * value.  The contents of the current_subid will be updated to reflect this
+ * next highest subid value.
+ *
+ * On first call, the contents of current_subid should be initialized
+ * to 0.
+ *
+ * This function should be called repeatedly until it returns NULL which
+ * indicates that there are no nodes whose subid value exceeds the supplied
+ * current_subid value.
+ */
+
+static struct tree *
+    get_next_subid(
+    u_long *current_subid,
+    struct tree *tree
+)
+{
+    struct tree *tp;
+    struct tree *ntp;
+
+    if(!tree)
+    {
+        return(tree);
+    }
+
+    ntp = NULL;
+
+    for(tp = tree; tp; tp = tp->next_peer)
+    {
+        if(tp->subid > *current_subid)
+        {
+            if((!ntp) || (ntp->subid > tp->subid))
+            {
+                ntp = tp;
+            }
+        }
+    }
+
+    if(ntp)
+    {
+        *current_subid = ntp->subid;
+    }
+
+    return(ntp);
+}
+
+static void
+print_parent_labeledoid(f, tp)
+    FILE *f;
+    struct tree *tp;
+{
+    if(tp)
+    {
+        if(tp->parent)
+        {
+            print_parent_labeledoid(f, tp->parent);
+        }
+        fprintf(f, ".%s(%lu)", tp->label, tp->subid);
+    }
+}
+
+static void
+print_parent_oid(f, tp)
+    FILE *f;
+    struct tree *tp;
+{
+    if(tp)
+    {
+        if(tp->parent)
+        {
+            print_parent_oid(f, tp->parent);
+        }
+        fprintf(f, ".%lu", tp->subid);
+    }
+}
+
+static void
+print_parent_label(f, tp)
+FILE *f;
+struct tree *tp;
+{
+    if(tp)
+    {
+        if(tp->parent)
+        {
+            print_parent_label(f, tp->parent);
+        }
+        fprintf(f, ".%s", tp->label);
+    }
+}
+
+/*
+ * print_subtree_oid_report():
+ *
+ * This function generates variations on the original print_subtree() report.
+ * In this function each child is traversed before its peers are traveresed.
+ *
+ */
+
+void
+print_subtree_oid_report(f, tree, count)
+    FILE *f;
+    struct tree *tree;
+    int count;
+{
+    struct tree *tp;
+    int i;
+    u_long current_subid;
+
+    count++;
+    current_subid = 0;
+
+    while(tp = get_next_subid(&current_subid, tree->child_list))
+    {
+        if(print_subtree_oid_report_labeledoid)
+        {
+            print_parent_labeledoid(f, tp);
+            fprintf(f, "\n");
+        }
+        if(print_subtree_oid_report_oid)
+        {
+            print_parent_oid(f, tp);
+            fprintf(f, "\n");
+        }
+        if(print_subtree_oid_report_symbolic)
+        {
+            print_parent_label(f, tp);
+            fprintf(f, "\n");
+        }
+        if(print_subtree_oid_report_suffix)
+        {
+            for(i = 0; i < count; i++)
+                fprintf(f, "  ");
+            fprintf(f, "%s(%ld) type=%d", tp->label, tp->subid, tp->type);
+            if (tp->tc_index != -1) fprintf(f, " tc=%d", tp->tc_index);
+            if (tp->hint) fprintf(f, " hint=%s", tp->hint);
+            if (tp->units) fprintf(f, " units=%s", tp->units);
+
+            fprintf(f, "\n");
+        }
+        print_subtree_oid_report(f, tp, count);
+    }
+}
+
+void
+print_subtree_oid_report_enable_labeledoid __P((void))
+{
+    print_subtree_oid_report_labeledoid = 1;
+}
+
+void
+print_subtree_oid_report_enable_oid __P((void))
+{
+    print_subtree_oid_report_oid = 1;
+}
+
+void
+print_subtree_oid_report_enable_symbolic __P((void))
+{
+    print_subtree_oid_report_symbolic = 1;
+}
+
+void
+print_subtree_oid_report_enable_suffix __P((void))
+{
+    print_subtree_oid_report_suffix = 1;
+}
+
+void
+print_subtree_oid_report_disable_labeledoid __P((void))
+{
+    print_subtree_oid_report_labeledoid = 0;
+}
+
+void
+print_subtree_oid_report_disable_oid __P((void))
+{
+    print_subtree_oid_report_oid = 0;
+}
+
+void
+print_subtree_oid_report_disable_symbolic __P((void))
+{
+    print_subtree_oid_report_symbolic = 0;
+}
+
+void
+print_subtree_oid_report_disable_suffix __P((void))
+{
+    print_subtree_oid_report_suffix = 0;
 }
