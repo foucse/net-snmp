@@ -1100,8 +1100,7 @@ handle_snmp_packet(int op, struct snmp_session *session, int reqid,
 	agent_delegated_list = asp;
     } else {
         /* if we don't have anything outstanding (delegated), wrap up */
-        if (!check_for_delegated(asp))
-            return wrap_up_request(asp, status);
+        return wrap_up_request(asp, status);
     }
 
     /* done */
