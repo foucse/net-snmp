@@ -2821,7 +2821,8 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	}
 	pdu->securityLevel = session->securityLevel;
       }
-      DEBUGP("Building SNMPv3 message (secName:%s, secLevel:%s)...\n", session->securityName, usmSecLevelName[pdu->securityLevel]);
+      DEBUGP("Building SNMPv3 message (secName:\"%s\", secLevel:%s)...\n",
+	     pdu->securityName, usmSecLevelName[pdu->securityLevel]);
       break;
 
     case SNMP_VERSION_sec:
