@@ -110,11 +110,11 @@ void *old;
 	if (ref->field != NULL) \
 		free (ref->field); \
  \
-	if ((ref->field = type malloc (len)) == NULL) \
+	if ((ref->field = (type*) malloc (len * sizeof(type))) == NULL) \
 	{ \
 		return -1; \
 	} \
-	memcpy (ref->field, item, len); \
+	memcpy (ref->field, item, len * sizeof(type)); \
 	ref->field_len = len; \
  \
 	return 0
@@ -125,7 +125,7 @@ usm_set_usmStateReference_name (ref, name, name_len)
 	u_char *name;
 	u_int name_len;
 {
-	MAKE_ENTRY ((u_char*),name,name_len,usr_name,usr_name_length);
+	MAKE_ENTRY (u_char,name,name_len,usr_name,usr_name_length);
 }
 
 int
@@ -134,7 +134,7 @@ usm_set_usmStateReference_engine_id (ref, engine_id, engine_id_len)
 	u_char *engine_id;
 	u_int engine_id_len;
 {
-	MAKE_ENTRY ((u_char*),engine_id,engine_id_len,
+	MAKE_ENTRY (u_char,engine_id,engine_id_len,
 		usr_engine_id,usr_engine_id_length);
 }
 
@@ -144,7 +144,7 @@ usm_set_usmStateReference_auth_protocol (ref, auth_protocol, auth_protocol_len)
 	oid *auth_protocol;
 	u_int auth_protocol_len;
 {
-	MAKE_ENTRY ((oid *),auth_protocol,auth_protocol_len,
+	MAKE_ENTRY (oid ,auth_protocol,auth_protocol_len,
 		usr_auth_protocol,usr_auth_protocol_length);
 }
 
@@ -154,7 +154,7 @@ usm_set_usmStateReference_auth_key (ref, auth_key, auth_key_len)
 	u_char *auth_key;
 	u_int auth_key_len;
 {
-	MAKE_ENTRY ((u_char*),auth_key,auth_key_len,
+	MAKE_ENTRY (u_char,auth_key,auth_key_len,
 		usr_auth_key,usr_auth_key_length);
 }
 
@@ -164,7 +164,7 @@ usm_set_usmStateReference_priv_protocol (ref, priv_protocol, priv_protocol_len)
 	oid *priv_protocol;
 	u_int priv_protocol_len;
 {
-	MAKE_ENTRY ((oid *),priv_protocol,priv_protocol_len,
+	MAKE_ENTRY (oid,priv_protocol,priv_protocol_len,
 		usr_priv_protocol,usr_priv_protocol_length);
 }
 
@@ -174,7 +174,7 @@ usm_set_usmStateReference_priv_key (ref, priv_key, priv_key_len)
 	u_char *priv_key;
 	u_int priv_key_len;
 {
-	MAKE_ENTRY ((u_char*),priv_key,priv_key_len,
+	MAKE_ENTRY (u_char,priv_key,priv_key_len,
 		usr_priv_key,usr_priv_key_length);
 }
 
@@ -558,6 +558,10 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		theNameLength = ref->usr_name_length;
 		theEngineID = ref->usr_engine_id;
 		theEngineIDLength = ref->usr_engine_id_length;
+                if (!theEngineIDLength) {
+		  theEngineID = secEngineID;
+		  theEngineIDLength = secEngineIDLen;
+		}
 		theAuthProtocol = ref->usr_auth_protocol;
 		theAuthProtocolLength = ref->usr_auth_protocol_length;
 		theAuthKey = ref->usr_auth_key;
@@ -627,7 +631,7 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	    || theSecLevel == SNMP_SEC_LEVEL_AUTHPRIV || secStateRef != NULL)
 	{
 		if (get_enginetime (theEngineID, theEngineIDLength, 
-							&boots_uint, &time_uint) == -1)
+				    &boots_uint, &time_uint, FALSE) == -1)
 
 		/* RFC 2274, section 3.1, step 6a is unclear here */
 
@@ -645,9 +649,13 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		{
 			DEBUGP ("usm_generate_out_msg():%s,%d: %s\n",
 				__FILE__,__LINE__, "Warning: Failed to find engine data");
-
-			boots_uint = 0;
-			time_uint = 0;
+                        if (secStateRef) {
+			  boots_uint = snmpv3_local_snmpEngineBoots();
+			  time_uint = snmpv3_local_snmpEngineTime();
+			} else {
+			  boots_uint = 0;
+			  time_uint = 0;
+			}
 		}
 #endif
 	}
@@ -1163,7 +1171,7 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 		u_int theirBoots, theirTime;
 		u_int time_difference;
 
-		if (get_enginetime(secEngineID,secEngineIDLen,&theirBoots,&theirTime)
+		if (get_enginetime(secEngineID,secEngineIDLen,&theirBoots,&theirTime,TRUE)
 			!= SNMPERR_SUCCESS)
 		{
 			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
@@ -1216,7 +1224,7 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 			greater than before with the same boots.
 		*/
 
-		if (set_enginetime (secEngineID,secEngineIDLen,boots_uint,time_uint)
+		if (set_enginetime (secEngineID,secEngineIDLen,boots_uint,time_uint,TRUE)
 			!= SNMPERR_SUCCESS)
 		{
 			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
@@ -1418,6 +1426,46 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 			__FILE__,__LINE__);
 	}
 
+	/* Steps 10-11  user is already set - relocated before timeliness 
+	   check in case it fails - still save user data for response */
+
+	if (secStateRef)
+	{
+		/* Cache the keys and protocol oids, per step 11 (s3.2) */
+
+		if (usm_set_usmStateReference_auth_protocol (*secStateRef,
+			user->authProtocol, user->authProtocolLen) ==-1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache authentication protocol");
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (usm_set_usmStateReference_auth_key (*secStateRef,
+			user->authKey, user->authKeyLen) == -1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache authentiation key");
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (usm_set_usmStateReference_priv_protocol (*secStateRef,
+			user->privProtocol, user->privProtocolLen) ==-1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache privacy protocol");
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (usm_set_usmStateReference_priv_key (*secStateRef,
+			user->privKey, user->privKeyLen) == -1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache privacy key");
+			return USM_ERR_GENERIC_ERROR;
+		}
+	}
+
 	/* Perform the timeliness/time manager functions */
 
 	if (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
@@ -1429,6 +1477,16 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 			return error;
 		}
 	}
+#ifdef LCD_TIME_SYNC_OPT	
+        else 
+        {
+	  /* cache the unauthenticated time to use in case we don't have
+             anything better - this guess will be no worse than (0,0)
+             that we normally use */
+	  set_enginetime(secEngineID, *secEngineIDLen, 
+			 boots_uint, time_uint, FALSE);
+        }
+#endif
 
 	/* If needed, decrypt the scoped PDU */
 
@@ -1511,44 +1569,6 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 	*maxSizeResponse = maxMsgSize - (int)
 				((u_long)end_of_overhead - (u_long)wholeMsg);
 
-	/* Steps 10-11  user is already set */
-
-	if (secStateRef)
-	{
-		/* Cache the keys and protocol oids, per step 11 (s3.2) */
-
-		if (usm_set_usmStateReference_auth_protocol (*secStateRef,
-			user->authProtocol, user->authProtocolLen) ==-1)
-		{
-			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
-				__FILE__,__LINE__, "Couldn't cache authentication protocol");
-			return USM_ERR_GENERIC_ERROR;
-		}
-
-		if (usm_set_usmStateReference_auth_key (*secStateRef,
-			user->authKey, user->authKeyLen) == -1)
-		{
-			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
-				__FILE__,__LINE__, "Couldn't cache authentiation key");
-			return USM_ERR_GENERIC_ERROR;
-		}
-
-		if (usm_set_usmStateReference_priv_protocol (*secStateRef,
-			user->privProtocol, user->privProtocolLen) ==-1)
-		{
-			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
-				__FILE__,__LINE__, "Couldn't cache privacy protocol");
-			return USM_ERR_GENERIC_ERROR;
-		}
-
-		if (usm_set_usmStateReference_priv_key (*secStateRef,
-			user->privKey, user->privKeyLen) == -1)
-		{
-			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
-				__FILE__,__LINE__, "Couldn't cache privacy key");
-			return USM_ERR_GENERIC_ERROR;
-		}
-	}
 
 	DEBUGP ("usm_process_in_msg():%s,%d: USM processing completed\n",
 		__FILE__,__LINE__);

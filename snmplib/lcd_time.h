@@ -6,7 +6,7 @@
 #define _LCD_TIME_H
 
 
-
+#define LCD_TIME_SYNC_OPT 0
 
 /*
  * Macros and definitions.
@@ -34,6 +34,9 @@ typedef struct enginetime_struct {
 		 *   updated.  Measured in seconds.
 		 */
 
+#ifdef LCD_TIME_SYNC_OPT	
+        u_int  authenticatedFlag;
+#endif      
 	struct enginetime_struct	*next;
 } enginetime, *Enginetime;
 
@@ -71,12 +74,12 @@ static u_int	dummy_etime, dummy_eboot;
 
 #define ISENGINEKNOWN(e, e_l)					\
 	( (get_enginetime(e, e_l,				\
-		&dummy_etime, &dummy_eboot) == SNMPERR_SUCCESS)	\
+		&dummy_eboot, &dummy_etime, TRUE) == SNMPERR_SUCCESS)	\
 		? TRUE						\
 		: FALSE )
 
 #define ENSURE_ENGINE_RECORD(e, e_l)				\
-	( (set_enginetime(e, e_l, 0, 0) == SNMPERR_SUCCESS)	\
+	( (set_enginetime(e, e_l, 0, 0, FALSE) == SNMPERR_SUCCESS)	\
 		? SNMPERR_SUCCESS				\
 		: SNMPERR_GENERR )
 
@@ -90,13 +93,13 @@ static u_int	dummy_etime, dummy_eboot;
 /*
  * Prototypes.
  */
-int	 get_enginetime __P((	u_char	*engineID,	u_int  engineID_len,
-				u_int	*enginetime,	u_int *engineboot
-			    ));
+int	 get_enginetime __P((u_char *engineID, u_int  engineID_len,
+			     u_int *engineboot, u_int *enginetime,
+			     u_int authenticated));
 
-int	 set_enginetime __P((	u_char *engineID,	u_int engineID_len,
-				u_int   enginetime,	u_int engineboot
-			    ));
+int	 set_enginetime __P((u_char *engineID, u_int engineID_len,
+			     u_int   engineboot, u_int enginetime,
+			     u_int authenticated));
 
 Enginetime
 	 search_enginetime_list __P((	u_char		*engineID,
@@ -108,4 +111,5 @@ void	 dump_etimelist_entry __P((Enginetime e, int count));
 void	 dump_etimelist __P((void));
 
 #endif /* _LCD_TIME_H */
+
 

@@ -47,7 +47,8 @@ int
 get_enginetime(	u_char	*engineID,	
 		u_int	 engineID_len,
 		u_int	*engineboot,
-		u_int	*enginetime)
+		u_int	*enginetime,
+		u_int   authenticated)
 {
 	int		rval	 = SNMPERR_SUCCESS;
 	time_t		timediff = 0;
@@ -78,10 +79,16 @@ EM(-1); /* */
 		QUITFUN(SNMPERR_GENERR, get_enginetime_quit);
 	}
 
+#ifdef LCD_TIME_SYNC_OPT	
+        if (!authenticated || e->authenticatedFlag) {
+#endif	
 	*enginetime = e->engineTime;
 	*engineboot = e->engineBoot;
 
 	timediff = time(NULL) - e->lastReceivedEngineTime;
+#ifdef LCD_TIME_SYNC_OPT	
+        }
+#endif	
 
 	if ( timediff > (ENGINETIME_MAX - *enginetime) ) {
 		*enginetime = (timediff - (ENGINETIME_MAX - *enginetime));
@@ -130,7 +137,8 @@ int
 set_enginetime(	u_char	*engineID,
 		u_int	 engineID_len,
 		u_int	 engineboot,
-		u_int  	 enginetime)
+		u_int  	 enginetime,
+		u_int    authenticated)
 {
 	int		rval = SNMPERR_SUCCESS,
 			index;
@@ -168,10 +176,16 @@ EM(-1); /* */
 
 		e->engineID_len = engineID_len;
 	}
-
-	e->engineTime		  = enginetime;
-	e->engineBoot		  = engineboot;
-	e->lastReceivedEngineTime = time(NULL);
+#ifdef LCD_TIME_SYNC_OPT	
+	if (authenticated || !e->authenticatedFlag) {
+	  e->authenticatedFlag = authenticated;
+#else
+	if (authenticated) {
+#endif
+	  e->engineTime		  = enginetime;
+	  e->engineBoot		  = engineboot;
+	  e->lastReceivedEngineTime = time(NULL);
+        }
 
 	e = NULL;	/* Indicates a successful update. */
 

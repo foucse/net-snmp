@@ -1678,9 +1678,8 @@ snmpv3_parse(pdu, data, length, after_header)
     return -1;
   }
   if (tmp_buf_len) {
-    pdu->contextName = malloc(tmp_buf_len);
+    pdu->contextName = strdup(tmp_buf);
     pdu->contextNameLen = tmp_buf_len;
-    memcpy(pdu->contextName, tmp_buf, tmp_buf_len);
   } else {
     pdu->contextName = strdup("");
     pdu->contextNameLen = 0;
