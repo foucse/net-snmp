@@ -2079,7 +2079,7 @@ DEBUGPOID(theoid, len)
   oid *theoid;
   int len;
 {
-  char c_oid[MAX_NAME_LEN];
+  char c_oid[4096];
   sprint_objid(c_oid,theoid,len);
   DEBUGP(c_oid);
 }
