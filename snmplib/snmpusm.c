@@ -19,6 +19,7 @@
 
 #include "asn1.h"
 #include "snmp_api.h"
+#include "snmp.h"
 #include "snmpv3.h"
 #include "snmp-tc.h"
 #include "system.h"
@@ -196,6 +197,20 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
   *scopedPduLen = wholeMsgLen - (cp - wholeMsg);
 
   return 0;
+}
+
+/* checks that a given security level is valid for a given user */
+int usm_check_secLevel(int level, struct usmUser *user) {
+  if (level == SNMP_SEC_LEVEL_AUTHPRIV &&
+      compare(user->privProtocol, user->privProtocolLen, usmNoPrivProtocol,
+              sizeof(usmNoPrivProtocol)/sizeof(oid)))
+    return 1;
+  if ((level == SNMP_SEC_LEVEL_AUTHPRIV ||
+       level == SNMP_SEC_LEVEL_AUTHNOPRIV) &&
+      compare(user->authProtocol, user->authProtocolLen, usmNoAuthProtocol,
+              sizeof(usmNoAuthProtocol)/sizeof(oid)))
+    return 1;
+  return 0; /* success */
 }
 
 /* usm_get_user(): Returns a user from userList based on the engineID,

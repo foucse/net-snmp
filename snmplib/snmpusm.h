@@ -38,6 +38,7 @@ struct usmUser {
 /* Note: Any changes made to this structure need to be reflected in
    the following functions: */
 
+int             usm_check_secLevel(int level, struct usmUser *user);
 struct usmUser *usm_get_user(char *engineID, int engineIDLen, char *name,
                          struct usmUser *userList);
 struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList);
