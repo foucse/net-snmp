@@ -11,6 +11,7 @@
 #include "snmp_agent.h"
 #include "instance.h"
 #include "serialize.h"
+#include "read_only.h"
 
 mib_handler *
 get_instance_handler(void) {
