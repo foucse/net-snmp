@@ -83,7 +83,7 @@ snmp_parse_args_usage(outf)
   FILE *outf;
 {
   fprintf(outf,
-        "[-v 1|2c|2p|3] [-h] [-d] [-q] [-R] [-D] [-m <MIBS>] [-M <MIDDIRS>] [-p <P>] [-t <T>] [-r <R>] [-c <S> <D>] [-T <B> <T>] [-e <E>] [-n <N>] [-u <U>] [-l <L>] [-a <A>] [-A <P>] [-x <X>] [-X <P>] hostname> <community>|{<srcParty> <dstParty> <context>}");
+        "[-v 1|2c|2p|3] [-h] [-d] [-q] [-R] [-D] [-m <MIBS>] [-M <MIDDIRS>] [-p <P>] [-t <T>] [-r <R>] [-c <S> <D>] [-T <B> <T>] [-e <E>] [-E <E>] [-n <N>] [-u <U>] [-l <L>] [-a <A>] [-A <P>] [-x <X>] [-X <P>] hostname> <community>|{<srcParty> <dstParty> <context>}");
 }
 
 void
@@ -110,7 +110,8 @@ snmp_parse_args_descriptions(outf)
           "  -c <S> <D>\tset the source/destination clocks for v2p requests.\n");
   fprintf(outf,
           "  -T <B> <T>\tset the destination engine boots/time for v3 requests.\n");
-  fprintf(outf, "  -e <E>\tengine ID (e.g., 800000020109840301).\n");
+  fprintf(outf, "  -e <E>\tsecurity engine ID (e.g., 800000020109840301).\n");
+  fprintf(outf, "  -E <E>\tcontext engine ID (e.g., 800000020109840301).\n");
   fprintf(outf, "  -n <N>\tcontext name (e.g., bridge1).\n");
   fprintf(outf, "  -u <U>\tsecurity name (e.g., bert).\n");
   fprintf(outf, "  -l <L>\tsecurity level (noAuthNoPriv|authNoPriv|authPriv).\n");
@@ -329,6 +330,26 @@ snmp_parse_args(argc, argv, session)
         }
 	if ((bsize = hex_to_binary(psz,buf)) <= 0) {
           fprintf(stderr,"Need engine ID value after -e flag. \n");
+          usage();
+          exit(1);
+	}
+	session->securityEngineID = malloc(bsize);
+	memcpy(session->securityEngineID, buf, bsize);
+	session->securityEngineIDLen = bsize;
+        break;
+
+      case 'E':
+        if (argv[arg][2] != 0)
+          psz = &(argv[arg][2]);
+        else
+          psz = argv[++arg];
+        if( psz == NULL) {
+          fprintf(stderr,"Need engine ID value after -E flag. \n");
+          usage();
+          exit(1);
+        }
+	if ((bsize = hex_to_binary(psz,buf)) <= 0) {
+          fprintf(stderr,"Need engine ID value after -E flag. \n");
           usage();
           exit(1);
 	}

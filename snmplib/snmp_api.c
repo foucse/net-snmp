@@ -679,6 +679,21 @@ snmp_sess_open(in_session)
 
     }
 
+    if (session->securityEngineIDLen > 0) {
+      cp = (u_char*)malloc((unsigned)session->securityEngineIDLen *
+			   sizeof(u_char));
+      if (cp == NULL) {
+	snmp_errno = SNMPERR_GENERR;
+	in_session->s_snmp_errno = SNMPERR_GENERR;
+	snmp_sess_close(slp);
+	return(NULL);
+      }
+      memmove(cp, session->securityEngineID,
+	      session->securityEngineIDLen * sizeof(u_char));
+      session->securityEngineID = cp;
+
+    }
+
     if (session->contextName) {
       session->contextName = strdup(session->contextName);
       if (cp == NULL) {
@@ -892,20 +907,20 @@ snmp_sess_open(in_session)
 		 snmp_get_errno());
 	  break;
 	}
-	if (slp->session->contextEngineIDLen == 0) {
+	if (slp->session->securityEngineIDLen == 0) {
 	  DEBUGP("unable to determine remote engine ID\n");
 	  return NULL;
 	}
 	if (snmp_get_do_debugging()) {
 	  DEBUGP("  probe found engineID:  ");
-	  for(i = 0; i < slp->session->contextEngineIDLen; i++)
-	    DEBUGP("%02x", slp->session->contextEngineID[i]);
+	  for(i = 0; i < slp->session->securityEngineIDLen; i++)
+	    DEBUGP("%02x", slp->session->securityEngineID[i]);
 	  DEBUGP("\n");
 	}
       }
       /* if boot/time supplied set it for this engineID */
       if (session->engineBoots || session->engineTime) {
-	set_enginetime(session->contextEngineID, session->contextEngineIDLen,
+	set_enginetime(session->securityEngineID, session->securityEngineIDLen,
 		       session->engineBoots, session->engineTime, TRUE);
       }
       if (create_user_from_session(slp->session) != SNMPERR_SUCCESS)
@@ -939,8 +954,8 @@ EM(-1);
 
   /* now that we have the engineID, create an entry in the USM list
      for this user using the information in the session */
-  user = usm_get_user_from_list(session->contextEngineID,
-                                session->contextEngineIDLen,
+  user = usm_get_user_from_list(session->securityEngineID,
+                                session->securityEngineIDLen,
                                 session->securityName,
                                 usm_get_userList(), 0);
   if (user == NULL) {
@@ -961,12 +976,12 @@ EM(-1);
     }
 
     /* copy in the engineID */
-    if (memdup(&user->engineID, session->contextEngineID,
-               session->contextEngineIDLen) != SNMPERR_SUCCESS) {
+    if (memdup(&user->engineID, session->securityEngineID,
+               session->securityEngineIDLen) != SNMPERR_SUCCESS) {
       usm_free_user(user);
       return SNMPERR_GENERR;
     }
-    user->engineIDLen = session->contextEngineIDLen;
+    user->engineIDLen = session->securityEngineIDLen;
 
     /* copy the auth protocol */
     if (session->securityAuthProto != NULL) {
@@ -997,7 +1012,7 @@ EM(-1);
       user->authKey = malloc (USM_LENGTH_KU_HASHBLOCK);
       user->authKeyLen = USM_LENGTH_KU_HASHBLOCK;
       if (generate_kul( user->authProtocol, user->authProtocolLen,
-                        session->contextEngineID, session->contextEngineIDLen,
+                        session->securityEngineID, session->securityEngineIDLen,
                         session->securityAuthKey, session->securityAuthKeyLen,
                         user->authKey, &user->authKeyLen ) != SNMPERR_SUCCESS) {
         usm_free_user(user);
@@ -1010,7 +1025,7 @@ EM(-1);
       user->privKey = malloc (USM_LENGTH_KU_HASHBLOCK);
       user->privKeyLen = USM_LENGTH_KU_HASHBLOCK;
       if (generate_kul( user->authProtocol, user->authProtocolLen,
-                        session->contextEngineID, session->contextEngineIDLen,
+                        session->securityEngineID, session->securityEngineIDLen,
                         session->securityPrivKey, session->securityPrivKeyLen,
                         user->privKey, &user->privKeyLen ) != SNMPERR_SUCCESS) {
         usm_free_user(user);
@@ -1081,6 +1096,7 @@ snmp_sess_close(sessp)
 
     _snmp_free((char *)slp->session->contextEngineID);
     _snmp_free((char *)slp->session->contextName);
+    _snmp_free((char *)slp->session->securityEngineID);
     _snmp_free((char *)slp->session->securityName);
     _snmp_free((char *)slp->session->securityAuthProto);
     _snmp_free((char *)slp->session->securityPrivProto);
@@ -1210,7 +1226,7 @@ snmpv3_verify_msg(rp, pdu)
   struct snmp_pdu     *rpdu;
   
   if (!rp || !rp->pdu || !pdu) return 0;
-  /* Reports don't have to match anything */
+  /* Reports don't have to match anything according to the spec */
   if (pdu->command == SNMP_MSG_REPORT) return 1;
   rpdu = rp->pdu;
   if (rp->request_id != pdu->reqid || rpdu->reqid != pdu->reqid) return 0;
@@ -1221,6 +1237,10 @@ snmpv3_verify_msg(rp, pdu)
     return 0;
   if (rpdu->contextNameLen != pdu->contextNameLen || 
       memcmp(rpdu->contextName, pdu->contextName, pdu->contextNameLen)) 
+    return 0;
+  if (rpdu->securityEngineIDLen != pdu->securityEngineIDLen || 
+      memcmp(rpdu->securityEngineID, pdu->securityEngineID, 
+	     pdu->securityEngineIDLen))
     return 0;
   if (rpdu->securityNameLen != pdu->securityNameLen || 
       memcmp(rpdu->securityName, pdu->securityName, pdu->securityNameLen)) 
@@ -1451,7 +1471,7 @@ EM(-1);
 			global_data,		global_data_len,
                         SNMP_MAX_MSG_SIZE,	
 			SNMP_SEC_MODEL_USM,
-                        pdu->contextEngineID,	pdu->contextEngineIDLen,
+                        pdu->securityEngineID,	pdu->securityEngineIDLen,
                         pdu->securityName,	pdu->securityNameLen,
                         pdu->securityLevel,	
 			spdu_buf,		spdu_len, 
@@ -1837,6 +1857,8 @@ EM(-1);
   sec_params			= data;
   pdu->contextEngineID		= SNMP_MALLOC(SNMP_MAX_ENG_SIZE);
   pdu->contextEngineIDLen	= SNMP_MAX_ENG_SIZE;
+  pdu->securityEngineID         = SNMP_MALLOC(SNMP_MAX_ENG_SIZE);
+  pdu->securityEngineIDLen	= SNMP_MAX_ENG_SIZE;
   pdu->securityName		= SNMP_MALLOC(SNMP_MAX_SEC_NAME_SIZE);
   pdu->securityNameLen		= SNMP_MAX_SEC_NAME_SIZE;
 
@@ -1848,7 +1870,7 @@ EM(-1);
 	 SNMP_VERSION_3,	 msg_max_size,
 	 sec_params,		 msg_sec_model,		pdu->securityLevel,
 	 msg_data,		 msg_len,
-         pdu->contextEngineID,	&pdu->contextEngineIDLen,
+         pdu->securityEngineID,	&pdu->securityEngineIDLen,
          pdu->securityName,	&pdu->securityNameLen,
         &cp,
 	&pdu_buf_len,		&max_size_response,
@@ -1877,29 +1899,21 @@ EM(-1);
 
   /* parse contextEngineID from scopedPdu 
    */
-  tmp_buf_len = SNMP_MAX_MSG_SIZE;
-  data = asn_parse_string(data, length, &type, tmp_buf, &tmp_buf_len);
+  data = asn_parse_string(data, length, &type, 
+			  pdu->contextEngineID, & pdu->contextEngineIDLen);
   if (data == NULL) {
     ERROR_MSG("error parsing contextEngineID from scopedPdu");
     return -1;
   }
 
-
   /* check that it agrees with engineID returned from USM above
+   * only a warning because this could be legal from a proxy
    */
-  if (tmp_buf_len) {
-    /* FIX BUG: USM is not returning pdu->contextEngineID on discovey probe */
-    if (pdu->contextEngineIDLen == 0) {
-      memcpy(pdu->contextEngineID, tmp_buf, tmp_buf_len);
-      pdu->contextEngineIDLen = tmp_buf_len;
-    }
-    if (tmp_buf_len != pdu->contextEngineIDLen ||
-	memcmp(tmp_buf, pdu->contextEngineID, tmp_buf_len) != 0) {
-      ERROR_MSG("inconsistent engineID information in message");
-      return -1;
-    }
+  if (pdu->securityEngineIDLen != pdu->contextEngineIDLen ||
+      memcmp(pdu->securityEngineID, pdu->contextEngineID,
+	     pdu->securityEngineIDLen) != 0) {
+    DEBUGP("inconsistent engineID information in message");
   }
-
 
   /* parse contextName from scopedPdu
    */
@@ -1950,8 +1964,8 @@ snmpv3_make_report(u_char *out_data, int *out_length,
   snmp_free_varbind(pdu->variables);	/* free the current varbind */
 
   pdu->variables		= NULL;
-  pdu->contextEngineID		= engineID;
-  pdu->contextEngineIDLen	= engineIDLen;
+  pdu->securityEngineID		= engineID;
+  pdu->securityEngineIDLen	= engineIDLen;
   pdu->command		 	= SNMP_MSG_REPORT;
   pdu->errstat		 	= 0;
   pdu->errindex		 	= 0;
@@ -2603,19 +2617,26 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
       if (pdu->msgid == SNMP_DEFAULT_MSGID) { /*MTCRITICAL_RESOURCE*/
 	pdu->msgid = ++Msgid;
       }
+      if (pdu->securityEngineIDLen == 0) {
+	if (session->securityEngineIDLen) {
+	  snmpv3_clone_engineID(&pdu->securityEngineID, 
+				&pdu->securityEngineIDLen,
+				session->securityEngineID,
+				session->securityEngineIDLen);
+	}
+      }
+
       if (pdu->contextEngineIDLen == 0) {
-	if (session->contextEngineIDLen != 0){
-	  pdu->contextEngineID =
-	    (u_char*)malloc((unsigned)session->contextEngineIDLen *
-			    sizeof(u_char));
-	  if (pdu->contextEngineID == NULL) {
-	    snmp_errno = SNMPERR_GENERR;
-	    session->s_snmp_errno = SNMPERR_GENERR;
-	    return 0;
-	  }
-	  memmove(pdu->contextEngineID, session->contextEngineID,
-		  session->contextEngineIDLen * sizeof(u_char));
-	  pdu->contextEngineIDLen = session->contextEngineIDLen;
+	if (session->contextEngineIDLen) {
+	  snmpv3_clone_engineID(&pdu->contextEngineID, 
+				&pdu->contextEngineIDLen,
+				session->contextEngineID,
+				session->contextEngineIDLen);
+	} else if (session->securityEngineIDLen) {
+	  snmpv3_clone_engineID(&pdu->contextEngineID, 
+				&pdu->contextEngineIDLen,
+				session->securityEngineID,
+				session->securityEngineIDLen);
 	}
       }
 
@@ -2770,11 +2791,12 @@ snmp_free_pdu(pdu)
 	vp = vp->next_variable;
 	free((char *)ovp);
     }
-    if (pdu->enterprise) free((char *)pdu->enterprise);
-    if (pdu->community) free((char *)pdu->community);
-    if (pdu->contextEngineID) free((char*)pdu->contextEngineID);
-    if (pdu->contextName) free((char*)pdu->contextName);
-    if (pdu->securityName) free((char*)pdu->securityName);
+    _snmp_free(pdu->enterprise);
+    _snmp_free(pdu->community);
+    _snmp_free(pdu->contextEngineID);
+    _snmp_free(pdu->securityEngineID);
+    _snmp_free(pdu->contextName);
+    _snmp_free(pdu->securityName);
     if (pdu->srcParty && pdu->srcParty != pdu->srcPartyBuf) 
       free((char *)pdu->srcParty);
     if (pdu->dstParty && pdu->dstParty != pdu->dstPartyBuf) 
@@ -2889,11 +2911,11 @@ snmp_sess_read(sessp, fdset)
 		if (SNMPV3_IGNORE_UNAUTH_REPORTS) break;
 	      }
 	      /* handle engineID discovery - */
-	      if (!sp->contextEngineIDLen && pdu->contextEngineIDLen) {
-		sp->contextEngineID = malloc(pdu->contextEngineIDLen);
-		memcpy(sp->contextEngineID, pdu->contextEngineID,
-		       pdu->contextEngineIDLen);
-		sp->contextEngineIDLen = pdu->contextEngineIDLen;
+	      if (!sp->securityEngineIDLen && pdu->securityEngineIDLen) {
+		sp->securityEngineID = malloc(pdu->securityEngineIDLen);
+		memcpy(sp->securityEngineID, pdu->securityEngineID,
+		       pdu->securityEngineIDLen);
+		sp->securityEngineIDLen = pdu->securityEngineIDLen;
 	      }
 	    }
 	    /* successful, so delete request */

@@ -46,10 +46,12 @@ struct snmp_pdu {
     int	    version;
 
     snmp_ipaddr  address;	/* Address of peer */
-    u_char  *contextEngineID;	/* authoritative snmpEngineID */
+    u_char  *contextEngineID;	/* context snmpEngineID */
     int	    contextEngineIDLen;  /* Length of contextEngineID */
     u_char  *contextName;	/* authoritative contextName */
     int	    contextNameLen;  /* Length of contextName */
+    u_char  *securityEngineID;	/* authoritative snmpEngineID for security */
+    int	    securityEngineIDLen;  /* Length of securityEngineID */
     u_char  *securityName;	/* on behalf of this principal */
     int	    securityNameLen;  /* Length of securityName. */
     int	    securityModel;
@@ -98,6 +100,8 @@ struct snmp_session {
     u_int   engineTime;         /* initial engineTime for remote engine */
     u_char  *contextName;	/* authoritative contextName */
     int	    contextNameLen;     /* Length of contextName */
+    u_char  *securityEngineID;	/* authoritative snmpEngineID */
+    int	    securityEngineIDLen;  /* Length of contextEngineID */
     u_char  *securityName;	/* on behalf of this principal */
     int	    securityNameLen;    /* Length of securityName. */
     oid     *securityAuthProto; /* auth protocol oid */

@@ -548,6 +548,39 @@ snmpv3_get_engineID(char *buf, int buflen)
 
 }  /* end snmpv3_get_engineID() */
 
+/*******************************************************************-o-******
+ * snmpv3_clone_engineID
+ *
+ * Parameters:
+ *	**dest
+ *       *dest_len
+ *       src
+ *	 srclen
+ *      
+ * Returns:
+ *	Length of engineID	On Success
+ *	0		        Otherwise.
+ *
+ *
+ * Clones engineID, creates memory
+ *
+ */
+int
+snmpv3_clone_engineID(u_char **dest, int* destlen, u_char*src, int srclen)
+{
+  if ( !dest || !destlen ) return 0;
+
+  *dest = NULL; *destlen = 0;
+
+  if (srclen && src) {
+    *dest = (u_char*)malloc((unsigned)srclen * sizeof(u_char));
+    if (*dest == NULL) return 0;
+    memmove(*dest, src, srclen * sizeof(u_char));
+    *destlen = srclen;
+  }
+  return *destlen;
+}  /* end snmpv3_clone_engineID() */
+
 
 /*******************************************************************-o-******
  * snmpv3_generate_engineID

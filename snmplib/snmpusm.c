@@ -30,6 +30,7 @@ int reportErrorOnUnknownID = 0;
 	 */
 
 static struct usmUser *initialUser = NULL;
+static struct usmUser *noNameUser = NULL;
 
 /* 
  * Set a given field of the secStateRef.
@@ -1910,6 +1911,15 @@ init_usm_post_config(void)
     free(initialUser->engineID);
   initialUser->engineID = NULL;
   initialUser->engineIDLen = 0;
+
+  noNameUser = usm_create_initial_user("", usmHMACMD5AuthProtocol,
+                                        USM_LENGTH_OID_TRANSFORM,
+                                        usmDESPrivProtocol,
+                                        USM_LENGTH_OID_TRANSFORM);
+  if (noNameUser->engineID)
+    free(noNameUser->engineID);
+  noNameUser->engineID = NULL;
+  noNameUser->engineIDLen = 0;
 }
  
 
@@ -2034,6 +2044,11 @@ usm_get_user_from_list(char *engineID, int engineIDLen,
           memcmp(ptr->engineID, engineID, engineIDLen) == 0)))
       return ptr;
   }
+  /* return "" user used to facilitate engineID discovery */
+  if (use_default && !strcmp(name, "")) return noNameUser;
+  /* this next line may be vestigial from when the draft used 'initial'
+     to discover engineID, also did not remove creation if 'inital' user
+     -gsm 2/6/99 */
   if (use_default && !strcmp(name, "initial")) return initialUser;
   return NULL;
 }

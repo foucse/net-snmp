@@ -103,9 +103,13 @@ except for snmptrap, which defaults to 162.
 .IP "-c srcclock dstclock"
 sets the clock values to be used for authenticated SNMP v2p messages
 .IP "-e engineid"
-sets the authoritative engineID used for SNMP v3 Request messages.
+sets the authoritative(security) engineID used for SNMP v3 Request messages.
+This is the engineID of the agent or proxy (e.g., 800000020109840301). (will 
+be discovered if not supplied)
+.IP "-E engineid"
+sets the context engineID used for SNMP v3 Request messages scopedPdu.
 This is the engineID of the agent (e.g., 800000020109840301). (will be
-discovered if not supplied)
+authoritative engineID if not specified)
 .IP "-T boots time"
 sets the engineBoots and engineTime used for authenticated SNMP v3 messages.
 This will initialize the local notion of the agents boots/time with an
