@@ -197,15 +197,15 @@ CREATEUSER() {
   user=$1
   MAKEUSEROID $user
   fulluser=$engineidoid.$useroid
-  DOIT $snmpset usmUserStatus.$fulluser i 4
-  DOIT $snmpset usmUserCloneFrom.$fulluser o $usmUserSecurityName.$2
+  OKORFAIL "usmUserStatus.$fulluser.*createAndGo" $snmpset usmUserStatus.$fulluser i 4
+  $snmpset usmUserCloneFrom.$fulluser o $usmUserSecurityName.$2
   if test "x$3" != "x"; then
     DOIT $snmpset usmUserPrivProtocol.$fulluser o $3
   fi
   if test "x$4" != "x"; then
     DOIT $snmpset usmUserAuthProtocol.$fulluser o $4
   fi
-  DOIT $snmpget usmUserStatus.$engineidoid.$useroid
+  OKORFAIL "usmUserStatus.$fulluser.*active" $snmpget usmUserStatus.$engineidoid.$useroid
 }
 
 #
@@ -337,10 +337,7 @@ OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authPriv -a SHA -A "$
 TITLE "Demonstrate KeyChange."\
       "Change kul for a user at the remote node:"
 
-oldkey=`ktest -q -l -P "$defpass" -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
-newkey=`ktest -q -l -P "new_$defpass" -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
-
-keychange=`ktest -k -N $newkey -O $oldkey | egrep 'MD5.*KeyChange string' | awk '{print $NF}'`
+keychange=`encode_keychange -t md5 -N "new_$defpass" -O "$defpass" -E 0x$engineidstr`
 
 TITLE "changing stingray's auth and priv key"\
       "(from $oldkey to $newkey using $keychange)"
