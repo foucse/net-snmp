@@ -2787,6 +2787,7 @@ var_udp(vp, name, length, exact, var_len, write_method)
 {
 #define UDP_NAME_LENGTH	8
     mib2_udp_t udpstat;
+    mib2_ip_t ipstat;
     oid newname[MAX_NAME_LEN];
     int result;
     u_char *ret = (u_char *)&long_return;	/* Successful completion */
@@ -2814,8 +2815,12 @@ var_udp(vp, name, length, exact, var_len, write_method)
       return (NULL);		/* Things are ugly ... */
 
     switch (vp->magic){
-	case UDPINDATAGRAMS:
 	case UDPNOPORTS:
+		if (getMibstat(MIB_IP, &ipstat, sizeof(mib2_ip_t), GET_FIRST, &Get_everything, NULL) < 0)
+		  return (NULL);		/* Things are ugly ... */
+		long_return = ipstat.udpNoPorts;
+		break;
+	case UDPINDATAGRAMS:
       		long_return = udpstat.udpInDatagrams;
       		break;
 	case UDPOUTDATAGRAMS:
@@ -3021,6 +3026,7 @@ int     (**write_method)(); /* OUT - pointer to function to set variable, otherw
 #define TCP_NAME_LENGTH	8
   int i;
   mib2_tcp_t tcpstat;
+  mib2_ip_t ipstat;
   oid newname[MAX_NAME_LEN], lowest[MAX_NAME_LEN], *op;
   u_char *cp;
   int State, LowState;
@@ -3088,6 +3094,11 @@ int     (**write_method)(); /* OUT - pointer to function to set variable, otherw
       return(u_char *) &long_return;
     case TCPRETRANSSEGS:
       long_return = tcpstat.tcpRetransSegs;
+      return(u_char *) &long_return;
+    case TCPINERRS:
+      if (getMibstat(MIB_IP, &ipstat, sizeof(mib2_ip_t), GET_FIRST, &Get_everything, NULL) < 0)
+	return (NULL);		/* Things are ugly ... */
+      long_return = ipstat.tcpInErrs;
       return(u_char *) &long_return;
     default:
       ERROR("");

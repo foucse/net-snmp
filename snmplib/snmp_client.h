@@ -39,3 +39,6 @@ struct snmp_pdu	*snmp_pdu_create();
 struct snmp_pdu *snmp_fix_pdu();
 struct snmp_pdu *snmp_clone_pdu();
 char *snmp_errstring();
+int snmp_add_null_var();
+int snmp_synch_setup();
+int snmp_synch_response();
