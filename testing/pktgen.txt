@@ -18,9 +18,9 @@ flexible to allow raw hex, enumerated symbolic values or other more
 familiar ways of expressing the value of a given field. Default, v3
 oriented values are defined for all fields so that a very minimal
 description can be used to produce a v3 message. INTEGER fields with
-no explicit default will default to zero (0). OBJECT_ID and STRING
-fields with no explicit default will default to a zero length object
-(""). 
+no explicit default will default to zero (0). STRING fields with no
+explicit default will default to a zero length object (""). OBJECT_ID
+fields with no explicit default will default to '.0'.
 
 The tool is implemented in Perl and requires the Convert::BER module
 to be installed.
@@ -79,14 +79,14 @@ SEQUENCE is directly assigned a value then any assignment to
 contextEngineID, contextName, etc. will be ignored.
 
 If the packet description file does not contain a value for a
-particular field then the packet genrator will attempt to resolve a
-value for it. If it is a constructed field its definition is derived
+particular field then the packet generator will attempt to resolve a
+value for it. If it is a constructed field, its definition is derived
 from its sub-fields, or if it is a simple field (i.e., no sub fields
 defined) then its value will be the default for that field. If a field
 above has an enumeration list, the first enumeration is assumed to be
 the default. If no enumeration or explicit default is defined, then
 the value will be 0 for INTEGER and zero length object for STRING,
-SEQUENCE, OBJECT_ID, etc..
+SEQUENCE, and BER, and '.0' for OBJECT_ID.
 
 The value formats supported for each field are quite flexible to allow
 full control over the content of the packet. Each data type supports
@@ -95,21 +95,21 @@ various syntax for its value definition. These are as follow.
 constructed fields (SEQUENCE, CHOICE, STRING)
 
 # basic octet assignment, will be wrapped with fields type tag and length
-<field> => 0x[0-9A-F]*  
+<field> => 0x[\s0-9A-Fa-f]*  
 
 # literal octet assignment, no wrapping with type tag or length
-<field> => <0x[0-9A-F]*>
+<field> => <0x[\s0-9A-Fa-f]*>
 
 # symbolic type enumeration, <symbol> is mapped to <val> used as type tag
 # i.e., pduData => GETNEXT; tag equals BER_CONSTRUCTOR|BER_CONTEXT|<val>
 <field> => <symbol>
 
 # symbolic type enumeration with octet assignment, length is calculated
-<field> => <symbol>:0x[0-9A-F]*
+<field> => <symbol>:0x[\s0-9A-Fa-f]*
 
 # literal type, with octet assignment, type tag will be exactly as provided
 # for byte defined before the ':', length is calculated
-<field> => (0x[0-9A-F]{2}|(0..255)):0x[0-9A-F]*
+<field> => (0x[\s0-9A-Fa-f]{2}|(0..255)):0x[\s0-9A-Fa-f]*
 
 # interpolated string, will be wrapped with fields type tag and length
 <field> => "<string>"
@@ -125,7 +125,9 @@ constructed fields (SEQUENCE, CHOICE, STRING)
 BER field value syntax
 # for BER objects (e.g., 'value' in 'varbind') value is defined
 # as a TYPE/VALUE pair. TYPE = (NULL|INTEGER|STRING|OBJECT_ID)
-<BER field> => [ <TYPE> => <VALUE> ]
+<field> => [ <TYPE> => <VALUE> ]
+# literal octet BER object, no wrapping with type tag or length
+<field> => 0x[\s0-9A-Fa-f]*
 
 non-constructed fields
 
@@ -143,18 +145,19 @@ example packet descr
 ----packet.txt---
 msgID => 1;
 msgFlags => reportableFlag|authFlag; # or 0x05
-# literal definition, will not be wrapped in string
+# literal definition, will not be wrapped in STRING
 msgEngineID => <0x040C800007e574657374697400>;
 msgEngineBoots => 1;
 msgEngineTime => 1;
 msgUserName => 'initial';
 # function is called with given params, will push post process tasks on stack
-msgAuthParam => &pkt_auth_param('MD5','passphrase')
+msgAuthParam => &pkt_auth_param('MD5','passphrase');
 # octet assignment, will be wrapped in string tag and length
 contextEngineID => 0x800007e574657374697400;
 contextName => "default\0";
 pduData => GETNEXT;
-reqID => 2; 
-objectID => .0
-value => [NULL => 0]
+reqID => 2;
+objectID => .0;
+value => [NULL => 0];
 ------------------------
+

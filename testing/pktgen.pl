@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use Convert::BER(BER_CONSTRUCTOR,BER_CONTEXT);
 use Getopt::Std;
+use Socket;
 
 my $pktTmpl = 
 { TAG => snmpV3Msg,
@@ -79,7 +80,7 @@ my $pktTmpl =
 			  TYPE => INTEGER,
 			  ALIAS => maxRepetitions },
 			{ TAG => varbindList,
-			  TYPE => SEQUENCE,
+			  TYPE => SEQUENCE_OF,
 			  DEF => 
 			      [ { TAG => varbind,
 				  TYPE => SEQUENCE,
@@ -87,7 +88,8 @@ my $pktTmpl =
 				      [ { TAG => objectID,
 					  TYPE => OBJECT_ID },
 					{ TAG => value,
-					  TYPE => BER },
+					  TYPE => BER,
+				          DFLT => [NULL => 0] },
 					] },
 				] },
 			] },
@@ -103,11 +105,20 @@ sub pkt_read_packet_data {
     open(DATA,$file) or die "could not open packet data file, $file\n";
 
     while (<DATA>) {
-	next if /^\s*$/;
-	next if /^\s*\#/;
 	chomp;
-	next unless ($k,$v) = 
-	    /(\w+)\s*=>\s*(\"[^\"]*\"|&\w+\([^\)]*\)|\S+);/;
+	$line .= $_;
+	next if $line =~ s/\\\s*$//;
+	($k,$v) = $line =~ /^\s*(\w+)\s*=>\s*
+                              ( <.*>
+                              | \'.*\'
+                              | \".*\"
+                              | \[.*\]
+                              | \&\w+\(.*\)
+                              | 0[xX][\s0-9A-Fa-f]*
+                              | \S+
+                              )\s*;/x;
+	undef $line;
+	next unless defined $k and defined $v;
 	if (exists $data{$k}) {
 	    if (ref $data{$k} eq ARRAY) {
 		push(@{$data{$k}}, $v);
@@ -124,136 +135,325 @@ sub pkt_read_packet_data {
     return \%data;
 }
 
-sub pkt_resolve_value {
+sub pkt_resolve_field {
     my $obj = shift;
-    my $val = shift;
+    my $data = shift;
+    my $in_seq_of = shift;
     my $tag = $obj->{TAG};
     my $type = $obj->{TYPE};
+    my $val;
+    my $enum;
+    my $seq_of;
+
+    if (exists $data->{$tag}) {
+	if (ref $data->{$tag} eq 'ARRAY') {
+	    $val = shift @{$data->{$tag}};
+	    delete $data->{$tag} unless @{$data->{$tag}};
+	} else {
+	    $val = $data->{$tag};
+	    delete $data->{$tag};
+	}
+    }
+
+    # if no val given use default unless in SEQUENCE_OF
+    $val = $obj->{DFLT} unless defined $val or $in_seq_of;
+
+    print "pkt_resolve_field: resolving [$tag, $type, $val]\n" if $opt_D;
+
+    # resolve function call
+    $val = eval($val) if $val =~ /^\&\w+/;
+
+    # if literal octet field convert type to BER
+    $type = 'BER' if $val =~ s/^<(.*)>$/$1/;
+
+    # handle enumeration resolution
+    my @enums = split(/\s*\|\s*/,$val);
+    my $enum_val;
+    foreach (@enums) {
+	if ($obj->{ENUM} and exists $obj->{ENUM}{$_}) {
+	    $enum_val |= $obj->{ENUM}{$_};
+	    $enum = 1;
+	}
+    }
+    $val = $enum_val if $enum;
 
     for ($type) {
-	/INTEGER/ and do {
-	    $val = $obj->{ENUM}{$val} 
-	       if exists $obj->{ENUM} and exists $obj->{ENUM}{$val};
-	    $val ||= 0;
+	/^NULL/ and do {
+	    $val = 0 unless $in_seq_of;
 	    last;
 	};
-	/STRING/ and do {
-	    my $size = $obj->{SIZE};
-	    $val = $obj->{ENUM}{$val} 
-	       if exists $obj->{ENUM} and exists $obj->{ENUM}{$val};
-	    if ($val =~ s/^0[xX]//) {
-		$size = ($size ? $size * 2 : '*');
-		$val = pack("H$size",$val);
-	    } elsif ($val =~ /^\d+$/) {
-		$size = ($size ? ('c','n','nc','N')[$size-1] : 'N');
-		$val = pack($size,$val);
-	    } elsif ($val =~ s/^\"(.*)\"/$1/) {
-		$size ||= '*';
-		$val = pack("a$size",$val);
+	/^INTEGER/ and do {
+	    if ($val =~ /^[^+-\d]*$/) {
+		warn "pkt_resolve_field: unable to resolve INTEGER ENUM $val\n"
+		    if $opt_w;
 	    }
-	    $val ||= "";
+	    $val ||= 0 unless $in_seq_of;
 	    last;
 	};
-	/SEQUENCE|CHOICE/ and do {
+	/^OBJECT_ID/ and do {
+	    $val ||= 0 unless $in_seq_of;
+	    last;
+	};
+	/^STRING/ and do {
+	    my $size = $obj->{SIZE} || '*';
+	    if ($val =~ s/^0[xX]//) {
+		$size = $size * 2 unless $size eq  '*';
+		$val =~ s/\s*//g;
+		$val = pack("H$size",$val);
+	    } elsif ($val =~ /^(\".*\"|\'.*\')$/) {
+		$val = eval($val);
+		$val = pack("a$size",$val);
+	    } elsif ($val =~ /^\d+$/) {
+		$size = ('c','n','n','N')[$size-1] || 'N';
+		$val = pack($size,$val);
+	    } elsif ($val =~ /^\S+$/) {
+		$val = pack("a$size",$val);
+	    } else {
+		warn "pkt_resolve_field: bad STRING format ($val)\n" 
+		    if defined $val and $opt_w;
+	    }
+	    $val = "" unless defined $val or $in_seq_of or exists $obj->{DEF};
+	    last;
+	};
+	/^BER/ and do {
+	    print "pkt_resolve_field: resolving BER (val=>$val)\n" if $opt_D;
+	    my $size = $obj->{SIZE} || '*';
+	    if ($val =~ s/^0[xX]//) {
+		$size = $size * 2 unless $size eq  '*';
+		$val =~ s/\s*//g;
+		my $tval = pack("H$size",$val);
+		$val = sub {new Convert::BER($tval)};
+	    } elsif ($val =~ /^\[.*\]$/) {
+		print "pkt_resolve_field: resolving BER $val\n" if $opt_D;
+		$val = eval($val);
+		$type = shift @{$val};
+		$val = shift @{$val};
+	    } elsif (ref $val eq 'ARRAY') {
+		$type = ${$val}[0];
+		$val = ${$val}[1];
+	    }
+	    last;
+	};
+	/^SEQUENCE/ and do {
+	    print "pkt_resolve_field: resolving SEQUENCE (val=>$val)\n" if $opt_D;
+	    $seq_of = 1 if $type =~ s/_OF//;
+	    my $size = $obj->{SIZE} || '*';
+	    $val =~ s/^(0[xX]\s*[0-9A-Fa-f]{2}|[0-9]{1,3})://;
+	    my $ttag = $1;
+	    if (defined $ttag) {
+		$type = [ SEQUENCE => $ttag ];
+	    }
+	    if ($val =~ s/^0[xX]//) {
+		$size = $size * 2 unless $size eq '*';
+		$val =~ s/\s*//g;
+		print "pkt_resolve_field: octets (val=>$val, size=>$size)\n" 
+		    if $opt_D;
+		my $tval = pack("H$size",$val) ;
+		$val = sub {new Convert::BER($tval)};
+	    } elsif ($val =~ /^(\".*\"|\'.*\')$/) {
+		$val = eval($val);
+		my $tval = pack("a$size",$val);
+		$val = sub {new Convert::BER($tval)};
+	    } elsif ($val =~ /^\S+$/) {
+		print "pkt_resolve_field: string (val=>$val)\n" if $opt_D;
+		my $tval = pack("a$size",$val);
+		$val = sub {new Convert::BER($tval)};
+	    } else {
+		warn "pkt_resolve_field: bad SEQUENCE format ($val)\n" 
+		    if defined $val and $opt_w;
+	    }
+	    last;
+	};
+	/CHOICE/ and do {
+	    $val =~ s/^(0[xX]\s*[0-9A-Fa-f]{2}|[0-9]{1,3}|\w+)://;
+	    (my $ttag = $1) =~ s/\s*//g;
+	    $ttag = $val, undef $val if $enum;
+	    $ttag = $obj->{ENUM}{$1}, $enum = 1 
+		if $obj->{ENUM} and exists $obj->{ENUM}{$1};
+	    $type = (($enum or not defined $ttag) ? 
+		     [ SEQUENCE => BER_CONSTRUCTOR | BER_CONTEXT | $ttag ] :
+		     [ SEQUENCE => $ttag ]);
 	    my $size = $obj->{SIZE};
 	    $size = ($size ? $size * 2 : '*');
-	    $val = $obj->{ENUM}{$val} 
-	       if exists $obj->{ENUM} and exists $obj->{ENUM}{$val};
 	    if ($val =~ s/^0[xX]//) {
+		$val =~ s/\s*//g;
 		my $tval = pack("H$size",$val) ;
 		$val = sub {new Convert::BER($tval);};
+	    } elsif ($val =~ /^(\".*\"|\'.*\')$/) {
+		$val = eval($val);
+		my $tval = pack("a$size",$val);
+		$val = sub {new Convert::BER($tval)};
+	    } elsif ($val =~ /^\S+$/) {
+		my $tval = pack("a$size",$val);
+		$val = sub {new Convert::BER($tval)};
+	    } else {
+		warn "pkt_resolve_field: bad CHOICE format (val=>$val)\n" 
+		    if defined $val and $opt_w;
 	    }
 	    last;
 	};
     }
-    $val;
+    return ($type,$val,$seq_of);
 }
 
 sub pkt_compile_ber_encode_arg {
     my $obj = shift;
     my $data = shift;
-    my $tag = $obj->{TAG};
-    my $type = $obj->{TYPE};
-    my $val = $data->{$tag} || $obj->{DFLT};
+    my $in_seq_of = shift;
+    my ($type,$rval);
     my $arg;
-    my $rval = pkt_resolve_value($obj,$val);
+    my $tag = $obj->{TAG};
+    my $seq_of;
+
+    print "pkt_compile_ber_encode_arg: (tag=>$tag, in_seq_of=>$in_seq_of)\n" 
+	if $opt_D;
     
-    if (defined $val) {
-	if ($type =~ /CHOICE/) {
-	    if ($val =~ /^\w+$/) { 
-		# CHOICE was specified by symbolic enumeration 
-                # $arg is not yet defined because there may be sub-objs
-		$type = [ SEQUENCE => BER_CONSTRUCTOR | BER_CONTEXT | $rval ];
-	    } else {
-		# in this case the entire CHOICE is given by $rval
-                # we need to put it in the BER buffer so SEQUENCE will wrap it
-                # $arg is defined, no need to look for SEQUENCE sub objects
-		$arg = [SEQUENCE => $rval];
-	    }
-	} else {
-	    # simple (non contructed) object
-	    $arg = [$type => $rval];
-	}
-    } 
-    # $arg is not defined then we still need to resolve this BER clause
-    if (not defined $arg) {
+    ($type, $rval, $seq_of) = pkt_resolve_field($obj,$data,$in_seq_of);
+
+    print "pkt_compile_ber_encode_arg: resolved [$tag, $type, $rval, $seq_of]\n" 
+	if $opt_D;
+
+    # if $rval is not defined then we still need to look
+    # for sub definition and resolve this BER clause
+    if (not defined $rval) {
 	my $def = $obj->{DEF};
 	if (defined $def) {
-	    print "handling def of $tag\n" if $opt_D;
-	    my @sub_args;
-	    foreach my $sub_obj (@{$def}) {
-		push(@sub_args,pkt_compile_ber_encode_arg($sub_obj,$data));
-	    }
-	    # handle a constructed string (e.g., msgSecParam)
+	    print "pkt_compile_ber_encode_arg: found sub DEF for $tag\n" if $opt_D;
+	    # look for sub definition fields in $data at least once,
+	    # if we are within a SEQ_OF then look for multiple entries
+	    # until no more are found, note: passing seq_arg==1 to 
+	    # pkt_compile_ber_encode_arg means don't pass back defaults 
+	    # since we only want to add as many as are realy in $data
+	    my @sub_args, $sub_args, $seq_arg, $found_some;
+	    do {
+		$seq_arg = $seq_of||$in_seq_of||0;
+		undef $found_some;
+		foreach my $sub_obj (@{$def}) {
+		    $sub_args =	pkt_compile_ber_encode_arg($sub_obj,$data,$seq_arg);
+		    push(@sub_args, @{$sub_args});
+		    # if we found one component of a SEQ_OF sub construct then
+		    # it is ok to begin allowing defaults (i.e., seq_arg = 0)
+		    $found_some++,$seq_arg=0 if @{$sub_args};
+		} 
+	    } until (not $found_some or not $seq_of);
+	    # handle a BER constructed string (e.g., msgSecParam)
 	    if ($type eq 'STRING') {
-		$arg = [$type => sub {my $b = new Convert::BER(@sub_args);$b->buffer}];
+		$arg = 
+		    [$type => 
+		     sub {my $b = new Convert::BER(@sub_args);$b->buffer}];
 	    } else {
-		$arg = [$type => [ @sub_args ]];
+		# pass back sub constructs or empty list (probably 
+		# meaning a "seq_of" with no elements)
+		$arg = (@sub_args ? [$type => [ @sub_args ]] : []);
 	    }
 	} else {
-	    warn "no value, default or sub-definition found for $tag\n" if $opt_d;
-	    $arg = [$type => $rval];
+	    warn "no value, default or DEF found for (tag=>$tag)\n" if $opt_w;
+	    $arg = [];
 	}
-       
-    }
-    return @$arg;
+     } else {
+	 $arg = [$type => $rval];
+     }
+    return $arg;
 }
 
-sub pkt_build_ber_packet {
+sub pkt_encode_ber_packet {
     my $tmpl = shift;
     my $data = shift;
 
-    my @ber_args = pkt_compile_ber_encode_arg($tmpl,$data);
+    my $ber_args = pkt_compile_ber_encode_arg($tmpl,$data);
 
     my $ber = new Convert::BER();
-    $ber->encode(@ber_args);
+    $ber->encode(@{$ber_args});
     print $ber->error;
-    $ber;
+    return $ber;
+}
+
+sub pkt_decode_ber_packet {
+    my $tmpl = shift;
+    my $ber_pkt = shift;
+    my $data;
+
+    return $data;
 }
 
 sub pkt_display_packet {
     my $pkt = shift;
-    $pkt = join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $pkt->buffer()));
+
+    $pkt->dump if ref $pkt eq 'Convert::BER' and $opt_D;
+
+    $pkt = $pkt->buffer() if ref $pkt eq 'Convert::BER';
+
+    $pkt = join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $pkt));
     print "$pkt\n";
 }
 
-sub pkt_send_packet {
-    my $addr = shift;
+sub pkt_exchange_packet {
     my $pkt = shift;
+    my $addr = shift || 'localhost';
+    my $port = shift || '161';
+    my $timeout = shift || '3';
+    my $retries = shift || '3';
+    my ($inlen, $outlen, $rin, $rout, $eout, $retry, $count);
 
+
+    socket(SOCKET, PF_INET, SOCK_DGRAM, getprotobyname('udp')) or
+	warn "Could not create socket:$!\n", return undef;
+    my $remote_iaddr = inet_aton($addr);
+    unless ($remote_iaddr) { warn "Unknown host [$addr]"; return undef; }
+    my $remote_paddr = sockaddr_in($port, $remote_iaddr);
+    while (1) {
+	$outlen = send(SOCKET, $pkt->buffer(), 0, $remote_paddr);
+	print "pkt_send_packet: sent $outlen from buffer\n" if $opt_D;
+	vec($rin='', fileno(SOCKET),1) = 1;
+	# wait for packet, or exception, or timeout
+	$count = select($rout=$rin, undef, $eout=$rin, $timeout);
+	# abort after too many retries
+	warn "pkt_send_packet: Timeout: no response from $host", last if $retry >= $retries;
+	# retry if timeout or exception
+	$retry++, next
+	    unless vec($rout,fileno(SOCKET),1) and !vec($eout,fileno(SOCKET),1);
+	# recieve incoming packet
+	print"pkt_send_packet:trying recv:select returned $count:$!\n" if $opt_D;
+	$remote_paddr = recv(SOCKET, $inbuf, 512,0);
+	# check source, ignore if not from original source address
+	($port, $remote_iaddr) = sockaddr_in($remote_paddr);
+	return(new Convert::BER($inbuf)) if length $inbuf;
+    }
+    return undef;
 }
-getopts("p:a:dD");
+
+sub pkt_auth_param {
+    my $auth_proto = shift;
+    my $passphrase = shift;
+
+    print "pkt_auth_param: $auth_proto, $passphrase\n";
+    return "0x000000000000000000000000";
+}
+
+#main
+
+getopts("p:a:w:dD");
 
 my $pktDataFile = $opt_p || 'packet.txt';
 my $destAddr = $opt_a || 'localhost';
 
 my $pktData = pkt_read_packet_data($pktDataFile);
 
-my $packet = pkt_build_ber_packet($pktTmpl,$pktData);
+my $ber_packet = pkt_encode_ber_packet($pktTmpl,$pktData);
 
-pkt_display_packet($packet) if $opt_d;
+print "warning: input packet data fields ignored @{keys %$pktData}\n" if $opt_D and keys %$pktData;
 
-pkt_send_packet($destAddr, $packet);
+pkt_display_packet($ber_packet) if $opt_d;
+
+$ber_packet = pkt_exchange_packet($ber_packet,$destAddr);
+
+pkt_display_packet($ber_packet) if $opt_d;
+
+my $rspData = pkt_decode_ber_packet($pktTmpl, $ber_packet);
+
+
+
+
 
 
 
