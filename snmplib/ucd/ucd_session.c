@@ -183,7 +183,7 @@ snmp_sess_open(struct snmp_session *ucd_sess)
         return NULL;
     }
 
-    transport = snmp_transport_parse(ucd_sess);
+    transport = snmp_tdomain_transport(ucd_sess->peername, ucd_sess->local_port, "udp");
     net_sess = session_new(ucd_sess->version, transport);
 
     if (NULL == net_sess) {

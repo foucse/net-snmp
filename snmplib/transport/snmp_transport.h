@@ -10,6 +10,14 @@ extern "C" {
 
 
 
+/*  Some transport-type constants.  */
+
+#ifndef SNMP_STREAM_QUEUE_LEN
+#define		SNMP_STREAM_QUEUE_LEN		5
+#endif
+
+
+
 /*  Some transport-type flags.  */
 
 #define		SNMP_TRANSPORT_FLAG_STREAM	0x01
@@ -79,18 +87,35 @@ typedef struct _snmp_transport {
   char *(*f_fmtaddr) (struct _snmp_transport *, void *, int);
 } snmp_transport;
 
+typedef struct snmp_transport_list_s {
+   snmp_transport *transport;
+   struct snmp_transport_list_s *next;
+} snmp_transport_list;
+
+typedef struct _snmp_tdomain {
+  const oid		*name;
+  size_t		 name_length;
+  const char 	       **prefix;
+  snmp_transport	*(*f_create_from_tstring)(const char *, int);
+  snmp_transport	*(*f_create_from_ostring)(const u_char *, size_t, int);
+
+  struct _snmp_tdomain	*next;
+} snmp_tdomain;
 
 
 /*  Some utility functions.  */
 
+int snmp_transport_add_to_list(snmp_transport_list **transport_list,
+                               snmp_transport *transport);
+int snmp_transport_remove_from_list(snmp_transport_list **transport_list,
+                                    snmp_transport *transport);
+    
 
 /*  Return an exact (deep) copy of t, or NULL if there is a memory allocation
     problem (for instance).  */
 
 snmp_transport	       *snmp_transport_copy	(snmp_transport *t);
 
-struct snmp_session;
-snmp_transport	       *snmp_transport_parse	(struct snmp_session* session);
 
 /*  Free an snmp_transport.  */
 
@@ -103,12 +128,24 @@ void		     	snmp_transport_free	(snmp_transport *t);
     domain (e.g. in pdu->tDomain etc.) is written to *out_oid and its length
     to *out_len.  */
 
-int			snmp_transport_support	(const oid *in_oid,
+int			snmp_tdomain_support	(const oid *in_oid,
 						 size_t in_len,
-						 oid **out_oid,
+						 const oid **out_oid,
 						 size_t *out_len);
 						 
+int			snmp_tdomain_register	(snmp_tdomain *domain);
 
+int			snmp_tdomain_unregister	(snmp_tdomain *domain);
+
+void			snmp_tdomain_init	(void);
+
+snmp_transport	       *snmp_tdomain_transport	(const char *string, int local,
+						 const char *default_domain);
+
+snmp_transport	       *snmp_tdomain_transport_oid(const oid *dom, 
+						   size_t dom_len,
+						   const u_char *o,
+						   size_t o_len, int local);
 
 #ifdef __cplusplus
 }

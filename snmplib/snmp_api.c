@@ -452,6 +452,7 @@ _init_snmp (void)
 
     snmp_res_init();	/* initialize the mt locking structures */
     init_mib_internals();
+    snmp_tdomain_init();
 
     gettimeofday(&tv,(struct timezone *)0);
     /*Now = tv;*/

@@ -33,8 +33,6 @@
 #include "snmp_logging.h"
 
 
-extern snmp_transport	*_snmp_transport_parse	(char* peername, int local_port, 
-                                                 struct snmp_session* session);
 struct timeval *alarm_get_next_delay(void);
 
                 /**************************************
@@ -103,7 +101,8 @@ session_open(int version, char *peername, int local)
     netsnmp_session   *session;
     netsnmp_transport *transport;
 
-    transport = _snmp_transport_parse(peername, local, NULL);
+		/* XXX - assume non-stream based connection */
+    transport = snmp_tdomain_transport(peername, local, "udp");
     session   = session_new(version, transport);
 
     if (NULL == session) {

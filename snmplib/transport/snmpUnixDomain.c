@@ -1,4 +1,4 @@
-#include <config.h>
+#include <net-snmp/net-snmp-config.h>
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -26,6 +26,7 @@
 #include "asn1.h"
 #include "snmp.h"
 #include "snmp_debug.h"
+#include "snmp_logging.h"
 #include "default_store.h"
 #include "snmp_transport.h"
 #include "snmpUnixDomain.h"
@@ -41,7 +42,8 @@
                       + strlen ((ptr)->sun_path))
 #endif
 
-const oid ucdSnmpUnixDomain[9] = { 1, 3, 6, 1, 4, 1, 2021, 251, 2 };
+const oid ucdSnmpUnixDomain[9] = { UCDAVIS_MIB, 251, 2 };
+static snmp_tdomain unixDomain;
 
 
 /*  This is the structure we use to hold transport-specific data.  */
@@ -247,6 +249,14 @@ snmp_transport		*snmp_unix_transport	(struct sockaddr_un *addr,
   t->flags = SNMP_TRANSPORT_FLAG_STREAM;
 
   if (local) {
+    t->local = malloc(strlen(addr->sun_path));
+    if (t->local == NULL) {
+      snmp_transport_free(t);
+      return NULL;
+    }
+    memcpy(t->local, addr->sun_path, strlen(addr->sun_path));
+    t->local_length = strlen(addr->sun_path);
+
     /*  This session is inteneded as a server, so we must bind to the given
 	path (unlinking it first, to avoid errors).  */
 
@@ -282,11 +292,19 @@ snmp_transport		*snmp_unix_transport	(struct sockaddr_un *addr,
     }
 
   } else {
+    t->remote = malloc(strlen(addr->sun_path));
+    if (t->remote == NULL) {
+      snmp_transport_free(t);
+      return NULL;
+    }
+    memcpy(t->remote, addr->sun_path, strlen(addr->sun_path));
+    t->remote_length = strlen(addr->sun_path);
+
     rc = connect(t->sock, (struct sockaddr *)addr, sizeof(struct sockaddr_un));
     if (rc != 0) {
       DEBUGMSGTL(("snmp_unix_transport",
 		  "couldn't connect to \"%s\", errno %d (%s)\n",
-		  sup->server.sun_path, errno, strerror(errno)));
+		  addr->sun_path, errno, strerror(errno)));
       snmp_unix_close(t);
       snmp_transport_free(t);
       return NULL;
@@ -311,4 +329,56 @@ snmp_transport		*snmp_unix_transport	(struct sockaddr_un *addr,
   t->f_fmtaddr   = snmp_unix_fmtaddr;
 
   return t;
+}
+
+snmp_transport	*snmp_unix_create_tstring	(const char *string, int local)
+{
+  struct sockaddr_un addr;
+
+  if ((string != NULL) && (strlen(string) < sizeof(addr.sun_path))) {
+    addr.sun_family = AF_UNIX;
+    memset(addr.sun_path, 0, sizeof(addr.sun_path));
+    strncpy(addr.sun_path, string, sizeof(addr.sun_path) - 1);
+    return snmp_unix_transport(&addr, local);
+  } else {
+    if (string != NULL) {
+      snmp_log(LOG_ERR, "Path too long for Unix domain transport\n");
+    }
+    return NULL;
+  }
+}
+
+
+
+snmp_transport	*snmp_unix_create_ostring	(const u_char *o, size_t o_len,
+						 int local)
+{
+  struct sockaddr_un addr;
+
+  if (o_len > 0 && o_len < (sizeof(addr.sun_path) - 1)) {
+    addr.sun_family = AF_UNIX;
+    memset(addr.sun_path, 0, sizeof(addr.sun_path));
+    strncpy(addr.sun_path, o, o_len);
+    return snmp_unix_transport(&addr, local);
+  } else {
+    if (o_len > 0) {
+      snmp_log(LOG_ERR, "Path too long for Unix domain transport\n");
+    }
+  }
+  return NULL;
+}
+
+
+
+void		snmp_unix_ctor			(void)
+{
+  unixDomain.name        = ucdSnmpUnixDomain;
+  unixDomain.name_length = sizeof(ucdSnmpUnixDomain)/sizeof(oid);
+  unixDomain.prefix      = calloc(2, sizeof(char *));
+  unixDomain.prefix[0]   = "unix";
+
+  unixDomain.f_create_from_tstring = snmp_unix_create_tstring;
+  unixDomain.f_create_from_ostring = snmp_unix_create_ostring;
+
+  snmp_tdomain_register(&unixDomain);
 }
