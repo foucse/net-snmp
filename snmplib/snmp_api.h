@@ -494,4 +494,35 @@ void   snmp_sess_error      __P((void *, int *, int *, char **));
 #define   STAT_USM_STATS_START               STAT_USMSTATSUNSUPPORTEDSECLEVELS
 #define   STAT_USM_STATS_END                 STAT_USMSTATSDECRYPTIONERRORS
 
-#define MAX_STATS                            8
+/* snmp counters */
+#define  STAT_SNMPINPKTS                     9
+#define  STAT_SNMPOUTPKTS                    10
+#define  STAT_SNMPINBADVERSIONS              11
+#define  STAT_SNMPINBADCOMMUNITYNAMES        12
+#define  STAT_SNMPINBADCOMMUNITYUSES         13
+#define  STAT_SNMPINASNPARSEERRS             14
+#define  STAT_SNMPINTOOBIGS                  15
+#define  STAT_SNMPINNOSUCHNAMES              16
+#define  STAT_SNMPINBADVALUES                17
+#define  STAT_SNMPINREADONLYS                18
+#define  STAT_SNMPINGENERRS                  19
+#define  STAT_SNMPINTOTALREQVARS             20
+#define  STAT_SNMPINTOTALSETVARS             21
+#define  STAT_SNMPINGETREQUESTS              22
+#define  STAT_SNMPINGETNEXTS                 23
+#define  STAT_SNMPINSETREQUESTS              24
+#define  STAT_SNMPINGETRESPONSES             25
+#define  STAT_SNMPINTRAPS                    26
+#define  STAT_SNMPOUTTOOBIGS                 27
+#define  STAT_SNMPOUTNOSUCHNAMES             28
+#define  STAT_SNMPOUTBADVALUES               29
+#define  STAT_SNMPOUTGENERRS                 30
+#define  STAT_SNMPOUTGETREQUESTS             31
+#define  STAT_SNMPOUTGETNEXTS                32
+#define  STAT_SNMPOUTSETREQUESTS             33
+#define  STAT_SNMPOUTGETRESPONSES            34
+#define  STAT_SNMPOUTTRAPS                   35
+#define  STAT_SNMP_STATS_START              STAT_SNMPINPKTS
+#define  STAT_SNMP_STATS_END                STAT_SNMPOUTTRAPS
+
+#define  STAT_MAX_STATS                            35
