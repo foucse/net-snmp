@@ -60,14 +60,6 @@ static char	*defaultSecName		= NULL;
 static char	*defaultContext		= NULL;
 int		defaultSecurityLevel	= 0;
 
-
-/*
- * XXX  Stolen from snmplib/libsnmp.h.
- */
-#define snmp_perror(X)	perror(X)
-
-
-
 void
 snmpv3_secName_conf(char *word, char *cptr)
 {
