@@ -196,9 +196,26 @@ static int anonymous = 0;
 #define CONVENTION  70
 #define DISPLAYHINT 71
 #define FROM        72
-#define CAPABILITIES 73
+#define AGENTCAP    73
 #define MACRO       74
 #define IMPLIED     75
+#define SUPPORTS    76
+#define INCLUDES    77
+#define VARIATION   78
+#define REVISION    79
+#define NOTIMPL	    80
+#define OBJECTS	    81
+#define NOTIFICATIONS	82
+#define MODULE	    83
+#define MINACCESS   84
+#define PRODREL	    85
+#define WRSYNTAX    86
+#define CREATEREQ   87
+#define NOTIFGROUP  88
+#define MANDATORYGROUPS	89
+#define GROUP	    90
+#define OBJECT	    91
+#define IDENTIFIER  92
 
 struct tok {
     const char *name;                 /* token name */
@@ -235,8 +252,8 @@ static struct tok tokens[] = {
     { "NOTIFICATION-TYPE", sizeof ("NOTIFICATION-TYPE")-1, NOTIFTYPE },
     { "OBJECT-GROUP", sizeof ("OBJECT-GROUP")-1, OBJGROUP },
     { "OBJECT-IDENTITY", sizeof ("OBJECT-IDENTITY")-1, OBJGROUP },
-    { "OBJECTIDENTIFIER", sizeof ("OBJECTIDENTIFIER")-1, OBJID },
-    { "OBJECT", sizeof ("OBJECT")-1, CONTINUE },
+    { "IDENTIFIER", sizeof ("IDENTIFIER")-1, IDENTIFIER },
+    { "OBJECT", sizeof ("OBJECT")-1, OBJECT },
     { "NetworkAddress", sizeof ("NetworkAddress")-1, NETADDR },
     { "Gauge", sizeof ("Gauge")-1, GAUGE },
     { "Gauge32", sizeof ("Gauge32")-1, GAUGE },
@@ -274,12 +291,26 @@ static struct tok tokens[] = {
     { "EXPORTS", sizeof ("EXPORTS")-1, EXPORTS },
     { "accessible-for-notify", sizeof ("accessible-for-notify")-1, ACCNOTIFY },
     { "TEXTUAL-CONVENTION", sizeof ("TEXTUAL-CONVENTION")-1, CONVENTION },
-    { "NOTIFICATION-GROUP", sizeof ("NOTIFICATION-GROUP")-1, NOTIFTYPE },
+    { "NOTIFICATION-GROUP", sizeof ("NOTIFICATION-GROUP")-1, NOTIFGROUP },
     { "DISPLAY-HINT", sizeof ("DISPLAY-HINT")-1, DISPLAYHINT },
     { "FROM", sizeof ("FROM")-1, FROM },
-    { "AGENT-CAPABILITIES", sizeof ("AGENT-CAPABILITIES")-1, CAPABILITIES },
+    { "AGENT-CAPABILITIES", sizeof ("AGENT-CAPABILITIES")-1, AGENTCAP },
     { "MACRO", sizeof ("MACRO")-1, MACRO },
     { "IMPLIED", sizeof ("IMPLIED")-1, IMPLIED },
+    { "SUPPORTS", sizeof ("SUPPORTS")-1, SUPPORTS },
+    { "INCLUDES", sizeof ("INCLUDES")-1, INCLUDES },
+    { "VARIATION", sizeof ("VARIATION")-1, VARIATION },
+    { "REVISION", sizeof ("REVISION")-1, REVISION },
+    { "not-implemented", sizeof ("not-implemented")-1, NOTIMPL },
+    { "OBJECTS", sizeof ("OBJECTS")-1, OBJECTS },
+    { "NOTIFICATIONS", sizeof("NOTIFICATIONS")-1, NOTIFICATIONS },
+    { "MODULE", sizeof ("MODULE")-1, MODULE},
+    { "MIN-ACCESS", sizeof ("MIN-ACCESS")-1, MINACCESS },
+    { "PRODUCT-RELEASE", sizeof ("PRODUCT-RELEASE")-1, PRODREL },
+    { "WRITE-SYNTAX", sizeof ("WRITE-SYNTAX")-1, WRSYNTAX },
+    { "CREATION-REQUIRES", sizeof ("CREATION-REQUIRES")-1, CREATEREQ },
+    { "MANDATORY-GROUPS", sizeof ("MANDATORY-GROUPS")-1, MANDATORYGROUPS },
+    { "GROUP", sizeof("GROUP")-1, GROUP },
     { NULL }
 };
 
@@ -363,7 +394,7 @@ static struct enum_list *parse_enumlist (FILE *, struct enum_list **);
 static struct range_list *parse_ranges(FILE *fp, struct range_list **);
 static struct node *parse_asntype (FILE *, char *, int *, char *);
 static struct node *parse_objecttype (FILE *, char *);
-static struct node *parse_objectgroup (FILE *, char *);
+static struct node *parse_objectgroup (FILE *, char *, int);
 static struct node *parse_notificationDefinition (FILE *, char *);
 static struct node *parse_trapDefinition (FILE *, char *);
 static struct node *parse_compliance (FILE *, char *);
@@ -1783,6 +1814,15 @@ parse_asntype(FILE *fp,
 		    type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
             }
             type = get_token(fp, token, MAXTOKEN);
+	    if (type == OBJECT) {
+		type = get_token(fp, token, MAXTOKEN);
+		if (type != IDENTIFIER) {
+		    print_error("Expected IDENTIFIER", token, type);
+		    SNMP_FREE(hint);
+		    return NULL;
+		}
+		type = OBJID;
+	    }
         }
 
         if (type == LABEL)
@@ -1849,6 +1889,15 @@ parse_objecttype(FILE *fp,
     np = alloc_node(current_module);
     if (np == NULL) return(NULL);
     type = get_token(fp, token, MAXTOKEN);
+    if (type == OBJECT) {
+	type = get_token(fp, token, MAXTOKEN);
+	if (type != IDENTIFIER) {
+	    print_error("Expected IDENTIFIER", token, type);
+	    free (np);
+	    return NULL;
+	}
+	type = OBJID;
+    }
     if (type == LABEL){
         int tmp_index;
         tctype = get_tc(token, current_module, &tmp_index,
@@ -2027,7 +2076,7 @@ parse_objecttype(FILE *fp,
  */
 static struct node *
 parse_objectgroup(FILE *fp,
-		  char *name)
+		  char *name, int what)
 {
     register int type;
     char token[MAXTOKEN];
@@ -2037,35 +2086,65 @@ parse_objectgroup(FILE *fp,
     np = alloc_node(current_module);
     if (np == NULL) return(NULL);
     type = get_token(fp, token, MAXTOKEN);
-    while (type != EQUALS && type != ENDOFFILE) {
-      switch (type) {
-        case DESCRIPTION:
-          type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
-          if (type != QUOTESTRING) {
-              print_error("Bad DESCRIPTION", quoted_string_buffer, type);
-              free_node(np);
-              return NULL;
-          }
-          if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_SAVE_MIB_DESCRS)) {
-              np->description = strdup (quoted_string_buffer);
-          }
-          break;
-
-	case REFERENCE:
-	  type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
-          if (type != QUOTESTRING) {
-              print_error("Bad REFERENCE", quoted_string_buffer, type);
-              free_node(np);
-              return NULL;
-          }
-	  break;
-
-        default:
-          /* NOTHING */
-          break;
-      }
-      type = get_token(fp, token, MAXTOKEN);
+    if (type == what) {
+	  type = get_token(fp, token, MAXTOKEN);
+	  if (type != LEFTBRACKET) {
+	      print_error("Expected \"{\"", token, type);
+	      goto skip;
+	  }
+	  do {
+	      type = get_token(fp, token, MAXTOKEN);
+	      if (type != LABEL) {
+		    print_error("Bad identifier", token, type);
+		    goto skip;
+	      }
+	      type = get_token(fp, token, MAXTOKEN);
+	  } while (type == COMMA);
+	  if (type != RIGHTBRACKET) {
+	      print_error("Expected \"}\" after list", token, type);
+	      goto skip;
+	  }
+	  type = get_token(fp, token, type);
     }
+    if (type != STATUS) {
+	  print_error("Expected STATUS", token, type);
+	  goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != CURRENT && type != DEPRECATED && type != OBSOLETE) {
+	  print_error("Bad STATUS value", token, type);
+	  goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != DESCRIPTION) {
+	  print_error("Expected DESCRIPTION", token, type);
+	  goto skip;
+    }
+    type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
+    if (type != QUOTESTRING) {
+	  print_error("Bad DESCRIPTION", quoted_string_buffer, type);
+	  free_node(np);
+	  return NULL;
+    }
+    if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_SAVE_MIB_DESCRS)) {
+	  np->description = strdup (quoted_string_buffer);
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type == REFERENCE) {
+	  type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
+        if (type != QUOTESTRING) {
+            print_error("Bad REFERENCE", quoted_string_buffer, type);
+            free_node(np);
+            return NULL;
+        }
+        type = get_token(fp, token, MAXTOKEN);
+    }
+    if (type != EQUALS)
+	  print_error("Expected \"::=\"", token, type);
+skip:
+    while (type != EQUALS && type != ENDOFFILE)
+	type = get_token(fp, token, MAXTOKEN);
+
     return merge_parse_objectid(np, fp, name);
 }
 
@@ -2191,6 +2270,71 @@ parse_trapDefinition(FILE *fp,
  * Parses a compliance macro
  * Returns 0 on error.
  */
+static int eat_syntax(FILE *fp, char *token, int maxtoken)
+{
+    int type, nexttype;
+    struct node *np = alloc_node(current_module);
+    char nexttoken[MAXTOKEN];
+    
+    type = get_token(fp, token, maxtoken);
+    nexttype = get_token(fp, nexttoken, MAXTOKEN);
+    switch(type){
+    case INTEGER:
+    case UINTEGER32:
+    case COUNTER:
+    case GAUGE:
+    case BITSTRING:
+    case LABEL:
+	if (nexttype == LEFTBRACKET) {
+	    /* if there is an enumeration list, parse it */
+	    np->enums = parse_enumlist(fp, &np->enums);
+	    nexttype = get_token(fp, nexttoken, MAXTOKEN);
+	} else if (nexttype == LEFTPAREN){
+	    /* if there is a range list, parse it */
+	    np->ranges = parse_ranges(fp, &np->ranges);
+	    nexttype = get_token(fp, nexttoken, MAXTOKEN);
+	}
+	break;
+    case OCTETSTR:
+    case KW_OPAQUE:
+	/* parse any SIZE specification */
+	if (nexttype == LEFTPAREN) {
+	    nexttype = get_token(fp, nexttoken, MAXTOKEN);
+	    if (nexttype == SIZE) {
+		nexttype = get_token(fp, nexttoken, MAXTOKEN);
+		if (nexttype == LEFTPAREN) {
+		    np->ranges = parse_ranges(fp, &np->ranges);
+		    nexttype = get_token(fp, nexttoken, MAXTOKEN); /* ) */
+		    if (nexttype == RIGHTPAREN)
+		    {
+			nexttype = get_token(fp, nexttoken, MAXTOKEN);
+			break;
+		    }
+		}
+	    }
+	    print_error("Bad SIZE syntax", token, type);
+	    free_node(np);
+	    return nexttype;
+	}
+	break;
+    case OBJID:
+    case NETADDR:
+    case IPADDR:
+    case TIMETICKS:
+    case NUL:
+    case NSAPADDRESS:
+    case COUNTER64:
+	break;
+    default:
+	print_error("Bad syntax", token, type);
+	free_node(np);
+	return nexttype;
+    }
+    free_node(np);
+    return nexttype;
+}
+
+
 static struct node *
 parse_compliance(FILE *fp,
 		 char *name)
@@ -2199,13 +2343,119 @@ parse_compliance(FILE *fp,
     char token[MAXTOKEN];
     char quoted_string_buffer[MAXQUOTESTR];
     register struct node *np;
-
+    
     np = alloc_node(current_module);
     if (np == NULL) return(NULL);
     type = get_token(fp, token, MAXTOKEN);
-    while (type != EQUALS && type != ENDOFFILE) {
-        type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
+    if (type != STATUS) {
+	print_error("Expected STATUS", token, type);
+	goto skip;
     }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != CURRENT && type != DEPRECATED && type != OBSOLETE) {
+	print_error("Bad STATUS", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != DESCRIPTION) {
+	print_error("Expected DESCRIPTION", token, type);
+	goto skip;
+    }
+    type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
+    if (type != QUOTESTRING) {
+	print_error("Bad DESCRIPTION", quoted_string_buffer, type);
+	goto skip;
+    }
+    if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_SAVE_MIB_DESCRS)) {
+	np->description = strdup (quoted_string_buffer);
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type == REFERENCE) {
+	type = get_token(fp, quoted_string_buffer, MAXTOKEN);
+	if (type != QUOTESTRING) {
+	    print_error("Bad REFERENCE", quoted_string_buffer, type);
+	    goto skip;
+	}
+	type = get_token(fp, token, MAXTOKEN);
+    }
+    if (type != MODULE) {
+	print_error("Expected MODULE", token, type);
+	goto skip;
+    }
+    while (type == MODULE) {
+	type = get_token(fp, token, MAXTOKEN);
+	if (type == LABEL) {
+	    type = get_token(fp, token, MAXTOKEN);
+	}
+	if (type == MANDATORYGROUPS) {
+	    type = get_token(fp, token, MAXTOKEN);
+	    if (type != LEFTBRACKET) {
+		print_error("Expected \"{\"", token, type);
+		goto skip;
+	    }
+	    do {
+		type = get_token(fp, token, MAXTOKEN);
+		if (type != LABEL) {
+		    print_error("Bad group name", token, type);
+		    goto skip;
+		}
+		type = get_token(fp, token, MAXTOKEN);
+	    } while (type == COMMA);
+	    if (type != RIGHTBRACKET) {
+		print_error("Expected \"}\"", token, type);
+		goto skip;
+	    }
+	    type = get_token(fp, token, MAXTOKEN);
+	}
+	while (type == GROUP || type == OBJECT) {
+	    if (type == GROUP) {
+		type = get_token(fp, token, MAXTOKEN);
+		if (type != LABEL) {
+		    print_error("Bad group name", token, type);
+		    goto skip;
+		}
+		type = get_token(fp, token, MAXTOKEN);
+	    }
+	    else {
+		type = get_token(fp, token, MAXTOKEN);
+		if (type != LABEL) {
+		    print_error("Bad object name", token, type);
+		    goto skip;
+		}
+		type = get_token(fp, token, MAXTOKEN);
+		if (type == SYNTAX)
+		    type = eat_syntax(fp, token, MAXTOKEN);
+		if (type == WRSYNTAX)
+		    type = eat_syntax(fp, token, MAXTOKEN);
+		if (type == MINACCESS) {
+		    type = get_token(fp, token, MAXTOKEN);
+		    if (type != NOACCESS && type != ACCNOTIFY && type != READONLY
+			    && type != WRITEONLY && type != READCREATE && type != READWRITE) {
+			print_error("Bad MIN-ACCESS spec", token, type);
+			goto skip;
+		    }
+		type = get_token(fp, token, MAXTOKEN);
+		}
+	    }
+	    if (type != DESCRIPTION) {
+		print_error("Expected DESCRIPTION", token, type);
+		goto skip;
+	    }
+	    type = get_token(fp, token, MAXTOKEN);
+	    if (type != QUOTESTRING) {
+		print_error("Bad DESCRIPTION", token, type);
+		goto skip;
+	    }
+            if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_SAVE_MIB_DESCRS)) {
+                np->description = strdup (token);
+	    }
+	    type = get_token(fp, token, MAXTOKEN);
+	}
+    }
+skip:
+    while (type != EQUALS && type != ENDOFFILE)
+        type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
+    
     return merge_parse_objectid(np, fp, name);
 }
 
@@ -2222,10 +2472,152 @@ parse_capabilities(FILE *fp,
     char token[MAXTOKEN];
     char quoted_string_buffer[MAXQUOTESTR];
     register struct node *np;
-
+    
     np = alloc_node(current_module);
     if (np == NULL) return(NULL);
     type = get_token(fp, token, MAXTOKEN);
+    if (type != PRODREL) {
+	print_error("Expected PRODUCT-RELEASE", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != QUOTESTRING) {
+	print_error("Expected STRING after PRODUCT-RELEASE", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != STATUS) {
+	print_error("Expected STATUS", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != CURRENT && type != OBSOLETE) {
+	print_error("STATUS should be current or obsolete", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != DESCRIPTION) {
+	print_error("Expected DESCRIPTION", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != QUOTESTRING) {
+	print_error("Bad DESCRIPTION", token, type);
+	goto skip;
+    }
+    if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_SAVE_MIB_DESCRS)) {
+	np->description = strdup (token);
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type == REFERENCE) {
+	type = get_token(fp, token, MAXTOKEN);
+	if (type != QUOTESTRING) {
+	    print_error("Bad REFERENCE", token, type);
+	    goto skip;
+	}
+	type = get_token(fp, token, type);
+    }
+    while (type == SUPPORTS) {
+	type = get_token(fp, token, MAXTOKEN);
+	if (type != LABEL) {
+	    print_error("Bad module name", token, type);
+	    goto skip;
+	}
+	type = get_token(fp, token, MAXTOKEN);
+	if (type != INCLUDES) {
+	    print_error("Expected INCLUDES", token, type);
+	    goto skip;
+	}
+	type = get_token(fp, token, MAXTOKEN);
+	if (type != LEFTBRACKET) {
+	    print_error("Expected \"{\"", token, type);
+	    goto skip;
+	}
+	do {
+	    type = get_token(fp, token, MAXTOKEN);
+	    if (type != LABEL) {
+		print_error("Bad group name", token, type);
+		goto skip;
+	    }
+	    type = get_token(fp, token, MAXTOKEN);
+	} while (type == COMMA);
+	if (type != RIGHTBRACKET) {
+	    print_error("Expected \"}\" after group list", token, type);
+	    goto skip;
+	}
+	type = get_token(fp, token, MAXTOKEN);
+	while (type == VARIATION) {
+	    type = get_token(fp, token, MAXTOKEN);
+	    if (type != LABEL) {
+		print_error("Bad object name", token, type);
+		goto skip;
+	    }
+	    type = get_token(fp, token, MAXTOKEN);
+	    if (type == SYNTAX) {
+		type = eat_syntax(fp, token, MAXTOKEN);
+	    }
+	    if (type == WRSYNTAX) {
+		type = eat_syntax(fp, token, MAXTOKEN);
+	    }
+	    if (type == ACCESS) {
+		type = get_token(fp, token, MAXTOKEN);
+		if (type != ACCNOTIFY && type != READONLY && type != READWRITE
+		    && type != READCREATE && type != WRITEONLY && type != NOTIMPL) {
+		    print_error("Bad ACCESS", token, type);
+		    goto skip;
+		}
+		type = get_token(fp, token, MAXTOKEN);
+	    }
+	    if (type == CREATEREQ) {
+		type = get_token(fp, token, MAXTOKEN);
+		if (type != LEFTBRACKET) {
+		    print_error("Expected \"{\"", token, type);
+		    goto skip;
+		}
+		do {
+		    type = get_token(fp, token, MAXTOKEN);
+		    if (type != LABEL) {
+			print_error("Bad object name in list", token, type);
+			goto skip;
+		    }
+		    type = get_token(fp, token, MAXTOKEN);
+		} while (type == COMMA);
+		if (type != RIGHTBRACKET) {
+		    print_error("Expected \"}\" after list", token, type);
+		    goto skip;
+		}
+		type = get_token(fp, token, MAXTOKEN);
+	    }
+	    if (type == DEFVAL) {
+		type = get_token(fp, token, MAXTOKEN);
+		if (type != LEFTBRACKET) {
+		    print_error("Expected \"{\" after DEFVAL", token, type);
+		    goto skip;
+		}
+		do {
+		    get_token(fp, token, MAXTOKEN);
+		} while (type != RIGHTBRACKET && type != ENDOFFILE);
+		if (type != RIGHTBRACKET) {
+		    print_error("Missing \"}\" after DEFVAL", token, type);
+		    goto skip;
+		}
+		type = get_token(fp, token, MAXTOKEN);
+	    }
+	    if (type != DESCRIPTION) {
+		print_error("Expected DESCRIPTION", token, type);
+		goto skip;
+	    }
+	    type = get_token(fp, token, MAXTOKEN);
+	    if (type != QUOTESTRING) {
+		print_error("Bad DESCRIPTION", token, type);
+		goto skip;
+	    }
+	    type = get_token(fp, token, MAXTOKEN);
+	}
+    }
+    if (type != EQUALS)
+	print_error("Expected \"::=\"", token, type);
+skip:
     while (type != EQUALS && type != ENDOFFILE) {
         type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
     }
@@ -2236,6 +2628,35 @@ parse_capabilities(FILE *fp,
  * Parses a module identity macro
  * Returns 0 on error.
  */
+static void check_utc(const char *utc)
+{
+    int len, year, month, day, hour, minute;
+    
+    len = strlen(utc);
+    if (utc[len-1] != 'Z' && utc[len-1] != 'z') {
+	print_error("Timestamp should end with Z", utc, QUOTESTRING);
+	return;
+    }
+    if (len == 11) {
+	len = sscanf(utc, "%2d%2d%2d%2d%2dZ", &year, &month, &day, &hour, &minute);
+	year += 1900;
+    }
+    else if (len == 13)
+	len = sscanf(utc, "%4d%2d%2d%2d%2dZ", &year, &month, &day, &hour, &minute);
+    else {
+	print_error("Bad timestamp format (11 or 13 characters)", utc, QUOTESTRING);
+	return;
+    }
+    if (len != 5) {
+	print_error("Bad timestamp number", utc, QUOTESTRING);
+	return;
+    }
+    if (month < 1 || month > 12) print_error("Bad month in timestamp", utc, QUOTESTRING);
+    if (day < 1 || day > 31) print_error("Bad day in timestamp", utc, QUOTESTRING);
+    if (hour < 0 || hour > 23) print_error("Bad hour in timestamp", utc, QUOTESTRING);
+    if (minute < 0 || minute > 59) print_error("Bad minute in timestamp", utc, QUOTESTRING);
+}
+
 static struct node *
 parse_moduleIdentity(FILE *fp,
 		     char *name)
@@ -2244,10 +2665,79 @@ parse_moduleIdentity(FILE *fp,
     char token[MAXTOKEN];
     char quoted_string_buffer[MAXQUOTESTR];
     register struct node *np;
-
+    
     np = alloc_node(current_module);
     if (np == NULL) return(NULL);
     type = get_token(fp, token, MAXTOKEN);
+    if (type != LASTUPDATED) {
+	print_error("Expected LAST-UPDATED", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != QUOTESTRING) {
+	print_error("Need STRING for LAST-UPDATED", token, type);
+	goto skip;
+    }
+    check_utc(token);
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != ORGANIZATION) {
+	print_error("Expected ORGANIZATION", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != QUOTESTRING) {
+	print_error("Bad ORGANIZATION", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != CONTACTINFO) {
+	print_error("Expected CONTACT-INFO", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != QUOTESTRING) {
+	print_error("Bad CONTACT-INFO", token, type);
+	goto skip;
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    if (type != DESCRIPTION) {
+	print_error("Expected DESCRIPTION", token, type);
+	goto skip;
+    }
+    type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
+    if (type != QUOTESTRING) {
+	print_error("Bad DESCRIPTION", quoted_string_buffer, type);
+	goto skip;
+    }
+    if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_SAVE_MIB_DESCRS)) {
+	np->description = strdup (quoted_string_buffer);
+    }
+    type = get_token(fp, token, MAXTOKEN);
+    while (type == REVISION) {
+	type = get_token(fp, token, MAXTOKEN);
+	if (type != QUOTESTRING) {
+	    print_error("Bad REVISION", token, type);
+	    goto skip;
+	}
+	check_utc(token);
+	type = get_token(fp, token, MAXTOKEN);
+	if (type != DESCRIPTION) {
+	    print_error("Expected DESCRIPTION", token, type);
+	    goto skip;
+	}
+	type = get_token(fp, token, MAXTOKEN);
+	if (type != QUOTESTRING) {
+	    print_error("Bad DESCRIPTION", token, type);
+	    goto skip;
+	}
+        if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_SAVE_MIB_DESCRS)) {
+            np->description = strdup (token);
+        }
+	type = get_token(fp, token, MAXTOKEN);
+    }
+    if (type != EQUALS)
+	print_error("Expected \"::=\"", token, type);
+skip:
     while (type != EQUALS && type != ENDOFFILE) {
         type = get_token(fp, quoted_string_buffer, MAXQUOTESTR);
     }
@@ -2905,9 +3395,16 @@ parse(FILE *fp,
             }
             break;
         case OBJGROUP:
-            nnp = parse_objectgroup(fp, name);
+            nnp = parse_objectgroup(fp, name, OBJECTS);
             if (nnp == NULL){
                 print_error("Bad parse of OBJECT-GROUP", NULL, type);
+                return NULL;
+            }
+            break;
+        case NOTIFGROUP:
+            nnp = parse_objectgroup(fp, name, NOTIFICATIONS);
+            if (nnp == NULL){
+                print_error("Bad parse of NOTIFICATION-GROUP", NULL, type);
                 return NULL;
             }
             break;
@@ -2932,7 +3429,7 @@ parse(FILE *fp,
                 return NULL;
             }
             break;
-        case CAPABILITIES:
+        case AGENTCAP:
             nnp = parse_capabilities(fp, name);
             if (nnp == NULL){
                 print_error("Bad parse of AGENT-CAPABILITIES", NULL, type);
@@ -2955,7 +3452,12 @@ parse(FILE *fp,
                 return NULL;
             }
             break;
-        case OBJID:
+        case OBJECT:
+            type = get_token(fp, token, MAXTOKEN);
+	    if (type != IDENTIFIER) {
+		print_error("Expected IDENTIFIER", token, type);
+		return NULL;
+	    }
             type = get_token(fp, token, MAXTOKEN);
             if (type != EQUALS){
                 print_error("Expected \"::=\"", token, type);
