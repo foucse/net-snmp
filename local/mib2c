@@ -67,6 +67,7 @@ while($#ARGV >= 0) {
 		   UINTEGER   ASN_UINTEGER
 		   IPADDR     ASN_IPADDRESS
 		   BITS       ASN_IPADDRESS
+		   TICKS      ASN_TIMETICKS
 		   GAUGE      ASN_GAUGE
 		   OPAQUE     ASN_OPAQUE);
 
@@ -131,6 +132,7 @@ sub process_vars {
     $it =~ s/\$(\w+)\.(uc)/uc($vars{$1})/eg; # make something uppercase
     $it =~ s/\$(\w+)\.(commaoid)/tocommas($SNMP::MIB{$vars{$1}}{objectID})/eg; # lowercase
     $it =~ s/\$(\w+)\.(oidlength)/oidlength($SNMP::MIB{$vars{$1}}{objectID})/eg; # lowercase
+    $it =~ s/\$(\w+)\.(perltype)/$SNMP::MIB{$vars{$1}}{type}/g; # lowercase
     $it =~ s/\$(\w+)\.(type)/$perltoctypes{$SNMP::MIB{$vars{$1}}{$2}}/g; # lowercase
     $it =~ s/\$(\w+)\.(subid)/$SNMP::MIB{$vars{$1}}{subID}/g; # lowercase
     $it =~ s/\$(\w+)\.(settable)/(($SNMP::MIB{$vars{$1}}{access} =~ \/(ReadWrite|Create|Writeonly)\/)?1:0)/eg; # lowercase
