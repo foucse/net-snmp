@@ -108,7 +108,8 @@ static size_t name_length;
 static oid root[MAX_OID_LEN];
 static size_t rootlen;
 static int localdebug;
-static int use_getbulk;
+static int use_getbulk = 1;
+static int max_getbulk = 25;
 static int nonsequential = 1;
 
 #ifdef COMMENT
@@ -165,7 +166,7 @@ static void optProc(int argc, char *const *argv, int opt)
             nonsequential = 0;
             break;
 	  case 'B':
-	    use_getbulk = 1;
+	    use_getbulk = 0;
 	    break;
           case 'b':
             brief = 1;
@@ -204,7 +205,7 @@ void usage(void)
   fprintf(stdout,"  -Cw <W>\tprint table in parts of W characters width\n");
   fprintf(stdout,"  -Cf <F>\tprint an F delimited table\n");
   fprintf(stdout,"  -Cb\t\tbrief field names\n");
-  fprintf(stdout,"  -CB\t\tuse GETBULK requests\n");
+  fprintf(stdout,"  -CB\t\tdon't use GETBULK requests\n");
   fprintf(stdout,"  -Ci\t\tprint index value\n");
   fprintf(stdout,"  -Ch\t\tprint only the column headers\n");
   fprintf(stdout,"  -CH\t\tprint no column headers\n");
@@ -259,6 +260,8 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  if (ss->version == SNMP_VERSION_1)
+    use_getbulk = 0;
   if (!headers_only) {
     if (use_getbulk)
       getbulk_table_entries(ss);
@@ -583,7 +586,7 @@ void getbulk_table_entries( struct snmp_session *ss )
     /* create PDU for GETNEXT request and add object name to request */
     pdu = snmp_pdu_create(SNMP_MSG_GETBULK);
     pdu->non_repeaters = 0;
-    pdu->max_repetitions = 50;
+    pdu->max_repetitions = max_getbulk;
     snmp_add_null_var(pdu, name, name_length);
 
     /* do the request */
