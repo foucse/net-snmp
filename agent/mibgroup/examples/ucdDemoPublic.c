@@ -124,8 +124,7 @@ write_ucdDemoResetKeys(action, var_val, var_val_type, var_val_len, statP, name, 
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT) {
-      size = sizeof(long_ret);
-      asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
+      long_ret = *((long) var_val);
       if (long_ret == 1) {
         engineID = snmpv3_generate_engineID(&engineIDLen);
         for(i=0; i < num; i++) {
@@ -167,12 +166,9 @@ write_ucdDemoPublicString(action, var_val, var_val_type, var_val_len, statP, nam
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT) {
-      size = sizeof(string);
-      asn_parse_string(var_val, &bigsize, &var_val_type, string, &size);
-      string[size] = 0;
       if (size > MYMAX)
         return SNMP_ERR_TOOBIG;
-      strcpy(publicString, string);
+      strcpy(publicString, var_val);
   }
   return SNMP_ERR_NOERROR;
 }

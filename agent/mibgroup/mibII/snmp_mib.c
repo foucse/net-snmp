@@ -85,7 +85,8 @@ write_snmp (action, var_val, var_val_type, var_val_len, statP, name, name_len)
 	return SNMP_ERR_WRONGTYPE;
     }
 
-    asn_parse_int(var_val, &bigsize, &var_val_type, &intval, sizeof (intval));
+    intval = *((long *) var_val);
+
     if (intval != 1 && intval != 2) {
 #ifdef DEBUG	    
 	printf("not valid %x\n", intval);

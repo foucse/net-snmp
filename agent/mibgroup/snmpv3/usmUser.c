@@ -447,8 +447,7 @@ write_usmUserSpinLock(action, var_val, var_val_type, var_val_len, statP, name, n
       DEBUGP("write to usmUserSpinLock: bad length\n");
       return SNMP_ERR_WRONGLENGTH;
   }
-  size = sizeof(long_ret);
-  asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
+  long_ret = *((long *) var_val);
   if (long_ret != usmUserSpinLock)
     return SNMP_ERR_INCONSISTENTVALUE;
   if (action == COMMIT) {
@@ -509,9 +508,8 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
   }
   if (action == COMMIT){
     /* parse the clonefrom objid */
-    size = sizeof(objid);
-    if(!asn_parse_objid(var_val, &bigsize, &var_val_type, objid, &size))
-      return SNMP_ERR_GENERR;
+    size = var_val_len/sizeof(oid);
+    memcpy(objid, var_val, var_val_len);
 
     if ((uptr = usm_parse_user(name, name_len)) == NULL) 
       /* We don't allow creations here */
@@ -595,8 +593,8 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT){
-      size = sizeof(objid);
-      asn_parse_objid(var_val, &bigsize, &var_val_type, objid, &size);
+      size = var_val_len/sizeof(oid);
+      memcpy(objid, var_val, var_val_len);
 
       /* don't allow creations here */
       if ((uptr = usm_parse_user(name, name_len)) == NULL)
@@ -690,10 +688,6 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
   }
 
   if (action == COMMIT) {
-    /* parse the incoming string (key) out of the data */
-    size = sizeof(string);
-    asn_parse_string(var_val, &bigsize, &var_val_type, string, &size);
-
     /* don't allow creations here */
     if ((uptr = usm_parse_user(name, name_len)) == NULL) {
       return SNMP_ERR_NOSUCHNAME;
@@ -704,7 +698,7 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
 
     if (decode_keychange(uptr->authProtocol, uptr->authProtocolLen,
                          uptr->authKey, uptr->authKeyLen,
-                         string, size,
+                         var_val, var_val_len,
                          buf, &buflen) != SNMPERR_SUCCESS) {
       DEBUGP("%s: ... failed\n", fname);
         return SNMP_ERR_GENERR;
@@ -743,8 +737,8 @@ write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, nam
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT){
-      size = sizeof(objid);
-      asn_parse_objid(var_val, &bigsize, &var_val_type, objid, &size);
+      size = var_val_len/sizeof(oid);
+      memcpy(objid, var_val, var_val_len);
 
       /* don't allow creations here */
       if ((uptr = usm_parse_user(name, name_len)) == NULL)
@@ -814,10 +808,6 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
   }
 
   if (action == COMMIT) {
-    /* parse the incoming string (key) out of the data */
-    size = sizeof(string);
-    asn_parse_string(var_val, &bigsize, &var_val_type, string, &size);
-
     /* don't allow creations here */
     if ((uptr = usm_parse_user(name, name_len)) == NULL) {
       return SNMP_ERR_NOSUCHNAME;
@@ -828,7 +818,7 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
 
     if (decode_keychange(uptr->authProtocol, uptr->authProtocolLen,
                          uptr->privKey, uptr->privKeyLen,
-                         string, size,
+                         var_val, var_val_len,
                          buf, &buflen) != SNMPERR_SUCCESS) {
       DEBUGP("%s: ... failed\n", fname);
         return SNMP_ERR_GENERR;
@@ -877,9 +867,7 @@ write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, nam
     if (uptr->userPublicString == NULL) {
       return SNMP_ERR_GENERR;
     }
-    size = var_val_len;
-    asn_parse_string(var_val, &bigsize, &var_val_type,
-                     uptr->userPublicString, &size);
+    memcpy(uptr->userPublicString, var_val, var_val_len);
     uptr->userPublicString[var_val_len] = 0;
     DEBUGP("setting public string: %d - %s\n", var_val_len,
            uptr->userPublicString);
@@ -915,8 +903,7 @@ write_usmUserStorageType(action, var_val, var_val_type, var_val_len, statP, name
       if ((uptr = usm_parse_user(name, name_len)) == NULL) {
         return SNMP_ERR_NOSUCHNAME;
       }
-      size = sizeof(long_ret);
-      asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
+      long_ret = *((long *) var_val);
       if ((long_ret == ST_VOLATILE || long_ret == ST_NONVOLATILE) &&
           (uptr->userStorageType == ST_VOLATILE ||
            uptr->userStorageType == ST_NONVOLATILE))
@@ -975,8 +962,7 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT){
-    size = sizeof(long_ret);
-    asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
+    long_ret = *((long *) var_val);
 
     /* ditch illegal values now */
     /* notReady can not be used, but the return error code is not mentioned */

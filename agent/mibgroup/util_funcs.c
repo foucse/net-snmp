@@ -369,7 +369,7 @@ clear_cache(action, var_val, var_val_type, var_val_len, statP, name, name_len)
     printf("Wrong type != int\n");
     return SNMP_ERR_WRONGTYPE;
   }
-  asn_parse_int(var_val,&tmplen,&var_val_type,&tmp,sizeof(int));
+  tmp = *((long *) var_val);
   if (tmp == 1 && action == COMMIT) {
 #ifdef EXCACHETIME
     cachetime = 0;                      /* reset the cache next read */
@@ -412,7 +412,7 @@ restart_hook(action, var_val, var_val_type, var_val_len, statP, name, name_len)
     printf("Wrong type != int\n");
     return SNMP_ERR_WRONGTYPE;
   }
-  asn_parse_int(var_val,&tmplen,&var_val_type,&tmp,sizeof(int));
+  tmp = *((long *) var_val);
   if (tmp == 1 && action == COMMIT) {
     signal(SIGALRM,restart_doit);
     alarm(RESTARTSLEEP);

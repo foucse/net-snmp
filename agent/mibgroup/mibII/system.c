@@ -264,8 +264,8 @@ writeVersion(action, var_val, var_val_type, var_val_len, statP, name, name_len)
 	printf("bad length\n");
 	return SNMP_ERR_WRONGLENGTH;
     }
-    size = sizeof(buf);
-    asn_parse_string(var_val, &bigsize, &var_val_type, buf, &size);
+    memcpy(buf, var_val, var_val_len);
+    buf[var_val_len] = 0;
     for(cp = buf, count = 0; count < size; count++, cp++){
 	if (!isprint(*cp)){
 	    printf("not print %x\n", *cp);
@@ -303,28 +303,26 @@ writeSystem(action, var_val, var_val_type, var_val_len, statP, name, name_len)
 	printf("bad length\n");
 	return SNMP_ERR_WRONGLENGTH;
     }
-    size = sizeof(buf);
-    asn_parse_string(var_val, &bigsize, &var_val_type, buf, &size);
-    for(cp = buf, count = 0; count < size; count++, cp++){
+    cp = (u_char *) var_val;
+    for(cp = cp, count = 0; count < size; count++, cp++){
 	if (!isprint(*cp)){
 	    printf("not print %x\n", *cp);
 	    return SNMP_ERR_WRONGVALUE;
 	}
     }
-    buf[size] = 0;
     if (action == COMMIT){
 	switch((char)name[7]){
 	  case 1:
-	    strcpy(version_descr, (char *) buf);
+	    strcpy(version_descr, (char *) cp);
 	    break;
 	  case 4:
-	    strcpy(sysContact, (char *) buf);
+	    strcpy(sysContact, (char *) cp);
 	    break;
 	  case 5:
-	    strcpy(sysName, (char *) buf);
+	    strcpy(sysName, (char *) cp);
 	    break;
 	  case 6:
-	    strcpy(sysLocation, (char *) buf);
+	    strcpy(sysLocation, (char *) cp);
 	    break;
 	}
     }

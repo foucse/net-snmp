@@ -163,6 +163,12 @@ handle_next_pass( asp )
     struct request_list *req_p, *next_req;
     struct agent_snmp_session  *asp2;
 
+    /* XXX: Limit max repitions to something reasonable
+                    (we should figure out what will fit somehow...)
+            */
+    if (asp->pdu->command == SNMP_MSG_GETBULK && asp->pdu->errindex > 10)
+      asp->pdu->errindex = 10; 
+          
     while ( 1 ) {
         if ( asp->outstanding_requests != NULL )
 	    return;
@@ -245,12 +251,6 @@ handle_next_pass( asp )
 	     * EndOfMib, or the maximum number of repetitions are made.
 	     */
 
-            /* XXX: Limit max repitions to something reasonable
-                    (we should figure out what will fit somehow...)
-            */
-            if (asp->pdu->errindex > 100)
-              asp->pdu->errindex = 100; 
-          
 	    if ( --asp->pdu->errindex == 0 ) {	/* Max repetitions */
 	        asp->mode = FINISHED_SUCCESS;
 		asp->pdu->errindex = 0;
@@ -276,19 +276,18 @@ handle_next_pass( asp )
 			 * the name variable passed in has room for the
 			 * returned name, which may be longer than the
 			 * requested name.
-			 *    Temporary fix is to allocate a bit more than
-			 * we need and pray that this is enough.
+			 *    Temporary fix is to allocate the maximum
+                         * allowable space possible (MAX_OID_LEN).
 			 */
 		 
 		allDone = TRUE;
 		var_ptr = asp->start;
 		for ( var_ptr=asp->start; var_ptr != asp->end->next_variable;
 		      var_ptr = var_ptr->next_variable) {
-#define HACK_NAME_PADDING 10
 		      vp2 = snmp_add_null_var( asp->pdu,
 		      	 		 var_ptr->name,
-					 var_ptr->name_length+HACK_NAME_PADDING);
-		      for ( i=0 ; i<HACK_NAME_PADDING ; i++)
+					 MAX_OID_LEN);
+		      for ( i=var_ptr->name_length ; i< MAX_OID_LEN; i++)
 		          vp2->name[var_ptr->name_length+i] = '\0';
 		      vp2->name_length = var_ptr->name_length;
 		      
@@ -379,8 +378,8 @@ statp_loop:
 			   &statType, &statLen, &acl,
 			   exact, &write_method, asp->pdu, &noSuchObject);
 			   
-	if (statP == NULL) {
-	    if ( rw == WRITE ) {
+	if (statP == NULL && rw != WRITE) {
+	    if ( rw != WRITE ) {
 	    	    varbind_ptr->val   = NULL;
 	    	    varbind_ptr->val_len = 0;
 		    if ( exact ) {
@@ -394,17 +393,6 @@ statp_loop:
 		    }
 		    varbind_ptr->type = statType;
 	    }
-	    else {
-	        if (asp->pdu->version == SNMP_VERSION_1)
-	    		statType = SNMP_ERR_NOSUCHNAME;
-		else
-	    		statType = SNMP_ERR_NOCREATION;
-
-		asp->pdu->errstat = statType;
-		asp->pdu->errindex = count;
-		return statType;
-	    }
-	    
 	}
 		/* GETNEXT/GETBULK should just skip inaccessible entries */
 	else if ( !in_a_view(varbind_ptr->name, &varbind_ptr->name_length,
@@ -431,26 +419,33 @@ statp_loop:
 	    return statType;
         }
 	else {
-	    if (verbose)
+            /* dump verbose info */
+	    if (verbose && statP)
 	        dump_var(varbind_ptr->name, varbind_ptr->name_length,
 				statType, statP, statLen);
+
 		/*  FINALLY we can act on SET requests ....*/
 	    if ( rw == WRITE ) {
 	        if ( write_method != NULL ) {
-		    (*write_method)(asp->mode,
-		    			  varbind_ptr->val.string, varbind_ptr->type,
-		              		  varbind_ptr->val_len, statP,
-					  varbind_ptr->name, varbind_ptr->name_length
-					  );
+		    statType = (*write_method)(asp->mode,
+                                               varbind_ptr->val.string,
+                                               varbind_ptr->type,
+                                               varbind_ptr->val_len, statP,
+                                               varbind_ptr->name,
+                                               varbind_ptr->name_length);
+                    if (statType != SNMP_ERR_NOERROR) {
+                      asp->pdu->errstat = statType;
+                      asp->pdu->errindex = count;
+                      return statType;
+                    }
 		}
-		else 
+		else {
                     if (!goodValue(varbind_ptr->type, varbind_ptr->val_len,
                                     statType, statLen)){
-                        if (asp->pdu->version == SNMP_VERSION_2p ||
-                            asp->pdu->version == SNMP_VERSION_2c)
-                            statType = SNMP_ERR_WRONGTYPE; /* poor approximation */
-                        else
+                        if (asp->pdu->version == SNMP_VERSION_1)
                             statType = SNMP_ERR_BADVALUE;
+                        else
+                            statType = SNMP_ERR_WRONGTYPE; /* poor approximation */
 			asp->pdu->errstat = statType;
 			asp->pdu->errindex = count;
 			return statType;
@@ -458,7 +453,8 @@ statp_loop:
                     /* actually do the set if necessary */
                     if (asp->mode == COMMIT)
                         setVariable(varbind_ptr->val.string, varbind_ptr->type,
-		              		  varbind_ptr->val_len, statP, statLen);
+                                    varbind_ptr->val_len, statP, statLen);
+                }
 	    }
 		/* ... or save the results from assorted GETs */
 	    else {
@@ -468,7 +464,6 @@ statp_loop:
 		     varbind_ptr->val.string    = malloc( statLen );
 		     memcpy((char*)varbind_ptr->val.string, (char*)statP, statLen);
 	    }
-	      	
 	}
 	
 	if ( varbind_ptr == asp->end )
