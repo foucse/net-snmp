@@ -27,8 +27,11 @@
 #define SPRINT_MAX_LEN 512
 #endif
 
+#include "default_store.h"
+
 int oid_set_name( netsnmp_oid oid, unsigned int* subids, int len );
 
+static int  _mib_bprint_entry( netsnmp_buf buf, SmiNode *node );
 static void _mib_tree_walk_callback( netsnmp_mib mib, void *data );
 
 		/**************************************
@@ -160,6 +163,9 @@ netsnmp_mib mib_find( char *name )
     */
 netsnmp_mib mib_find_by_oid( netsnmp_oid oid )
 {
+    if ( oid == NULL ) {
+	return NULL;
+    }
     return (netsnmp_mib)smiGetNodeByOID( oid->len, (SmiSubid*)oid->name );
 }
 
@@ -209,9 +215,11 @@ int   mib_bprint( netsnmp_buf buf, netsnmp_mib mib )
 	return -1;
     }
 
-		/*
-		 *  ToDo: Choose style of output
-		 */
+
+    if (ds_get_boolean(DS_LIBRARY_ID,DS_LIB_PRINT_NUMERIC_OIDS)) {
+	return 0;	/* Hasn't failed, but don't want any non-numeric output */
+    }
+
 
     module = smiGetNodeModule( node );
     if ( module == NULL ) {
@@ -224,12 +232,29 @@ int   mib_bprint( netsnmp_buf buf, netsnmp_mib mib )
 	return -1;
     }
 
-    if ( buffer_append_string( buf, module->name ) < 0 ) { return -1; }
-    if ( buffer_append_string( buf, "::"         ) < 0 ) { return -1; }
-    if ( buffer_append_string( buf, node->name   ) < 0 ) { return -1; }
+    switch ( ds_get_int(DS_LIBRARY_ID, DS_LIB_PRINT_SUFFIX_ONLY)) {
+
+	case 0:			/* Full OIDs - call the recursive print routine  */
+	    (void)_mib_bprint_entry( buf, node );
+	    break;
+
+	case 1:			/* 'bare' suffix style */
+	    __B( buffer_append_string( buf, node->name   ))
+	    break;
+
+	case 2:			/* 'module::suffix style */
+	    __B( buffer_append_string( buf, module->name ))
+	    __B( buffer_append_string( buf, "::"         ))
+	    __B( buffer_append_string( buf, node->name   ))
+	    break;
+
+	default:		/* Unknown value */
+	    return -1;
+    }
 
     return 0;
 }
+
 
    /**
     *
@@ -430,4 +455,26 @@ static void _mib_tree_walk_callback( netsnmp_mib mib, void *data )
 	}
 	free( cp );
     }
+}
+
+
+   /*
+    *  Recursively print individual elements of a (full) OID
+    */
+static int _mib_bprint_entry( netsnmp_buf buf, SmiNode *node )
+{
+    SmiNode *parent;
+
+    parent = smiGetParentNode( node );
+    if ( parent != NULL ) {
+	(void)_mib_bprint_entry( buf, parent );
+    }
+
+    if ( !strcmp( node->name, "<implicit>" )) {
+			/* libSMI's way of indicating the root node */
+	return 0;
+    }
+    __B( buffer_append_char(   buf, '.'        ))
+    __B( buffer_append_string( buf, node->name ))
+    return 0;
 }
