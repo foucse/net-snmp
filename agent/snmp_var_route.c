@@ -60,7 +60,7 @@ PERFORMANCE OF THIS SOFTWARE.
 #undef	KERNEL
 #ifdef RTENTRY_4_4
 #define rt_unit rt_refcnt	       /* Reuse this field for device # */
-#if defined(osf3) || defined(netbsd1)
+#if defined(osf3) || defined(netbsd1) || defined(freebsd2)
 #define rt_dst rt_nodes->rn_key
 #endif
 #else
@@ -93,16 +93,20 @@ PERFORMANCE OF THIS SOFTWARE.
 
 static	    Route_Scan_Reload();
 
+#ifdef freebsd2
+#define rtalloc rtallocate
+#endif
+
 static RTENTRY **rthead=0;
 static int rtsize=0, rtalloc=0;
 
 #define  KNLookup(nl_which, buf, s)   (klookup(nl[nl_which].n_value, buf, s))
 
 static struct nlist nl[] = {
-#define N_RTHOST       0
-#define N_RTNET        1
+#define N_RTHOST	0
+#define N_RTNET		1
 #define N_RTHASHSIZE	2
-#define N_RTTABLES 3
+#define N_RTTABLES	3
 #if defined(hpux) || defined(solaris2)
 	{ "rthost" },
 	{ "rtnet" },
@@ -112,7 +116,11 @@ static struct nlist nl[] = {
 	{ "_rthost" },
 	{ "_rtnet" },
 	{ "_rthashsize" },
+#ifdef freebsd2
+	{ "_rt_tables" },
+#else
 	{ "_rt_table" },
+#endif
 #endif
 	0,
 };
@@ -120,6 +128,18 @@ static struct nlist nl[] = {
 extern write_rte();
 
 #ifndef solaris2
+
+#ifdef freebsd2
+struct sockaddr_in tmp;
+
+struct sockaddr_in *
+klgetsa(struct sockaddr_in *dst)
+{
+    klookup(dst, &tmp, sizeof tmp);
+    return(&tmp);    
+}
+#endif
+
 u_char *
 var_ipRouteEntry(vp, name, length, exact, var_len, write_method)
     register struct variable *vp;   /* IN - pointer to variable entry that points here */
@@ -139,7 +159,9 @@ var_ipRouteEntry(vp, name, length, exact, var_len, write_method)
     static oid saveName[14], Current[14];
     u_char *cp;
     oid *op;
-
+#ifdef freebsd2
+    struct sockaddr_in *sa;
+#endif
 
     /*
      *	OPTIMIZATION:
@@ -154,7 +176,8 @@ var_ipRouteEntry(vp, name, length, exact, var_len, write_method)
 	name[9] = 0;
 	Save_Valid = (compare(name, *length, saveName, saveNameLen) == 0);
 	name[9] = temp;
-    } else Save_Valid = 0;
+    } else
+	Save_Valid = 0;
 
     if (Save_Valid) {
 	register int temp=name[9];    /* Fix up 'lowest' found entry */
@@ -178,7 +201,12 @@ var_ipRouteEntry(vp, name, length, exact, var_len, write_method)
         Route_Scan_Reload();
 #endif
 	for(RtIndex=0; RtIndex < rtsize; RtIndex++) {
+#ifdef freebsd2
+	    sa = klgetsa((struct sockaddr_in *) rthead[RtIndex]->rt_dst);
+	    cp = (u_char *) &(sa->sin_addr.s_addr);
+#else
 	    cp = (u_char *)&(((struct sockaddr_in *) &(rthead[RtIndex]->rt_dst))->sin_addr.s_addr);
+#endif
 	    op = Current + 10;
 	    *op++ = *cp++;
 	    *op++ = *cp++;
@@ -189,7 +217,8 @@ var_ipRouteEntry(vp, name, length, exact, var_len, write_method)
 	    if ((exact && (result == 0)) || (!exact && (result < 0)))
 		break;
 	}
-	if (RtIndex >= rtsize) return(NULL);
+	if (RtIndex >= rtsize)
+	    return(NULL);
 	/*
 	 *  Save in the 'cache'
 	 */
@@ -208,11 +237,14 @@ var_ipRouteEntry(vp, name, length, exact, var_len, write_method)
     *write_method = write_rte;
     *var_len = sizeof(long_return);
 
-
-
     switch(vp->magic){
 	case IPROUTEDEST:
+#ifdef freebsd2
+	    sa = klgetsa((struct sockaddr_in *) rthead[RtIndex]->rt_dst);
+	    return(u_char *) &(sa->sin_addr.s_addr);
+#else
 	    return(u_char *) &((struct sockaddr_in *) &rthead[RtIndex]->rt_dst)->sin_addr.s_addr;
+#endif
 	case IPROUTEIFINDEX:
 	    long_return = (u_long)rthead[RtIndex]->rt_unit;
 	    return (u_char *)&long_return;
@@ -229,6 +261,10 @@ var_ipRouteEntry(vp, name, length, exact, var_len, write_method)
 	    long_return = -1;
 	    return (u_char *)&long_return;
 	case IPROUTENEXTHOP:
+#ifdef freebsd2
+	    sa = klgetsa((struct sockaddr_in *) rthead[RtIndex]->rt_gateway);
+	    return(u_char *) &(sa->sin_addr.s_addr);
+#endif
 	    return(u_char *) &((struct sockaddr_in *) &rthead[RtIndex]->rt_gateway)->sin_addr.s_addr;
 	case IPROUTETYPE:
 	    long_return = (rthead[RtIndex]->rt_flags & RTF_GATEWAY) ? 4 : 3;
@@ -407,56 +443,67 @@ struct radix_node *pt;
   register char *cp;
   
   if (!klookup(pt , (char *) &node , sizeof (struct radix_node))) {
-    DEBUGP("Fail\n");
-    return;
+      DEBUGP("Fail\n");
+      return;
   }
   if (node.rn_b >= 0) {
       load_rtentries(node.rn_r);
       load_rtentries(node.rn_l);
   } else {
-    if (node.rn_flags & RNF_ROOT) {
-      /* root node */
-      if (node.rn_dupedkey)
-        load_rtentries(node.rn_dupedkey);
-      return;
-    }
-    /* get the route */
-    klookup(pt, (char *) &rt, sizeof (RTENTRY));
-
-    if (rt.rt_ifp != 0) {
-      klookup( rt.rt_ifp, (char *)&ifnet, sizeof (ifnet));
-      klookup( ifnet.if_name, name, 16);
-      name[15] = '\0';
-      cp = (char *) index(name, '\0');
-      *cp++ = ifnet.if_unit + '0';
-      *cp = '\0';
-      Interface_Scan_Init();
-      rt.rt_unit = 0;
-      while (Interface_Scan_Next((short *) &(rt.rt_unit), temp, 0, 0) != 0) {
-        if (strcmp(name, temp) == 0) break;
+      if (node.rn_flags & RNF_ROOT) {
+	  /* root node */
+	  if (node.rn_dupedkey)
+	      load_rtentries(node.rn_dupedkey);
+	  return;
       }
-    }
-    /* check for space and malloc */
-    if (rtsize >= rtalloc) {
-      rthead = (RTENTRY **) realloc((char *)rthead, 2 * rtalloc * sizeof(RTENTRY *));
-      bzero((char *) &rthead[rtalloc], rtalloc * sizeof(RTENTRY *));
+      /* get the route */
+      klookup(pt, (char *) &rt, sizeof (RTENTRY));
+      
+      if (rt.rt_ifp != 0) {
+	  klookup( rt.rt_ifp, (char *)&ifnet, sizeof (ifnet));
+	  klookup( ifnet.if_name, name, 16);
+	  name[15] = '\0';
+	  cp = (char *) index(name, '\0');
+	  *cp++ = ifnet.if_unit + '0';
+	  *cp = '\0';
+	  Interface_Scan_Init();
+	  rt.rt_unit = 0;
+	  while (Interface_Scan_Next((short *) &(rt.rt_unit), temp, 0, 0) != 0) {
+	      if (strcmp(name, temp) == 0) break;
+	  }
+      }
+      
+#ifdef freebsd2
+      if (((rt.rt_flags & RTF_CLONING) != RTF_CLONING)
+	  && ((rt.rt_flags & RTF_LLINFO) != RTF_LLINFO))
+      {
+#endif
+	  /* check for space and malloc */
+	  if (rtsize >= rtalloc) {
+	      rthead = (RTENTRY **) realloc((char *)rthead, 2 * rtalloc * sizeof(RTENTRY *));
+	      bzero((char *) &rthead[rtalloc], rtalloc * sizeof(RTENTRY *));
+	      
+	      rtalloc *= 2;
+	  }
+	  if (!rthead[rtsize])
+	      rthead[rtsize] = (RTENTRY *) malloc(sizeof(RTENTRY));
+	  /*
+	   *	Add this to the database
+	   */
+	  bcopy((char *) &rt, (char *)rthead[rtsize], sizeof(RTENTRY));
+	  rtsize++;
+#ifdef freebsd2
+      }
+#endif
 
-      rtalloc *= 2;
-    }
-    if (!rthead[rtsize])
-      rthead[rtsize] = (RTENTRY *) malloc(sizeof(RTENTRY));
-    /*
-     *	Add this to the database
-     */
-    bcopy((char *) &rt, (char *)rthead[rtsize], sizeof(RTENTRY));
-    rtsize++;
-    if (node.rn_dupedkey)
-      load_rtentries(node.rn_dupedkey);
+      if (node.rn_dupedkey)
+	  load_rtentries(node.rn_dupedkey);
   }
 }
 #endif
 
-static Route_Scan_Reload()
+static
+Route_Scan_Reload()
 {
   RTENTRY **routehash, mb;
   register RTENTRY *m;
@@ -465,7 +512,7 @@ static Route_Scan_Reload()
   struct radix_node_head head, *rt_table[AF_MAX+1];
 #endif
   struct ifnet ifnet;
-  int i, table, qsort_compare();
+  int i, table;
   register char *cp;
   char name[16], temp[16];
   static int Time_Of_Last_Reload=0;
@@ -497,8 +544,13 @@ static Route_Scan_Reload()
 /* rtentry is a BSD 4.4 compat */
 
   KNLookup(N_RTTABLES, (char *) rt_table, sizeof(rt_table));
+#ifdef freebsd2
+  if (rt_table[AF_INET]) {
+    if (klookup(rt_table[AF_INET], (char *) &head, sizeof(head))) {
+#else
   if (rt_table[AF_UNSPEC]) {
     if (klookup(rt_table[AF_UNSPEC], (char *) &head, sizeof(head))) {
+#endif
       load_rtentries(head.rnh_treetop);
     }
     else {
@@ -561,7 +613,7 @@ static Route_Scan_Reload()
   /*
    *  Sort it!
    */
-  qsort((char *)rthead,rtsize,sizeof(rthead[0]),qsort_compare);
+  qsort((char *)rthead, rtsize, sizeof(rthead[0]), qsort_compare);
 }
 
 #else
@@ -674,28 +726,24 @@ static Route_Scan_Reload()
 /*
  *	Create a host table
  */
-static int qsort_compare(r1,r2)
+static int
+qsort_compare(r1,r2)
 RTENTRY **r1, **r2;
 {
+#ifdef freebsd2
+	register u_long dst1 = ntohl(klgetsa((*r1)->rt_dst)->sin_addr.s_addr);
+	register u_long dst2 = ntohl(klgetsa((*r2)->rt_dst)->sin_addr.s_addr);
+#else
 	register u_long dst1 = ntohl(((struct sockaddr_in *) &((*r1)->rt_dst))->sin_addr.s_addr);
 	register u_long dst2 = ntohl(((struct sockaddr_in *) &((*r2)->rt_dst))->sin_addr.s_addr);
+#endif
 
 	/*
 	 *	Do the comparison
 	 */
-	if (dst1 == dst2) return(0);
-	if (dst1 > dst2) return(1);
+	if (dst1 == dst2)
+	    return(0);
+	if (dst1 > dst2)
+	    return(1);
 	return(-1);
 }
-
-
-
-
-
-
-
-
-
-
-
-

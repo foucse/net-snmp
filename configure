@@ -1106,7 +1106,7 @@ if eval "test \"`echo '$''{'ac_cv_KERNEL_LOC'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   ac_cv_KERNEL_LOC="unknown"
-for i in /vmunix /hp-ux /stand/vmunix /kernel/unix /kernel/genunix /netbsd /unix
+for i in /vmunix /hp-ux /stand/vmunix /kernel/unix /kernel/genunix /netbsd /unix /kernel
   do
   if test -f $i; then
     ac_cv_KERNEL_LOC="$i"
@@ -2775,6 +2775,12 @@ EOF
 fi
 
 
+if test -d /var/log; then
+  defaultlog = "/var/log"
+else
+  defaultlog = "/usr/adm"
+fi
+  
 
 MSG_CHECK=`echo "
 
@@ -2802,14 +2808,14 @@ information & errors to.  If not defined (enter the keyword \"none\"
 at the prompt below) the agent will use stdout and stderr instead.
 (Note: This value can be over-ridden using the command line)
 
-Location to write logfile (/usr/adm/snmpd.log): $ac_c"
+Location to write logfile ($defaultlog): $ac_c"
 read tmpinput
-if test "$tmpinput" = "" -a "/usr/adm/snmpd.log" != ""; then
-  tmpinput="/usr/adm/snmpd.log"
+if test "$tmpinput" = "" -a "$defaultlog" != ""; then
+  tmpinput="$defaultlog"
 fi
 eval LOGFILE=\"$tmpinput\"
 else
-tmpinput="/usr/adm/snmpd.log"
+tmpinput="$defaultlog"
 eval LOGFILE=\"$tmpinput\"
 fi
 

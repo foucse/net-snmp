@@ -51,7 +51,7 @@ dnl
 
 AC_CACHE_CHECK(for location of sytem kernel,ac_cv_KERNEL_LOC,
 [ac_cv_KERNEL_LOC="unknown"
-for i in /vmunix /hp-ux /stand/vmunix /kernel/unix /kernel/genunix /netbsd /unix
+for i in /vmunix /hp-ux /stand/vmunix /kernel/unix /kernel/genunix /netbsd /unix /kernel
   do
   if test -f $i; then
     ac_cv_KERNEL_LOC="$i"
@@ -289,6 +289,12 @@ available in the MIB-II tree.
 
 System Location],UCDavis Electrical Engineering Departement,1)
 
+if test -d /var/log; then
+  defaultlog = "/var/log"
+else
+  defaultlog = "/usr/adm"
+fi
+  
 AC_PROMPT_USER(LOGFILE,[
 
 *** Logfile location:
@@ -298,7 +304,7 @@ information & errors to.  If not defined (enter the keyword \"none\"
 at the prompt below) the agent will use stdout and stderr instead.
 (Note: This value can be over-ridden using the command line)
 
-Location to write logfile],/usr/adm/snmpd.log,1)
+Location to write logfile],$defaultlog,1)
 
 AC_CACHE_CHECK(Default Extensible Mib location, ac_cv_user_prompt_EXTENSIBLEMIB,
 [

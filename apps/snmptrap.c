@@ -52,6 +52,11 @@ SOFTWARE.
 #include <sys/file.h>
 #include <nlist.h>
 
+#ifdef freebsd2
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#endif
+
 #include "snmp.h"
 #include "asn1.h"
 #include "snmp_impl.h"
@@ -111,8 +116,13 @@ get_myaddr(){
 	    && (ifreq.ifr_flags & IFF_RUNNING)
 	    && !(ifreq.ifr_flags & IFF_LOOPBACK)
 	    && in_addr->sin_addr.s_addr != LOOPBACK){
+#ifdef freebsd2
+		if (ioctl(sd, SIOCGIFADDR, (char *)&ifreq) < 0)
+		    continue;
+		in_addr = (struct sockaddr_in *)&(ifreq.ifr_addr);
+#endif
 		close(sd);
-		return in_addr->sin_addr.s_addr;
+		return(htonl(in_addr->sin_addr.s_addr));
 	    }
     }
     close(sd);
@@ -122,13 +132,16 @@ get_myaddr(){
 /*
  * Returns uptime in centiseconds(!).
  */
-long uptime(){
+#ifndef freebsd2
+long
+uptime(
+{
     struct timeval boottime, now, diff;
     int kmem;
 
     if ((kmem = open("/dev/kmem", 0)) < 0)
 	return 0;
-    nlist("/vmunix", nl);
+    nlist(KERNEL_LOC, nl);
     if (nl[0].n_type == 0){
 	close(kmem);
 	return 0;
@@ -149,8 +162,36 @@ long uptime(){
     }
     return ((diff.tv_sec * 100) + (diff.tv_usec / 10000));
 }
+#else /* freebsd2 */
+long
+uptime()
+{
+    int 		mib[2];
+    size_t		len;
+    struct timeval	boottime, now, diff;
 
-u_long parse_address(address)
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_BOOTTIME;
+
+    len = sizeof(boottime);
+
+    sysctl(mib, 2, &boottime, &len, NULL, NULL);
+
+    gettimeofday(&now, 0);
+    now.tv_sec--;
+    now.tv_usec += 1000000L;
+    diff.tv_sec = now.tv_sec - boottime.tv_sec;
+    diff.tv_usec = now.tv_usec - boottime.tv_usec;
+    if (diff.tv_usec > 1000000L){
+	diff.tv_usec -= 1000000L;
+	diff.tv_sec++;
+    }
+    return ((diff.tv_sec * 100) + (diff.tv_usec / 10000));
+}
+#endif /* freebsd2 */
+
+u_long
+parse_address(address)
     char *address;
 {
     u_long addr;
@@ -169,6 +210,7 @@ u_long parse_address(address)
     }
 
 }
+
 main(argc, argv)
     int	    argc;
     char    *argv[];
@@ -184,7 +226,7 @@ main(argc, argv)
     oid src[MAX_NAME_LEN], dst[MAX_NAME_LEN];
     int srclen = 0, dstlen = 0;
     struct partyEntry *pp;
-
+    char ctmp[300];
 
     /*
      * usage: snmptrap gateway-name srcParty dstParty trap-type specific-type device-description [ -a agent-addr ]
@@ -213,9 +255,10 @@ main(argc, argv)
 	} else if (version == 0 && community == NULL){
 	    community = argv[arg];
 	} else if ((version == 1 || version == 2) && srclen == 0){
-	    if (!read_party_database("/etc/party.conf")){
+	    sprintf(ctmp, "%s/party.conf", SNMPLIBPATH);
+	    if (!read_party_database(ctmp)){
 		fprintf(stderr,
-			"Couldn't read party database from /etc/party.conf\n");
+			"Couldn't read party database from %s\n", ctmp);
 		exit(0);
 	    }
 	    party_scanInit();

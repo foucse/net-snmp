@@ -41,7 +41,11 @@
 #  include <time.h>
 # endif
 #endif
+#if !defined(freebsd2)
 #include <malloc.h>
+#else
+#include <stdlib.h>
+#endif
 #include <asn1.h>
 #include <snmp_impl.h>
 #include <snmp.h>

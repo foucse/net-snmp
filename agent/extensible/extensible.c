@@ -175,7 +175,8 @@ int nswapfs=10;            /* taken from <machine/space.h> */
 
 #ifdef USEMEMMIB
 
-int getswap(rettype)
+int
+getswap(rettype)
   int rettype;
 {
 
@@ -230,19 +231,14 @@ int getswap(rettype)
   }
 }
 
-unsigned char *var_extensible_mem(vp, name, length, exact, var_len, write_method)
-    register struct variable *vp;
-/* IN - pointer to variable entry that points here */
-    register oid	*name;
-/* IN/OUT - input name requested, output name found */
-    register int	*length;
-/* IN/OUT - length of input and output oid's */
-    int			exact;
-/* IN - TRUE if an exact match was requested. */
-    int			*var_len;
-/* OUT - length of variable or 0 if function returned. */
-    int			(**write_method)();
-/* OUT - pointer to function to set variable, otherwise 0 */
+unsigned char *
+var_extensible_mem(vp, name, length, exact, var_len, write_method)
+    register struct variable *vp;	/* IN - pointer to variable entry that points here */
+    register oid	*name;		/* IN/OUT - input name requested, output name found */
+    register int	*length;	/* IN/OUT - length of input and output oid's */
+    int			exact;		/* IN - TRUE if an exact match was requested. */
+    int			*var_len;	/* OUT - length of variable or 0 if function returned. */
+    int			(**write_method)(); /* OUT - pointer to function to set variable, otherwise 0 */
 {
 
   oid newname[30];
@@ -322,7 +318,8 @@ struct diskpart disks[MAXDISKS];
 
 #if defined(USEDISKMIB)
 
-unsigned char *var_extensible_disk(vp, name, length, exact, var_len, write_method)
+unsigned char *
+var_extensible_disk(vp, name, length, exact, var_len, write_method)
     register struct variable *vp;
 /* IN - pointer to variable entry that points here */
     register oid	*name;
@@ -469,7 +466,8 @@ unsigned char *var_extensible_disk(vp, name, length, exact, var_len, write_metho
 #define OPENERR 2
 
 /*
-static int locktimeouttest;
+static int
+locktimeouttest;
 
 int lockd_timeout()
 {
@@ -478,7 +476,8 @@ int lockd_timeout()
 */
 
 #ifdef USELOCKDMIB
-long lockd_test(msg)
+long
+lockd_test(msg)
   char *msg;
 {
 
@@ -516,7 +515,8 @@ long lockd_test(msg)
 }
 
 
-unsigned char *var_extensible_lockd_test(vp, name, length, exact, var_len, write_method)
+unsigned char *
+var_extensible_lockd_test(vp, name, length, exact, var_len, write_method)
     register struct variable *vp;
 /* IN - pointer to variable entry that points here */
     register oid	*name;
@@ -562,19 +562,14 @@ unsigned char *var_extensible_lockd_test(vp, name, length, exact, var_len, write
 #endif
 #ifdef USELOADAVEMIB
 
-unsigned char *var_extensible_loadave(vp, name, length, exact, var_len, write_method)
-    register struct variable *vp;
-/* IN - pointer to variable entry that points here */
-    register oid	*name;
-/* IN/OUT - input name requested, output name found */
-    register int	*length;
-/* IN/OUT - length of input and output oid's */
-    int			exact;
-/* IN - TRUE if an exact match was requested. */
-    int			*var_len;
-/* OUT - length of variable or 0 if function returned. */
-    int			(**write_method)();
-/* OUT - pointer to function to set variable, otherwise 0 */
+unsigned char *
+var_extensible_loadave(vp, name, length, exact, var_len, write_method)
+    register struct variable *vp;	/* IN - pointer to variable entry that points here */
+    register oid	*name;		/* IN/OUT - input name requested, output name found */
+    register int	*length;	/* IN/OUT - length of input and output oid's */
+    int			exact;		/* IN - TRUE if an exact match was requested. */
+    int			*var_len;	/* OUT - length of variable or 0 if function returned. */
+    int			(**write_method)(); /* OUT - pointer to function to set variable, otherwise 0 */
 {
 
   oid newname[30];
@@ -612,8 +607,13 @@ unsigned char *var_extensible_loadave(vp, name, length, exact, var_len, write_me
   for(i=0;i<3;i++)
     avenrun[i] = FIX_TO_DBL(favenrun[i]);
 #else
+#ifdef freebsd2
+  if (getloadavg(avenrun, sizeof(avenrun) / sizeof(avenrun[0])) == -1)
+      return(0);
+#else
   if (KNLookup(NL_AVENRUN,(int *) avenrun, sizeof(double)*3) == NULL)
     return(0);
+#endif
 #endif
   switch (vp->magic) {
     case LOADAVE:
@@ -652,7 +652,7 @@ setPerrorstatus(to)
   char *to;
 {
   char buf[STRMAX];
-#ifndef netbsd1
+#if !defined(netbsd1) && !defined(freebsd2)
   extern char *sys_errlist[];
 #endif
   extern int errno;
@@ -676,7 +676,8 @@ seterrorstatus(to,prior)
   
 #ifdef USEERRORMIB
 
-unsigned char *var_extensible_errors(vp, name, length, exact, var_len, write_method)
+unsigned char *
+var_extensible_errors(vp, name, length, exact, var_len, write_method)
     register struct variable *vp;
 /* IN - pointer to variable entry that points here */
     register oid	*name;
@@ -882,7 +883,7 @@ init_extensible() {
   }
   for(ret = 0; nl[ret].n_name != NULL; ret++) {
     if (nl[ret].n_type == 0) {
-      DEBUGP1("nlist err:  %s not found\n",nl[ret].n_name)
+      DEBUGP1("nlist err:  %s not found\n", nl[ret].n_name);
     }
   }
 
