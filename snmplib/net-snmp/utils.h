@@ -12,10 +12,11 @@
 
         /* Buffer handling */
 
-#define NETSNMP_BUFFER_RESIZE            0x1
-#define NETSNMP_BUFFER_NOFREE            0x2
-#define NETSNMP_BUFFER_NULLTERM          0x4
-#define NETSNMP_BUFFER_REVERSE           0x8
+#define NETSNMP_BUFFER_RESIZE            0x01
+#define NETSNMP_BUFFER_NOFREE            0x02
+#define NETSNMP_BUFFER_NULLTERM          0x04
+#define NETSNMP_BUFFER_REVERSE           0x08
+#define NETSNMP_BUFFER_NOCOPY            0x10
 
 typedef struct netsnmp_buf_s {
     char *string;
