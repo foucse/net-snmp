@@ -72,6 +72,8 @@ void DEBUGP __P((const char *, ...));
 void DEBUGP __P((va_alist));
 #endif
 
+#define DEBUGPL(x) DEBUGP("%s:%d:",__FILE__,__LINE__); DEBUGP x 
+
 #ifndef HAVE_STRDUP
 char *strdup __P((char *));
 #endif
