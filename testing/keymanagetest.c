@@ -85,7 +85,7 @@ char	*engineID	= NULL;
 char	*passphrase	= NULL;
 char	*oldkey 	= NULL;
 char	*newkey		= NULL;
-int      bequiet        = 1;
+int      bequiet        = 0;
 
 
 /*
