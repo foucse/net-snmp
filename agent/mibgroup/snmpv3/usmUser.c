@@ -34,12 +34,9 @@ static unsigned int usmUserSpinLock=0;
 
 
 void init_usmUser(void) {
-  /* initialize the user list */
-  usm_add_user(usm_create_initial_user());
   snmpd_register_config_handler("usmUser",
                                 usm_parse_config_usmUser, NULL);
 }
-
 
 void shutdown_usmUser(void) {
   /* save the user base */
