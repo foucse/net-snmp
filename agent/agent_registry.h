@@ -79,6 +79,10 @@ int call_next_handler(mib_handler          *current,
                       request_info         *requests);
 mib_handler *create_handler(const char *name,
                             NodeHandler *handler_access_method);
+handler_registration *
+create_handler_registration(const char *name,
+                            NodeHandler *handler_access_method,
+                            oid *reg_oid, size_t reg_oid_len);
 delegated_cache *
 create_delegated_cache(mib_handler               *,
                        handler_registration      *,

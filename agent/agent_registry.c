@@ -1189,7 +1189,8 @@ register_handler(handler_registration *reginfo) {
 
 int
 inject_handler(handler_registration *reginfo, mib_handler *handler) {
-    DEBUGMSGTL(("handler:inject", "injecting %s before %s\n", handler->handler_name, reginfo->handler->handler_name));
+    DEBUGMSGTL(("handler:inject", "injecting %s before %s\n", \
+                handler->handler_name, reginfo->handler->handler_name));
     handler->next = reginfo->handler;
     if (reginfo->handler)
         reginfo->handler->prev = handler;
@@ -1273,6 +1274,21 @@ create_handler(const char *name, NodeHandler *handler_access_method) {
     ret->handler_name = strdup(name);
     ret->access_method = handler_access_method;
     return ret;
+}
+
+handler_registration *
+create_handler_registration(const char *name,
+                            NodeHandler *handler_access_method,
+                            oid *reg_oid, size_t reg_oid_len) {
+    handler_registration *the_reg;
+    the_reg = SNMP_MALLOC_TYPEDEF(handler_registration);
+    if (!the_reg)
+        return NULL;
+
+    the_reg->handler = create_handler(name, handler_access_method);
+    the_reg->rootoid = reg_oid;
+    the_reg->rootoid_len = reg_oid_len;
+    return the_reg;
 }
 
 inline delegated_cache *
