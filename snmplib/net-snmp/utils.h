@@ -32,6 +32,14 @@ int         buffer_append_char(   netsnmp_buf buf, char  ch               );
 char*       buffer_string(        netsnmp_buf buf                         );
 void        buffer_free(          netsnmp_buf buf                         );
 
+	/*
+	 * The 'buffer_append' calls are frequently used within routines
+	 *   that similarly return a -ve value to indicate failure.
+	 * The following "convenience macro" can be used to propogate this
+	 *   error indication, without detracting from the code readability.
+	 */
+#define __B( x )	if ( x < 0 ) { return -1; }
+
 char *list_add_token(     char *list, char *token,  char sep );
 char *list_remove_token(  char *list, char *token,  char sep );
 char *list_remove_tokens( char *list, char *remove, char sep );
