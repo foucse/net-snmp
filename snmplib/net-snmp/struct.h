@@ -45,7 +45,7 @@ typedef struct netsnmp_value_t {
 
     char	 valbuf[ NETSNMP_VALBUF_LEN ];
 
-} netsnmp_value;
+} *netsnmp_value;
 
 
 typedef struct netsnmp_varbind_t {
