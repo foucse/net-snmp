@@ -176,7 +176,11 @@ struct internal_snmp_pdu {
     int	    contextNameLen;  /* Length of contextName */
     u_char  *securityName;	/* on behalf of this principal */
     int	    securityNameLen;  /* Length of securityName. */
-    u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protool */
+    oid     *securityAuthProto; /* auth protocol oid */
+    int     securityAuthProtoLen; /* Length of auth protocol oid */
+    u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol */
+    oid     *securityPrivProto; /* priv protocol oid */
+    int     securityPrivProtoLen; /* Length of priv protocol oid */
     u_char  securityPrivKey[USM_PRIV_KU_LEN];  /* Ku for privacy protocol */
     int	    securityModel;
     int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
