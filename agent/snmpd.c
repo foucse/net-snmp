@@ -524,6 +524,8 @@ main(argc, argv)
 	u_char          *engineID;
 	int             engineIDLen;
         struct usmUser *user, *userListPtr;
+        char           *pid_file;
+        FILE           *PID;
 
 	logfile[0]		= 0;
 	optconfigfile		= NULL;
@@ -538,84 +540,103 @@ main(argc, argv)
 	 * usage: snmpd
 	 */
 	for (arg = 1; arg < argc; arg++)
-	{
-		if (argv[arg][0] == '-') {
-			switch (argv[arg][1]) {
-			case 'c':
-				if (++arg == argc)
-					usage(argv[0]);
-				optconfigfile = strdup(argv[arg]);
-				break;
-			case 'C':
-				dontReadConfigFiles = 1;
-				break;
-			case 'd':
-				snmp_dump_packet++;
-				verbose = 1;
-				break;
-			case 'q':
-				snmp_set_quick_print(1);
-				break;
-			case 'D':
-				snmp_set_do_debugging(!snmp_get_do_debugging());
-				break;
-			case 'p':
-				if (++arg == argc)
-					usage(argv[0]);
-				dest_port = atoi(argv[arg]);
-				if (dest_port <= 0)
-					usage(argv[0]);
-				break;
-			case 'a':
-				log_addresses++;
-				break;
-			case 'V':
-				verbose = 1;
-				break;
-			case 'f':
-				dont_fork = 1;
-				break;
-			case 'l':
-				if (++arg == argc)
-					usage(argv[0]);
-				strcpy(logfile, argv[arg]);
-				break;
-			case 'L':
-				logfile[0] = 0;
-				break;
-			case 'h':
-				usage(argv[0]);
-				break;
-			case 'v':
-				printf(
-    "\n"
-    "UCD-snmp version:  %s\n"
-    "Author:            Wes Hardaker\n"
-    "Email:             ucd-snmp-coders@ece.ucdavis.edu\n\n",
-							VersionInfo);
-				exit(0);
-			case '-':
-				switch (argv[arg][2]) {
-				case 'v':
-	    				printf(
-    "\n"
-    "UCD-snmp version:  %s\n"
-    "Author:            Wes Hardaker\n"
-    "Email:             ucd-snmp-coders@ece.ucdavis.edu\n\n",
-							VersionInfo);
-					exit(0);
-				case 'h':
-					usage(argv[0]);
-					exit(0);
-				}
-			default:
-				printf("invalid option: %s\n", argv[arg]);
-				usage(argv[0]);
-				break;
-			}
-			continue;
-		}
-	}  /* end-for */
+          {
+            if (argv[arg][0] == '-') {
+              switch (argv[arg][1]) {
+                case 'c':
+                  if (++arg == argc)
+                    usage(argv[0]);
+                  optconfigfile = strdup(argv[arg]);
+                  break;
+
+                case 'C':
+                  dontReadConfigFiles = 1;
+                  break;
+
+                case 'd':
+                  snmp_dump_packet++;
+                  verbose = 1;
+                  break;
+
+                case 'q':
+                  snmp_set_quick_print(1);
+                  break;
+
+                case 'D':
+                  snmp_set_do_debugging(!snmp_get_do_debugging());
+                  break;
+
+                case 'p':
+                  if (++arg == argc)
+                    usage(argv[0]);
+                  dest_port = atoi(argv[arg]);
+                  if (dest_port <= 0)
+                    usage(argv[0]);
+                  break;
+
+                case 'P':
+                  if (++arg == argc)
+                    usage(argv[0]);
+                  pid_file = argv[arg];
+
+                case 'a':
+                      log_addresses++;
+                  break;
+
+                case 'V':
+                  verbose = 1;
+                  break;
+
+                case 'f':
+                  dont_fork = 1;
+                  break;
+
+                case 'l':
+                  if (++arg == argc)
+                    usage(argv[0]);
+                  strcpy(logfile, argv[arg]);
+                  break;
+
+                case 'L':
+                  logfile[0] = 0;
+                  break;
+
+                case 'h':
+                  usage(argv[0]);
+                  break;
+
+                case 'v':
+                  printf(
+                    "\n"
+                    "UCD-snmp version:  %s\n"
+                    "Author:            Wes Hardaker\n"
+                    "Email:             ucd-snmp-coders@ece.ucdavis.edu\n\n",
+                    VersionInfo);
+                  exit(0);
+
+                case '-':
+                  switch (argv[arg][2]) {
+                    case 'v':
+                      printf(
+                        "\n"
+                        "UCD-snmp version:  %s\n"
+                        "Author:            Wes Hardaker\n"
+                        "Email:             ucd-snmp-coders@ece.ucdavis.edu\n\n",
+                        VersionInfo);
+                      exit(0);
+                    case 'h':
+                      usage(argv[0]);
+                      exit(0);
+                  }
+
+                default:
+                  printf("invalid option: %s\n", argv[arg]);
+                  usage(argv[0]);
+                  break;
+              }
+              continue;
+            }
+          }  /* end-for */
 
 
 	/* 
@@ -662,13 +683,38 @@ main(argc, argv)
 		exit(0);
 	}
 
+        if (pid_file != NULL) {
+          if ((PID = fopen(pid_file, "w")) == NULL) {
+            perror("fopen");
+            exit(1);
+          }
+          fprintf(PID, "%d\n", getpid());
+          fclose(PID);
+        }
+
         usm_set_reportErrorOnUnknownID(1);
 	init_agent();		/* register our .conf handlers */
 	init_snmpv3("snmpd");	/* register the v3 handlers */
 	register_mib_handlers();/* snmplib .conf handlers */
 	read_premib_configs();	/* read pre-mib-reading .conf handlers */
-        user = usm_create_initial_user();
+
+        /* create the initial and template users */
+        user = usm_create_initial_user("initial", usmHMACMD5AuthProtocol,
+                                       USM_LENGTH_OID_TRANSFORM,
+                                       usmDESPrivProtocol,
+                                       USM_LENGTH_OID_TRANSFORM);
         userListPtr = usm_add_user(user);
+        user = usm_create_initial_user("templateMD5", usmHMACMD5AuthProtocol,
+                                       USM_LENGTH_OID_TRANSFORM,
+                                       usmDESPrivProtocol,
+                                       USM_LENGTH_OID_TRANSFORM);
+        userListPtr = usm_add_user(user);
+        user = usm_create_initial_user("templateSHA", usmHMACSHA1AuthProtocol,
+                                       USM_LENGTH_OID_TRANSFORM,
+                                       usmDESPrivProtocol,
+                                       USM_LENGTH_OID_TRANSFORM);
+        userListPtr = usm_add_user(user);
+        
         if (userListPtr == NULL) /* user already existed */
           usm_free_user(user);
 	init_mib();		/* initialize the mib structures */
