@@ -54,6 +54,7 @@ table_iterator_helper_handler(
     int ret;
     static oid myname[MAX_OID_LEN];
     static int myname_len;
+    int oldmode;
     
     tbl_info = (table_registration_info *) handler->myvoid;
 
@@ -159,7 +160,7 @@ table_iterator_helper_handler(
 
                     
                 }
-
+                break;
 
             default: /* GET, SET, all the same...  exact search */
                 /* loop through all data till exact results are found */
@@ -210,10 +211,13 @@ table_iterator_helper_handler(
         snmp_set_var_objid(requests->requestvb, results->name,
                            results->name_length);
         
-        reqinfo->mode = MODE_GET;
+        oldmode = reqinfo->mode;
+        if (oldmode == MODE_GETNEXT)
+            reqinfo->mode = MODE_GET;
         request_add_list_data(requests, create_data_list(TABLE_ITERATOR_NAME, callback_data_keep, NULL));
         ret = call_next_handler(handler, reginfo, reqinfo, requests);
-        reqinfo->mode = MODE_GETNEXT;
+        if (oldmode == MODE_GETNEXT)
+            reqinfo->mode = oldmode;
 
         if (callback_data_keep && tbl_info->free_data_context)
             (tbl_info->free_data_context)(callback_data_keep);
