@@ -32,22 +32,41 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #endif
+#if HAVE_STDLIB_H
+#       include <stdlib.h>
+#endif
+
 
 #include "system.h"
 #include "asn1.h"
 #include "snmpv3.h"
 #include "snmpusm.h"
 #include "snmp.h"
+#include "read_config.h"
+#include "scapi.h"
 
-static int engineBoots=0;
-static char *engineID=NULL;
-static int engineIDLength=0;
-static struct timeval snmpv3starttime;
 
-/* set up default snmpv3 parameter value storage */
-static char *defaultSecName = NULL;
-static char *defaultContext = NULL;
-int defaultSecurityLevel = 0;
+
+static int		 engineBoots	 = 0;
+static char		*engineID	 = NULL;
+static int		 engineIDLength	 = 0;
+static struct timeval	 snmpv3starttime;
+
+
+/* 
+ * Set up default snmpv3 parameter value storage.
+ */
+static char	*defaultSecName		= NULL;
+static char	*defaultContext		= NULL;
+int		defaultSecurityLevel	= 0;
+
+
+/*
+ * XXX  Stolen from snmplib/libsnmp.h.
+ */
+#define snmp_perror(X)	perror(X)
+
+
 
 void
 snmpv3_secName_conf(char *word, char *cptr)

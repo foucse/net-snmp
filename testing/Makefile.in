@@ -2,7 +2,7 @@
 # Makefile for testing
 #
 
-TARG		= stest
+TARG		= stest ktest
 
 SUBDIRS		= 
 
@@ -29,10 +29,12 @@ subdirs:
 #
 stest:    scapitest.o $(PARSEOBJS) $(USELIBS)
 	${CC} -o $@ scapitest.o ../snmplib/libsnmp.a $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+ktest:    keymanagetest.o $(PARSEOBJS) $(USELIBS)
+	${CC} -o $@ keymanagetest.o ../snmplib/libsnmp.a $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
 
 
 clean:
-	rm -f *.o $(TARG) 
+	rm -f *.o core *.core $(TARG) 
 	for i in $(SUBDIRS) ; do		\
 		( cd $$i ; $(MAKE) clean ) ;	\
 	done
@@ -74,4 +76,5 @@ makefileindepend: nosysdepend
 
 
 scapitest.o:	
+keymanagetest.o:
 

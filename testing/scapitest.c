@@ -7,8 +7,11 @@
  *	Number of FAILUREs.
  *
  *
+ * ASSUMES  No key management functions return non-zero success codes.
+ *
  * XXX	Split into individual modules?
  * XXX	Error/fringe conditions should be tested.
+ *
  *
  * Test of sc_random.						SUCCESSes: 2.
  *	REQUIRES a human to spot check for obvious non-randomness...
@@ -102,8 +105,6 @@ int	doalltests	= 0,
  * Prototypes.
  */
 void	usage(FILE *ofp);
-void	dump_chunk(char *buf, int size);
-
 
 int	test_docrypt(void);
 int	test_dokeyedhash(void);
@@ -393,52 +394,6 @@ test_dokeyedhash(void)
 	return failcount;
 
 }  /* end test_dokeyedhash() */
-
-
-
-
-
-/*******************************************************************-o-******
- * dump_chunk
- *
- * Parameters:
- *	*buf
- *	 size
- */
-void
-dump_chunk(char *buf, int size)
-{
-	int		printunit = 64;		/* XXX  Make global. */
-	char		chunk[LOCAL_MAXBUF],
-			*s, *sp;
-	FILE		*fp = stdout;
-
-/* EM(1); /* */
-
-
-	memset(chunk, 0, LOCAL_MAXBUF);
-
-	size = binary_to_hex(buf, size, &s);
-	sp = s;
-
-	while (size > 0)
-	{
-		if (size > printunit) {
-			strncpy(chunk, sp, printunit);	
-			chunk[printunit] = '\0';
-			fprintf(fp, "\t%s\n", chunk);
-		} else {
-			fprintf(fp, "\t%s\n", sp);
-		}
-
-		sp	+= printunit;
-		size	-= printunit;
-	}
-
-
-	SNMP_FREE(s);
-
-}  /* end dump_chunk() */
 
 
 

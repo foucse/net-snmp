@@ -130,3 +130,47 @@ binary_to_hex(char *input, u_long len, char **output)
 
 }  /* end binary_to_hex() */
 
+
+
+/*******************************************************************-o-******
+ * dump_chunk
+ *
+ * Parameters:
+ *	*buf
+ *	 size
+ */
+void
+dump_chunk(char *buf, int size)
+{
+	int		printunit = 64;		/* XXX  Make global. */
+	char		chunk[SNMP_MAXBUF],
+			*s, *sp;
+	FILE		*fp = stdout;
+
+/* EM(1); /* */
+
+
+	memset(chunk, 0, SNMP_MAXBUF);
+
+	size = binary_to_hex(buf, size, &s);
+	sp = s;
+
+	while (size > 0)
+	{
+		if (size > printunit) {
+			strncpy(chunk, sp, printunit);	
+			chunk[printunit] = '\0';
+			fprintf(fp, "\t%s\n", chunk);
+		} else {
+			fprintf(fp, "\t%s\n", sp);
+		}
+
+		sp	+= printunit;
+		size	-= printunit;
+	}
+
+
+	SNMP_FREE(s);
+
+}  /* end dump_chunk() */
+

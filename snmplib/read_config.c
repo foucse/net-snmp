@@ -34,6 +34,9 @@
 #if HAVE_INET_MIB2_H
 #include <inet/mib2.h>
 #endif
+#if HAVE_UNISTD_H
+# 	include <unistd.h>
+#endif
 
 #include "system.h"
 #include "parse.h"
@@ -366,7 +369,7 @@ read_config_store(char *type, char *line)
   } else {
     snmp_perror(type);
   }
-  close(OUT);
+  fclose(OUT);
 #endif
 }
 

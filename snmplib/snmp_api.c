@@ -88,6 +88,8 @@ SOFTWARE.
 #include "system.h"
 #include "int64.h"
 #include "snmpv3.h"
+#include "read_config.h"
+#include "snmpusm.h"
 
 #define PACKET_LENGTH	8000
 

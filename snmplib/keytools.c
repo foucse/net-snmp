@@ -85,7 +85,7 @@ generate_Ku(	oid	*hashtype,	u_int  hashtype_len,
 
 	void		*context = NULL;
 
-EM(1); /* */
+/* EM(1); /* */
 
 
 	/*
@@ -197,7 +197,7 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 	char		 buf[SNMP_MAXBUF];
 	void		*context = NULL;
 
-EM(1); /* */
+/* EM(1); /* */
 
 
 	/*
@@ -230,7 +230,7 @@ EM(1); /* */
 	}
 
 
-	if (ku_len != properlength) {
+	if (*kul_len < properlength) {
 		QUITFUN(SNMPERR_GENERR, generate_kul_quit);
 	}
 

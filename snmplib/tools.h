@@ -60,6 +60,8 @@ char   *malloc_random __P((int *size));
 char   *malloc_zero __P((u_long size));
 
 u_int	binary_to_hex __P((char *input, u_long len, char **output));
+void	dump_chunk __P((char *buf, int size));
+
 
 
 #endif /* _TOOLS_H */
