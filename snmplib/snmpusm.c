@@ -32,12 +32,19 @@ static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
 static oid usmDESPrivProtocol[]     = { 1,3,6,1,6,3,10,1,2,2 };
 
 int
-generateRequestMsg (msgProcModel, globalData, maxMsgSize, secModel,
-		    secEngineID, secEngineIDLen, secName, secNameLen,
-		    secLevel, scopedPdu, scopedPduLen,
-		    secParams, secParamsLen, msg, msgLen)
+usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize, 
+		    secModel, secEngineID, secEngineIDLen, secName, secNameLen,
+		    secLevel, scopedPdu, scopedPduLen, secStateRef,
+		    secParams, secParamsLen, wholeMsg, wholeMsgLen)
      int msgProcModel;          /* not used */
-     struct global_data *globalData; /* not used */
+     u_char *globalData;        /* IN - pointer to msg header data */
+                                /* will point to the beginning of the entire */
+                                /* packet buffer to be transmitted on wire, */
+                                /* memory will be contiguous with secParams, */
+                                /* typically this pointer will be passed */
+                                /* back as beginning of wholeMsg below. */
+                                /* asn seq. length is updated w/ new length */
+     int globalDataLen;         /* length of msg header data */
      int maxMsgSize;            /* not used */
      int secModel;              /* not used */
      u_char *secEngineID;       /* IN - pointer snmpEngineID */
@@ -46,82 +53,145 @@ generateRequestMsg (msgProcModel, globalData, maxMsgSize, secModel,
      int secNameLen;            /* IN - securityName length */
      int secLevel;              /* IN - authNoPriv, authPriv etc. */
      u_char *scopedPdu;         /* IN - pointer to scopedPdu */
+                                /* will be encrypted by USM if needed and */
+                                /* written to packet buffer immediately */
+                                /* following securityParameters, entire msg */
+                                /* will be authenticated by USM if needed */
      int scopedPduLen;          /* IN - scopedPdu length */
+     void *secStateRef;         /* IN - secStateRef, pointer to cached info */
+                                /* provided only for Response, otherwise NULL */
      u_char *secParams;         /* OUT - BER encoded securityParameters */
-                                /* NOTE: pointer to payload of octet string */
-                                /* NOTE: memory provided by caller */
+                                /* pointer to offset within packet buffer */
+                                /* where secParams should be written, the */
+                                /* entire BER encoded OCTET STRING (including */
+                                /* header) is written here by USM */
+                                /* secParams = globalData + globalDataLen */
      int *secParamsLen;         /* IN/OUT - len available, len returned */
-     u_char *msg;               /* OUT - auth/encrypted data */
-                                /* NOTE: memory provided by caller */
-     int *msgLen;               /* IN/OUT - len available, len returned */
+     u_char **wholeMsg;         /* OUT - complete authenticated/encrypted */
+                                /* message - typically the pointer to start */
+                                /* of packet buffer provided in globalData */
+                                /* is returned here, could also be a separate */
+                                /* buffer */
+     int *wholeMsgLen;          /* IN/OUT - len available, len returned */
 {
-  u_char *cp;
-  secParams[0] = 0;  /* zero length secParams at the moment */
-  *secParamsLen = 0;
-  if (*msgLen < scopedPduLen)
-    return -1;
-  *msgLen = scopedPduLen;
-  memcpy(msg, scopedPdu, scopedPduLen);
+  u_char *cp, *msg_hdr_e, *oct_hdr_e, *seq_hdr_e;
+  int asn_len = *secParamsLen;
+  long boots = 0;
+  long time = 0;
+  int tmp_len;
+  u_char type;
+
+  /* build header for secParams OCTET STRING, zero length at the moment */
+  oct_hdr_e = asn_build_header(secParams, &asn_len, 
+			(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR), 0);
+  /* build header for secParams SEQUENCE, zero length at the moment */
+  seq_hdr_e = asn_build_header(oct_hdr_e, &asn_len, 
+			(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
+  /* build msgAuthoritativeEngineID */
+  cp = asn_build_string(seq_hdr_e, &asn_len,
+			(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+			secEngineID, secEngineIDLen);
+  /* build msgAuthoritativeEngineBoots */
+  cp = asn_build_int(cp, &asn_len,
+		     (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
+		     &boots, sizeof(boots));
+  /* build msgAuthoritativeEngineTime */
+  cp = asn_build_int(cp, &asn_len,
+		     (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
+		     &time, sizeof(time));
+  /* build msgUserName */
+  cp = asn_build_string(cp, &asn_len,
+			(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+			secName, secNameLen);
+  /* build msgAuthenticationParameters */
+  cp = asn_build_header(cp, &asn_len, 
+			(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
+  /* build msgPrivacyParameters */
+  cp = asn_build_header(cp, &asn_len, 
+			(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
+  /* update OCTET STRING header with real length */
+  tmp_len = asn_len;
+  asn_build_header(secParams, &tmp_len, 
+		   (u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+		   cp - oct_hdr_e);
+  /* update SEQUENCE header with real length */
+  tmp_len = asn_len;
+  asn_build_header(oct_hdr_e, &tmp_len, 
+		   (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), cp - seq_hdr_e);
+
+  *secParamsLen = cp - secParams; /* entire len of secParams OCTET STRING */
+
+  /* for noAuthNoPriv unencrypted scopedPdu is written to mem after secParams */
+  memcpy(cp, scopedPdu, scopedPduLen);
+  cp += scopedPduLen;
+
+  /* update sequence header for wholeMsg */
+  tmp_len = globalDataLen;
+  msg_hdr_e = asn_parse_header(globalData, &tmp_len, &type);
+  asn_build_header(globalData, &tmp_len,
+		   (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), cp - msg_hdr_e);
+
+  *wholeMsgLen = globalDataLen + *secParamsLen + scopedPduLen;
+  *wholeMsg = globalData;
   return 0;
 }
 
 int
-processIncomingMsg (msgProcModel, maxMsgSize, secParams, secParamsLen, secModel,
-		    secLevel, msg, msgLen, secEngineID, secEngineIDLen, secName,
-		    secNameLen, scopedPdu, scopedPduLen, maxSizeResponse,
-		    secStateRef)
+usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel, 
+		    wholeMsg, wholeMsgLen, secEngineID, secEngineIDLen, 
+		    secName, secNameLen, scopedPdu, scopedPduLen, 
+		    maxSizeResponse, secStateRef)
      int msgProcModel;          /* not used */
      int maxMsgSize;            /* IN - used to calc maxSizeResponse */
      u_char *secParams;         /* IN - BER encoded securityParameters */
-                                /* NOTE: pointer to payload of octet string */
-     int secParamsLen;          /* IN - length of securityParameters */
      int secModel;              /* not used */
      int secLevel;              /* IN - authNoPriv, authPriv etc. */
-     u_char *msg;               /* IN - auth/encrypted data */
-     int msgLen;                /* IN - msg length */
+     u_char *wholeMsg;          /* IN - auth/encrypted data */
+     int wholeMsgLen;           /* IN - msg length */
      u_char *secEngineID;       /* OUT - pointer snmpEngineID */
      int *secEngineIDLen;       /* IN/OUT - len available, len returned */
                                 /* NOTE: memory provided by caller */
      u_char *secName;           /* OUT - pointer to securityName */
      int *secNameLen;           /* IN/OUT - len available, len returned */
-     u_char *scopedPdu;         /* OUT - pointer to plaintext scopedPdu */
+     u_char **scopedPdu;        /* OUT - pointer to plaintext scopedPdu */
      int *scopedPduLen;         /* IN/OUT - len available, len returned */
      int *maxSizeResponse;      /* OUT - max size of Response PDU */
      void **secStateRef;        /* OUT - ref to security state */
 {
-  memcpy(scopedPdu, msg, msgLen);
-  *scopedPduLen = msgLen;
-  *secEngineIDLen = snmpv3_get_engineID(secEngineID);
-  *secNameLen = strlen("initial");
-  memcpy(secName,"initial", *secNameLen);
-  return 0;
-}
+  u_char *cp;
+  u_char type;
+  int asn_len;
+  long engineBoots;
+  long engineTime;
+#define USM_AUTH_PARAMS_SIZE 64
+#define USM_PRIV_PARAMS_SIZE 64
+  u_char authParams[USM_AUTH_PARAMS_SIZE];
+  int authParamsLen = USM_AUTH_PARAMS_SIZE;
+  u_char privParams[USM_PRIV_PARAMS_SIZE];
+  int privParamsLen = USM_PRIV_PARAMS_SIZE;
 
-int
-generateResponseMsg (msgProcModel, globalData, maxMsgSize, secModel,
-		    secEngineID, secEngineIDLen, secName, secNameLen,
-		    secLevel, scopedPdu, scopedPduLen, secStateRef,
-		    secParams, secParamsLen, msg, msgLen)
-     int msgProcModel;          /* not used */
-     struct global_data *globalData; /* not used */
-     int maxMsgSize;            /* not used */
-     int secModel;              /* not used */
-     u_char *secEngineID;       /* IN - pointer snmpEngineID */
-     int secEngineIDLen;        /* IN - snmpEngineID length */
-     u_char *secName;           /* IN - pointer to securityName */
-     int secNameLen;            /* IN - securityName length */
-     int secLevel;              /* IN - authNoPriv, authPriv etc. */
-     u_char *scopedPdu;         /* IN - pointer to scopedPdu */
-     int scopedPduLen;          /* IN - scopedPdu length */
-     void *secStateRef;         /* IN - ref to security state */
-     u_char *secParams;         /* OUT - BER encoded securityParameters */
-                                /* NOTE: pointer to payload of octet string */
-                                /* NOTE: memory provided by caller */
-     int *secParamsLen;         /* IN/OUT - len available, len returned */
-     u_char *msg;               /* OUT - auth/encrypted data */
-                                /* NOTE: memory provided by caller */
-     int *msgLen;               /* IN/OUT - len available, len returned */
-{
+  asn_len = wholeMsgLen - (secParams - wholeMsg);
+  /* parse past header of secParams OCTET STRING */
+  cp = asn_parse_header(secParams, &asn_len, &type);
+  if (asn_len) {
+    /* parse past secParams sequence embedded in OCTET STRING */
+    cp = asn_parse_header(cp, &asn_len, &type);
+    /* parse msgAuthoritativeEngineID */
+    cp = asn_parse_string(cp, &asn_len, &type, secEngineID, secEngineIDLen);
+    /* parse msgAuthoritativeEngineBoots */
+    cp = asn_parse_int(cp, &asn_len, &type, &engineBoots, sizeof(engineBoots));
+    /* parse msgAuthoritativeEngineTime */
+    cp = asn_parse_int(cp, &asn_len, &type, &engineTime, sizeof(engineTime));
+    /* parse msgUserName */
+    cp = asn_parse_string(cp, &asn_len, &type, secName, secNameLen);
+    /* parse msgAuthenticationParameters */
+    cp = asn_parse_string(cp, &asn_len, &type, authParams, &authParamsLen);
+    /* parse msgPrivacyParameters */
+    cp = asn_parse_string(cp, &asn_len, &type, privParams, &privParamsLen);
+  }
+  *scopedPdu = cp; /* for noAuthNoPriv just point at scopedPdu in packet */
+  *scopedPduLen = wholeMsgLen - (cp - wholeMsg);
+
   return 0;
 }
 

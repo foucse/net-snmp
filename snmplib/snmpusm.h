@@ -2,6 +2,14 @@
 #ifndef SNMPUSM_H
 #define SNMPUSM_H
 
+int usm_generate_out_msg __P((int, u_char *, int, int, int, u_char *,int,
+			      u_char *, int, int, u_char *, int, void *,
+			      u_char *, int *, u_char **, int *));
+
+int usm_process_in_msg __P((int, int, u_char *, int, int, u_char *, int,
+			    u_char *, int *, u_char *, int *, u_char **, int *,
+			    int *, void **));
+
 /* struct usmUser: a structure to represent a given user in a list */
 
 struct usmUser;
@@ -26,20 +34,6 @@ struct usmUser {
    struct usmUser *next;
    struct usmUser *prev;
 };
-
-struct global_data { /* place holder - not used by USM */
-  int msgID; 
-};
-
-int generateRequestMsg __P((int, struct global_data *, int, int, u_char *, int,
-			    u_char *, int, int, u_char *, int, u_char *, int *,
-			    u_char *, int *));
-int processIncomingMsg __P((int, int, u_char *, int, int, int, u_char *, int,
-			    u_char *, int *, u_char *, int *, u_char *, int *,
-			    int *, void **));
-int generateResponseMsg __P((int, struct global_data *, int, int, u_char *, int,
-			     u_char *, int, int, u_char *, int, void *,
-			     u_char *, int *, u_char *, int *));
 
 /* Note: Any changes made to this structure need to be reflected in
    the following functions: */

@@ -364,7 +364,6 @@ int snmp_get_errno __P((void));
 void snmp_set_do_debugging __P((int));
 int snmp_get_do_debugging __P((void));
 int compare __P((oid *, int, oid *, int));
-int hex_str2bin __P((u_char *, int *, char *));
 void init_snmp __P((char *));
 u_char * snmp_pdu_build __P((struct snmp_pdu *, u_char *, int *));
 int snmpv3_parse(struct snmp_pdu *, u_char *, int *, u_char  **);
