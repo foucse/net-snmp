@@ -37,5 +37,6 @@ struct usmUser *usm_free_user(struct usmUser *user);
 struct usmUser *usm_clone_user(struct usmUser *from);
 struct usmUser *usm_create_initial_user();
 struct usmUser *usm_cloneFrom_user(struct usmUser *from, struct usmUser *to);
+struct usmUser *usm_remove_user(struct usmUser *user, struct usmUser *userList);
 
 #endif /* SNMPUSM_H */

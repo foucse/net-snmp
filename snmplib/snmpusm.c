@@ -103,6 +103,32 @@ struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList) {
   return pptr;
 }
 
+/* usm_remove_user(): finds and removes a user from a list */
+struct usmUser *usm_remove_user(struct usmUser *user,
+                                struct usmUser *userList) {
+  struct usmUser *nptr, *pptr;
+  for (nptr = userList, pptr = NULL; nptr != NULL;
+       pptr = nptr, nptr = nptr->next) {
+    if (nptr == user)
+      break;
+  }
+
+  if (nptr) {
+    /* remove the user from the linked list */
+    if (pptr) {
+      pptr->next = nptr->next;
+    }
+    if (nptr->next) {
+      nptr->next->prev = pptr;
+    }
+  } else {
+    return userList;
+  }
+  if (nptr == userList) /* we're the head of the list, return the next */
+    return nptr->next;
+  return userList;
+}
+
 /* usm_free_user():  calls free() on all needed parts of struct usmUser and
    the user himself.
 
