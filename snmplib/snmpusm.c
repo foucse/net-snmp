@@ -5,6 +5,7 @@
  * defined by the SNMP-USER-BASED-SM-MIB MIB.
  */
 
+
 #include <config.h>
 
 #include <stdio.h>
@@ -37,6 +38,7 @@
 
 #define TRUE	1
 #define FALSE	0
+
 
 
 /*
@@ -1746,26 +1748,45 @@ usm_parse_config_usmUser(char *token, char *line)
   usm_add_user(uptr);
 }
 
-void usm_set_password(char *token, char *line) {
-  /* format: userSetAuthPass     secname engineIDLen engineID pass */
-  /*     or: userSetPrivPass     secname engineIDLen engineID pass */
-  /*     or: userSetAuthKey      secname engineIDLen engineID KuLen Ku */
-  /*     or: userSetPrivKey      secname engineIDLen engineID KuLen Ku */
-  /*     or: userSetAuthLocalKey secname engineIDLen engineID KulLen Kul */
-  /*     or: userSetPrivLocalKey secname engineIDLen engineID KulLen Kul */
 
-  char *cp;
-  char nameBuf[SNMP_MAXBUF];
-  u_char *engineID;
-  int nameLen, engineIDLen;
+
+
+/*******************************************************************-o-******
+ * usm_set_password
+ *
+ * Parameters:
+ *	*token
+ *	*line
+ *      
+ *
+ * format: userSetAuthPass     secname engineIDLen engineID pass
+ *     or: userSetPrivPass     secname engineIDLen engineID pass 
+ *     or: userSetAuthKey      secname engineIDLen engineID KuLen Ku
+ *     or: userSetPrivKey      secname engineIDLen engineID KuLen Ku 
+ *     or: userSetAuthLocalKey secname engineIDLen engineID KulLen Kul
+ *     or: userSetPrivLocalKey secname engineIDLen engineID KulLen Kul 
+ *
+ * type is:	1=passphrase; 2=Ku; 3=Kul.
+ *
+ *
+ * ASSUMES  Passwords are null-terminated printable strings.
+ */
+void
+usm_set_password(char *token, char *line)
+{
+  char		 *cp;
+  char		  nameBuf[SNMP_MAXBUF];
+  u_char	 *engineID;
+  int		  nameLen, engineIDLen;
   struct usmUser *user;
 
-  u_char **key;
-  int *keyLen;
+  u_char	**key;
+  int		 *keyLen;
 
-  u_char *userKey;
-  int userKeyLen;
-  int type, ret;
+  u_char	  userKey[SNMP_MAXBUF_SMALL];
+  int		  userKeyLen = SNMP_MAXBUF_SMALL;
+  int		  type, ret;
+
   
   cp = copy_word(line, nameBuf);
   if (cp == NULL) {
@@ -1785,6 +1806,10 @@ void usm_set_password(char *token, char *line) {
     return;
   }
 
+
+  /*
+   * Retrieve the "old" key and set the key type.
+   */
   if (strcmp(token, "userSetAuthPass") == 0) {
     key = &user->authKey;
     keyLen = &user->authKeyLen;
@@ -1811,39 +1836,50 @@ void usm_set_password(char *token, char *line) {
     type = 2;
   }
   
+
   if (*key) {
     /* (destroy and) free the old key */
     memset(*key, 0, *keyLen);
     free(*key);
   }
 
+
   if (type == 0) {
     /* convert the password into a key 
-    ret = generate_Ku(cp, strlen(cp), &userKey, &userKeyLen);
-	FIXupdate */
+     */
+    ret = generate_Ku(	user->authProtocol, user->authProtocolLen,
+			cp, strlen(cp),
+			userKey, &userKeyLen );
+
   
-    if (ret == 1) {
+    if (ret != SNMPERR_SUCCESS) {
       config_perror("setting key failed (in sc_genKu())");
       return;
     }
-  }
-   
-  if (type == 1) {
-    cp = read_config_read_octet_string(cp, &userKey, &userKeyLen);
+
+  } else if (type == 1) {
+    cp = read_config_read_octet_string(cp, (u_char **) &userKey, &userKeyLen);
+    /* XXX	What is the syntax here?  "<len> <string>"?
+     *		Alternative syntax: "0[xX]<hex_bytes>"
+     */
     
     if (cp == NULL) {
       config_perror("invalid user key");
       return;
     }
+
   }
   
   if (type < 2) {
-    /* generate the kul
-    generate_kul(engineID, engineIDLen, userKey, userKeyLen, key, keyLen);
-	FIXupdate */
+    ret = generate_kul(	user->authProtocol, user->authProtocolLen,
+			engineID, engineIDLen,
+			userKey, userKeyLen,
+			*key, keyLen );
+    /* XXX  Check for error? */
+  
     /* (destroy and) free the old key */
-    memset(userKey, 0, userKeyLen);
-    free(userKey);
+    memset(userKey, 0, SNMP_MAXBUF_SMALL);
+
   } else {
     /* the key is given, copy it in */
     cp = read_config_read_octet_string(cp, key, keyLen);
@@ -1853,4 +1889,4 @@ void usm_set_password(char *token, char *line) {
       return;
     }
   }
-}
+}  /* end usm_set_password() */

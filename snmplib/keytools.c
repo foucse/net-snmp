@@ -11,35 +11,6 @@
 
 
 
-/*
- * Simple hash function pointer, and the internal hash functions offered
- * by KMT.
- *
- * FIX  Resolve the broken KMT API issue.
- * 	kmt_s_* prototypes stolen from KMT/algs/kmt_hash.h.
- */
-int (*kmt_hash) __P((
-	const int	  mode,		void  	 **context,
-	const u_int8_t	 *data,		const int  data_len,     
-	u_int8_t	**digest,	int	  *digest_len));
-
-
-extern int (*kmt_s_md5) __P((
-		const int	  mode,		void  	 **context,
-		const u_int8_t	 *data,		const int  data_len,     
-		u_int8_t	**digest,	int	  *digest_len));
-extern int (*kmt_s_sha1) __P((
-		const int	  mode,		void  	 **context,
-		const u_int8_t	 *data,		const int  data_len,     
-		u_int8_t	**digest,	int	  *digest_len));
-extern int (*kmt_s_ripemd) __P((
-		const int	  mode,		void  	 **context,
-		const u_int8_t	 *data,		const int  data_len,     
-		u_int8_t	**digest,	int	  *digest_len));
-
-
-
-
 /*******************************************************************-o-******
  * generate_Ku
  *
@@ -274,7 +245,7 @@ generate_kul_quit:
  *	*hashtype	MIB OID for the hash transform type.
  *	 hashtype_len	Length of the MIB OID hash transform type.
  *	*oldkey		Old key that is used to encodes the new key.
- *	 olekey_len	Length of oldkey in bytes.
+ *	 oldkey_len	Length of oldkey in bytes.
  *	*newkey		New key that is encoded using the old key.
  *	 newkey_len	Length of new key in bytes.
  *	*kcstring	Buffer to contain the KeyChange TC string.
@@ -301,9 +272,6 @@ generate_kul_quit:
  *
  *		*kcstring_len will be returned as exactly twice that same
  *		length though the input buffer may be larger.
- *
- * ASSUMES	The result is not ASN.1 encoded, the calling environment
- *		must do this.  FIX -- Tragic flaw?
  */
 int
 encode_keychange(	oid	*hashtype,	u_int  hashtype_len,
@@ -429,7 +397,7 @@ encode_keychange_quit:
  *	*hashtype	MIB OID of the hash transform to use.
  *	 hashtype_len	Length of the hash transform MIB OID.
  *	*oldkey		Old key that is used to encode the new key.
- *	 olekey_len	Length of oldkey in bytes.
+ *	 oldkey_len	Length of oldkey in bytes.
  *	*kcstring	Encoded KeyString buffer containing the new key.
  *	 kcstring_len	Length of kcstring in bytes.
  *	*newkey		Buffer to hold the extracted new key.
@@ -451,8 +419,6 @@ encode_keychange_quit:
  *		although this length may be less than the hash transform
  *		output.  Thus the new key length will be equal to the old
  *		key length.
- *
- * ASSUMES	kcstring is NOT ASN.1 encoded.  FIX -- Tragic flaw?
  */
 int
 decode_keychange(	oid	*hashtype,	u_int  hashtype_len,

@@ -1,4 +1,6 @@
 /*
+ * snmp_agent.c
+ *
  * Simple Network Management Protocol (RFC 1067).
  *
  */
@@ -100,6 +102,8 @@ static void dump_var (var_name, var_name_len, statType, statP, statLen)
     fprintf (stdout, "    >> %s\n", buf);
 }
 
+
+
 int
 snmp_agent_parse(data, length, out_data, out_length, sourceip)
     u_char	*data;
@@ -195,8 +199,11 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
           }
           pi->sec_level = SNMP_SEC_LEVEL_NOAUTH;
         }
-    } else if (type == (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)){
+
+#ifdef USE_V2PARTY_PROTOCOL
+    } else if (type == (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)) {
         DEBUGP("parsing SNMPv2p message\n");
+
         pi->srcPartyLength = sizeof(pi->srcParty)/sizeof(oid);
         pi->dstPartyLength = sizeof(pi->dstParty)/sizeof(oid);
         pi->contextLength = sizeof(pi->context)/sizeof(oid);
@@ -207,6 +214,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 				  pi->dstParty, &pi->dstPartyLength,
 				  pi->context, &pi->contextLength,
 				  FIRST_PASS);
+#endif /* USE_V2PARTY_PROTOCOL */
+
     } else {
 #ifdef USING_MIBII_SNMP_MIB_MODULE       
         snmp_inbadversions++;
@@ -303,12 +312,16 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	out_header = snmp_comstr_build(out_auth, out_length,
 				     pi->community, &pi->community_len,
 				     &pi->version, 0);
-    } else if (pi->version == SNMP_VERSION_2p){
+
+#ifdef USE_V2PARTY_PROTOCOL
+    } else if (pi->version == SNMP_VERSION_2p) {
 	out_header = snmp_party_build(out_auth, out_length, pi, 0,
 					pi->dstParty, pi->dstPartyLength,
 					pi->srcParty, pi->srcPartyLength,
 					pi->context, pi->contextLength,
 					&packet_len, FIRST_PASS);
+#endif /* USE_V2PARTY_PROTOCOL */
+
     } else if (version == SNMP_VERSION_3) {
       out_header = v3data;
     }
@@ -317,11 +330,13 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	return 0;
     }
 
+#ifdef USE_V2PARTY_PROTOCOL
     if ((pi->version == SNMP_VERSION_2p)
 	&& !has_access(pi->pdutype, pi->dstp->partyIndex,
-		       pi->srcp->partyIndex, pi->cxp->contextIndex)){
+		       pi->srcp->partyIndex, pi->cxp->contextIndex))
+    {
 	/* Make sure not to send this response to GetResponse or
-	 * Trap packets.  Currently, code above has this handled.
+	 * Trap packets.  Currently, code above has this handled.  XXX
 	 */
 	errstat = SNMP_ERR_READONLY;
 	if (pi->version == SNMP_VERSION_2p){
@@ -335,6 +350,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	}
 	return 0;
     }
+#endif /* USE_V2PARTY_PROTOCOL */
+
     data = asn_parse_int(data, &length, &type, &reqid, sizeof(reqid));
     if (data == NULL){
 	ERROR_MSG("bad parse of reqid");
@@ -494,7 +511,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	    }
 
 	    *out_length = pi->packet_end - out_auth;
-	    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2c){
+	    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2c)
+	    {
 		out_data = snmp_comstr_build(out_auth, out_length,
 					   pi->community, &pi->community_len,
 					   &pi->version,
@@ -503,7 +521,11 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 		    ERROR_MSG("internal error");
 		    return 0;
 		}
-	    } else if (pi->version == SNMP_VERSION_2p){
+	    }
+
+#ifdef USE_V2PARTY_PROTOCOL
+	      else if (pi->version == SNMP_VERSION_2p)
+	    {
 		out_data = snmp_party_build(out_auth, out_length, pi,
 					      pi->packet_end - out_header,
 					      pi->dstParty, pi->dstPartyLength,
@@ -511,26 +533,33 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 					      pi->context, pi->contextLength,
 					      &packet_len, LAST_PASS);
 	    }
+#endif /* USE_V2PARTY_PROTOCOL */
 
 	    /* packet_end is correct for old SNMP.  This dichotomy needs
 	       to be fixed. */
 	    if (pi->version == SNMP_VERSION_2p)
               pi->packet_end = out_auth + packet_len;
           }
+
 #ifdef USING_MIBII_SNMP_MIB_MODULE       
 	    snmp_intotalreqvars += snmp_vars_inc;
 	    snmp_outgetresponses++;
 #endif
 	    break;
+
 	case SNMP_ERR_TOOBIG:
 #ifdef USING_MIBII_SNMP_MIB_MODULE       
 	    snmp_intoobigs++;
 #endif
+#ifdef USE_V2PARTY_PROTOCOL
 	    if (pi->version == SNMP_VERSION_2p){
 		create_toobig(out_auth, *out_length, reqid, pi);
 		break;
 	    }
+#endif /* USE_V2PARTY_PROTOCOL */
+
 	    goto reterr;
+
 	case SNMP_ERR_NOACCESS:
 	case SNMP_ERR_WRONGTYPE:
 	case SNMP_ERR_WRONGLENGTH:
@@ -591,8 +620,13 @@ reterr:
       snmp_free_pdu(pdu);
     }
     *out_length = pi->packet_end - out_auth;
+
+
     return 1;
-}
+
+}  /* end snmp_agent_parse() */
+
+
 
 /*
  * Parse_var_op_list goes through the list of variables and retrieves each one,
@@ -772,7 +806,7 @@ parse_var_op_list(data, length, out_data, out_length, index, pi, action)
         if (asn_build_sequence(headerP, &dummyLen,
 			       (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
 			       dummyLen) == NULL){
-	    return SNMP_ERR_TOOBIG;	/* bogus error ???? */
+	    return SNMP_ERR_TOOBIG;	/* bogus error XXX */
         }
     }
     *index = 0;
@@ -886,7 +920,7 @@ bulk_var_op_list(data, length, out_data, out_length, non_repeaters,
 				     statType, statLen, statP,
 				     &out_length);
 	if (out_data == NULL){
-	    return SNMP_ERR_TOOBIG;	/* ??? */
+	    return SNMP_ERR_TOOBIG;	/* XXX */
 	}
 	(*index)++;
 	non_repeaters--;
@@ -998,11 +1032,17 @@ bulk_var_op_list(data, length, out_data, out_length, non_repeaters,
     /* Now rebuild header with the actual lengths */
     dummyLen = pi->packet_end - var_list_start;
     if (asn_build_sequence(headerP, &dummyLen, (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), dummyLen) == NULL){
-	return SNMP_ERR_TOOBIG;	/* bogus error ???? */
+	return SNMP_ERR_TOOBIG;	/* bogus error XXX */
     }
     *index = 0;
+
+
     return SNMP_ERR_NOERROR;
-}
+
+}  /* end bulk_var_op_list() */
+
+
+
 
 /*
  * create a packet identical to the input packet, except for the error status
@@ -1056,7 +1096,9 @@ create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi, pdu)
         headerPtr = snmp_comstr_parse(snmp_in, &length,
                                       pi->community, &pi->community_len,
                                       &pi->version);
-    } else if (type == (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)){
+
+#ifdef USE_V2PARTY_PROTOCOL
+    } else if (type == (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)) {
         pi->srcPartyLength = sizeof(pi->srcParty)/sizeof(oid);
         pi->dstPartyLength = sizeof(pi->dstParty)/sizeof(oid);
 
@@ -1065,6 +1107,8 @@ create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi, pdu)
 				       pi->srcParty, &pi->srcPartyLength,
 				       pi->dstParty, &pi->dstPartyLength,
 				       pi->context, &pi->contextLength, 0);
+#endif /* USE_V2PARTY_PROTOCOL */
+
     } else {
         ERROR_MSG("unknown auth header type");
         return 0;
@@ -1124,22 +1168,31 @@ create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi, pdu)
 	return 0;
     
     dummy = snmp_length;
-    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2c){
+    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2c)
+    {
 	data = snmp_comstr_build(snmp_out, (int *)&dummy,
 			       pi->community, &pi->community_len,
 			       &pi->version, messagelen);
-    } else if (pi->version == SNMP_VERSION_2p){
+    }
+
+#ifdef USE_V2PARTY_PROTOCOL
+      else if (pi->version == SNMP_VERSION_2p)
+    {
 	data = snmp_party_build(snmp_out, (int *)&dummy, pi, messagelen,
 				  pi->dstParty, pi->dstPartyLength,
 				  pi->srcParty, pi->srcPartyLength,
 				  pi->context, pi->contextLength,
 				  &packet_len, 0);
     }
+#endif /* USE_V2PARTY_PROTOCOL */
+
     if (data == NULL){
 	ERROR_MSG("couldn't read_identical");
 	return 0;
     }
     memcpy(data, headerPtr, messagelen);
+
+#ifdef USE_V2PARTY_PROTOCOL
     if (pi->version == SNMP_VERSION_2p){
 	dummy = snmp_length;
 	data = snmp_party_build(snmp_out, (int *)&dummy, pi, messagelen,
@@ -1152,12 +1205,24 @@ create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi, pdu)
 	    return 0;
 	}
 	pi->packet_end = snmp_out + packet_len;
-    } else {
+    } else
+#endif /* USE_V2PARTY_PROTOCOL */
+
+    {
 	pi->packet_end = data + messagelen;
     }
-    return 1;
-}
 
+
+    return 1;
+
+}  /* end create_identical() */
+
+
+
+#ifdef USE_V2PARTY_PROTOCOL
+/*
+ * XXX	Is this really a v2p-only function?
+ */
 static int
 create_toobig(snmp_out, snmp_length, reqid, pi)
     u_char	    	*snmp_out;
@@ -1219,8 +1284,14 @@ create_toobig(snmp_out, snmp_length, reqid, pi)
 	return 0;
     }
 
+
     return 1;
-}
+
+}  /* end create_toobig() */
+
+#endif /* USE_V2PARTY_PROTOCOL */
+
+
 
 static int
 goodValue(inType, inLen, actualType, actualLen)

@@ -10,6 +10,8 @@
 
 #define USM_LENGTH_KU_HASHBLOCK		64		/* In bytes. */
 
+#define SET_HASH_TRANSFORM(t)   kmt_hash = t;
+
 
 
 /*

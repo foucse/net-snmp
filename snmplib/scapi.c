@@ -225,7 +225,7 @@ sc_generate_keyed_hash_quit:
  *	 maclen		Length of given hash.
  *      
  * Returns:
- *	SNMPERR_SUCCESS	Success.
+ *	SNMPERR_SUCCESS		Success.
  *	SNMP_SC_GENERAL_FAILURE	Any error, including KMT errs.
  */
 int
@@ -316,8 +316,9 @@ sc_check_keyed_hash_quit:
  *	*ctlen		Length of ciphertext.
  *      
  * Returns:
- *	SNMPERR_SUCCESS		Success.
- *	SNMPERR_SC_GENERAL_FAILURE	Any error, including KMT errs.
+ *	SNMPERR_SUCCESS			Success.
+ *	SNMPERR_SC_NOT_CONFIGURED	Encryption is not supported.
+ *	SNMPERR_SC_GENERAL_FAILURE	Any other error, including KMT errs.
  *
  *
  * Encrypt plaintext into ciphertext using key and iv.
@@ -345,6 +346,10 @@ EM(-1); /* */
 	/*
 	 * Sanity check.
 	 */
+#if	!defined(SCAPI_AUTHPRIV)
+	return SNMPERR_SC_NOT_CONFIGURED;
+#endif
+
 	if ( !privtype || !key || !iv || !plaintext || !ciphertext || !ctlen
 		|| (keylen<=0) || (ivlen<=0) || (ptlen<=0) || (*ctlen<=0)
 		|| (privtypelen != USM_LENGTH_OID_TRANSFORM) )
@@ -411,8 +416,9 @@ sc_encrypt_quit:
  *	*ptlen
  *      
  * Returns:
- *	SNMPERR_SUCCESS		Success.
- *      SNMPERR_SC_GENERAL_FAILURE      Any error, including KMT errs.
+ *	SNMPERR_SUCCESS			Success.
+ *	SNMPERR_SC_NOT_CONFIGURED	Encryption is not supported.
+ *      SNMPERR_SC_GENERAL_FAILURE      Any other error, including KMT errs.
  *
  *
  * Decrypt ciphertext into plaintext using key and iv.
@@ -440,6 +446,10 @@ EM(-1); /* */
 	/*
 	 * Sanity check.
 	 */
+#if	!defined(SCAPI_AUTHPRIV)
+	return SNMPERR_SC_NOT_CONFIGURED;
+#endif
+
 	if ( !privtype || !key || !iv || !plaintext || !ciphertext || !ptlen
 		|| (ctlen<=0) || (*ptlen<=0)
 		|| (privtypelen != USM_LENGTH_OID_TRANSFORM) )

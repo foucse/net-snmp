@@ -547,27 +547,49 @@ snmp_errstring(errstat)
     }
 }
 
-#ifdef USE_V2PARTY_PROTOCOL
 
-/*
- * In: Dest IP address, src, dst parties and lengths and context and contextlen
+/*******************************************************************-o-******
+ * ms_party_init
+ *
+ * Parameters:
+ *	 destaddr
+ *	*src
+ *	*srclen
+ *	*dst
+ *	*dstlen
+ *	*context
+ *	*contextllen
+ *      
+ * Returns:
+ *	0		Success.
+ *	-1		Otherwise.
+ *
  * Initializes a noAuth/noPriv party pair, a context, and 2 acl entries.
- * (Are two acl entries really needed?)
- * Out: returns 0 if OK, -1 if an error occurred.
+ *
+ * XXX  Are two acl entries really needed?
+ * XXX	Should this live in snmp_auth.c?
  */
 int
-ms_party_init(destaddr, src, srclen, dst, dstlen, context, contextlen)
-    in_addr_t destaddr;
-    oid *src, *dst, *context;
-    int *srclen, *dstlen, *contextlen;
+ms_party_init(	in_addr_t	 destaddr,
+		oid		*src,		int	*srclen,
+		oid		*dst,		int	*dstlen,
+		oid		*context,	int	*contextlen)
 {
-    u_long addr;
-    u_short port;
-    unsigned char *adp;
-    struct partyEntry *pp1, *pp2, *rp;
-    struct contextEntry *cxp, *rxp;
-    struct aclEntry *ap;
-    int oneIndex, twoIndex, cxindex;
+#define PARTYCOMPLETE_MASK	65535
+#define PARTYCOMPLETE_MASK	65535
+#define CONTEXTCOMPLETE_MASK	0x03FF
+#define ACLCOMPLETE_MASK	0x3F
+
+    u_short		 port;
+    int			 oneIndex, twoIndex, cxindex;
+    u_long		 addr;
+
+    unsigned char	*adp;
+
+    struct partyEntry	*pp1, *pp2, *rp;
+    struct contextEntry	*cxp, *rxp;
+    struct aclEntry	*ap;
+
 
     if (!read_objid(PARTY_MIB_BASE, dst, dstlen)){
 	snmp_errno = SNMPERR_BAD_PARTY;
@@ -588,26 +610,29 @@ ms_party_init(destaddr, src, srclen, dst, dstlen, context, contextlen)
 	rp = pp1->reserved;
 	strcpy(pp1->partyName, "noAuthAgent");
 	pp1->partyTDomain = rp->partyTDomain = DOMAINSNMPUDP;
+
 	addr = htonl(destaddr);
 	port = htons(161);
+
 	memmove(pp1->partyTAddress, &addr, sizeof(addr));
 	memmove(pp1->partyTAddress + 4, &port, sizeof(port));
 	memmove(rp->partyTAddress, pp1->partyTAddress, 6);
-	pp1->partyTAddressLen = rp->partyTAddressLen = 6;
-	pp1->partyAuthProtocol = rp->partyAuthProtocol = NOAUTH;
-	pp1->partyAuthClock = rp->partyAuthClock = 0;
-	pp1->tv.tv_sec = pp1->partyAuthClock;
-	pp1->partyAuthPublicLen = 0;
-	pp1->partyAuthLifetime = rp->partyAuthLifetime = 0;
-	pp1->partyPrivProtocol = rp->partyPrivProtocol = NOPRIV;
-	pp1->partyPrivPublicLen = 0;
-	pp1->partyMaxMessageSize = rp->partyMaxMessageSize = 1500;
-	pp1->partyLocal = 2; /* FALSE */
-	pp1->partyAuthPrivateLen = rp->partyAuthPrivateLen = 0;
-	pp1->partyPrivPrivateLen = rp->partyPrivPrivateLen = 0;
-	pp1->partyStorageType = 2; /* volatile */
-	pp1->partyStatus = rp->partyStatus = SNMP_ROW_ACTIVE;
-#define PARTYCOMPLETE_MASK              65535
+
+	pp1->partyTAddressLen	 = rp->partyTAddressLen		= 6;
+	pp1->partyAuthProtocol	 = rp->partyAuthProtocol	= NOAUTH;
+	pp1->partyAuthClock	 = rp->partyAuthClock		= 0;
+	pp1->tv.tv_sec		 = pp1->partyAuthClock;
+	pp1->partyAuthPublicLen	 = 0;
+	pp1->partyAuthLifetime	 = rp->partyAuthLifetime	= 0;
+	pp1->partyPrivProtocol	 = rp->partyPrivProtocol	= NOPRIV;
+	pp1->partyPrivPublicLen	 = 0;
+	pp1->partyMaxMessageSize = rp->partyMaxMessageSize	= 1500;
+	pp1->partyLocal		 = 2; /* FALSE */
+	pp1->partyAuthPrivateLen = rp->partyAuthPrivateLen	= 0;
+	pp1->partyPrivPrivateLen = rp->partyPrivPrivateLen	= 0;
+	pp1->partyStorageType	 = 2; /* volatile */
+	pp1->partyStatus	 = rp->partyStatus	= SNMP_ROW_ACTIVE;
+
 	/* all collumns - from party_vars.c XXX */
 	pp1->partyBitMask = rp->partyBitMask = PARTYCOMPLETE_MASK;
     }
@@ -630,23 +655,25 @@ ms_party_init(destaddr, src, srclen, dst, dstlen, context, contextlen)
 	rp = pp2->reserved;
 	strcpy(pp2->partyName, "noAuthMS");
 	pp2->partyTDomain = rp->partyTDomain = DOMAINSNMPUDP;
+
 	memset(pp2->partyTAddress, 0, 6);
 	memmove(rp->partyTAddress, pp2->partyTAddress, 6);
-	pp2->partyTAddressLen = rp->partyTAddressLen = 6;
-	pp2->partyAuthProtocol = rp->partyAuthProtocol = NOAUTH;
-	pp2->partyAuthClock = rp->partyAuthClock = 0;
-	pp2->tv.tv_sec = pp2->partyAuthClock;
-	pp2->partyAuthPublicLen = 0;
-	pp2->partyAuthLifetime = rp->partyAuthLifetime = 0;
-	pp2->partyPrivProtocol = rp->partyPrivProtocol = NOPRIV;
-	pp2->partyPrivPublicLen = 0;
-	pp2->partyMaxMessageSize = rp->partyMaxMessageSize = 484; /* ??? */
-	pp2->partyLocal = 2; /* FALSE */
-	pp2->partyAuthPrivateLen = rp->partyAuthPrivateLen = 0;
-	pp2->partyPrivPrivateLen = rp->partyPrivPrivateLen = 0;
-	pp2->partyStorageType = 2; /* volatile */
-	pp2->partyStatus = rp->partyStatus = SNMP_ROW_ACTIVE;
-#define PARTYCOMPLETE_MASK              65535
+
+	pp2->partyTAddressLen	 = rp->partyTAddressLen		= 6;
+	pp2->partyAuthProtocol	 = rp->partyAuthProtocol	= NOAUTH;
+	pp2->partyAuthClock	 = rp->partyAuthClock		= 0;
+	pp2->tv.tv_sec		 = pp2->partyAuthClock;
+	pp2->partyAuthPublicLen	 = 0;
+	pp2->partyAuthLifetime	 = rp->partyAuthLifetime	= 0;
+	pp2->partyPrivProtocol	 = rp->partyPrivProtocol	= NOPRIV;
+	pp2->partyPrivPublicLen	 = 0;
+	pp2->partyMaxMessageSize = rp->partyMaxMessageSize	= 484; /* ??? */
+	pp2->partyLocal		 = 2; /* FALSE */
+	pp2->partyAuthPrivateLen = rp->partyAuthPrivateLen	= 0;
+	pp2->partyPrivPrivateLen = rp->partyPrivPrivateLen	= 0;
+	pp2->partyStorageType	 = 2; /* volatile */
+	pp2->partyStatus	 = rp->partyStatus	= SNMP_ROW_ACTIVE;
+
 	/* all collumns - from party_vars.c XXX */
 	pp2->partyBitMask = rp->partyBitMask = PARTYCOMPLETE_MASK;
     }
@@ -666,33 +693,37 @@ ms_party_init(destaddr, src, srclen, dst, dstlen, context, contextlen)
     if (!cxp){
 	cxp = context_createEntry(context, *contextlen);
 	rxp = cxp->reserved;
+
 	strcpy(cxp->contextName, "noAuthContext");
-	cxp->contextLocal = 2; /* FALSE */
-	cxp->contextViewIndex = -1; /* unknown */
-	cxp->contextLocalEntityLen = 0;
-	cxp->contextLocalTime = CURRENTTIME;
-	cxp->contextProxyContextLen = 0;
-	cxp->contextStorageType = 2;
-	cxp->contextStatus = rxp->contextStatus = SNMP_ROW_ACTIVE;
-#define CONTEXTCOMPLETE_MASK              0x03FF
-	/* all collumns - from context_vars.c XXX */
+
+	cxp->contextLocal		= 2;	/* FALSE */
+	cxp->contextViewIndex		= -1;	/* unknown */
+	cxp->contextLocalEntityLen	= 0;
+	cxp->contextLocalTime		= CURRENTTIME;
+	cxp->contextProxyContextLen	= 0;
+	cxp->contextStorageType		= 2;
+	cxp->contextStatus		= rxp->contextStatus = SNMP_ROW_ACTIVE;
+
+	/* all collumns - from context_vars.c XXX
+	 */
 	cxp->contextBitMask = rxp->contextBitMask = CONTEXTCOMPLETE_MASK;
     }
     cxindex = cxp->contextIndex;
 
     ap = acl_getEntry(oneIndex, twoIndex, cxindex);
     if (!ap){
-	ap = acl_createEntry(oneIndex, twoIndex, cxindex);
-	ap->aclPriveleges = 132;
-	ap->aclStorageType = 2; /* volatile */
-	ap->aclStatus = SNMP_ROW_ACTIVE;
-#define ACLCOMPLETE_MASK              0x3F
-	/* all collumns - from acl_vars.c XXX */
-	ap->aclBitMask = ACLCOMPLETE_MASK;
+	ap		   	 = acl_createEntry(oneIndex, twoIndex, cxindex);
+	ap->aclPriveleges  	 = 132;
+	ap->aclStorageType 	 = 2; /* volatile */
+	ap->aclStatus	   	 = SNMP_ROW_ACTIVE;
+	/* all collumns - from acl_vars.c XXX
+	 */
+	ap->aclBitMask	   	 = ACLCOMPLETE_MASK;
 	ap->reserved->aclBitMask = ap->aclBitMask;
     }
-    return 0; /* SUCCESS */
-}
 
-#endif /* USE_V2PARTY_PROTOCOL */
+
+    return 0; /* SUCCESS */
+
+}  /* end ms_party_init() */
 

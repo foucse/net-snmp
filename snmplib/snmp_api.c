@@ -1369,14 +1369,14 @@ snmp_build(session, pdu, packet, out_length)
 
     case SNMP_VERSION_2p:
 #ifdef USE_V2PARTY_PROTOCOL
-        /* add potentially encryption and digest calculation */
-/*?? cleanup length parameters in call */
         snmp_party_build(packet, &length, pi, cp - h1,
                          pdu->srcParty, pdu->srcPartyLen,
                          pdu->dstParty, pdu->dstPartyLen,
                          pdu->context, pdu->contextLen,
                          &packet_length, LAST_PASS);
-	/* encryption might bump length of packet */
+
+	/* Encryption might bump length of packet.
+	 */
 	cp = packet + packet_length;
 	break;
 #endif /* USE_V2PARTY_PROTOCOL */

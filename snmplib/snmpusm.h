@@ -12,6 +12,9 @@
  * Global constants.
  *
  * Numeric MIB names for auth and priv transforms.
+ * (Perhaps legitimate declared globals could have a file of their own so as
+ * to span both agents and applications.
+ * shh2() reduces #(warnings) to one -- plausibly silly...  XXX)
  *
  * ISTRANSFORM ASSUMES the minimum length for ttype and toid.
  */
@@ -27,6 +30,12 @@ static oid usmDESPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,2 };
 #define ISTRANSFORM(ttype, toid)					\
 	!compare(ttype, USM_LENGTH_OID_TRANSFORM,			\
 		usm ## toid ## Protocol, USM_LENGTH_OID_TRANSFORM)
+
+#	define s(p)	shh = usm ## p ## Protocol;
+static void shh2(void)
+{ oid *shh; s(NoAuth) s(HMACMD5Auth) s(HMACSHA1Auth) s(NoPriv) s(DESPriv) }
+#	undef s
+
 
 
 

@@ -20,6 +20,7 @@
 #include "agent_read_config.h"
 #include "util_funcs.h"
 #include "keytools.h"
+#include "tools.h"
 
 #include "usmUser.h"
 
@@ -554,8 +555,8 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
 {
 	/* variables we may use later
 	 */
-	static unsigned char	 string[1500];
-	int            		 size, bigsize = 1000;
+	static unsigned char	 string[SNMP_MAXBUF_SMALL];
+	int            		 size, bigsize = SNMP_MAXBUF_SMALL;
 	struct usmUser		*uptr;
 
 
@@ -585,17 +586,20 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
 			return SNMP_ERR_NOSUCHNAME;
 		}
 
-		/* Change the key
-		 */
-		/*
-		 * FIXupdate to current name/signature what assumed
-		 * functionality must still be provided? if
-		 * (do_keychange(uptr->secName, 0, string, size,
-		 * &uptr->authKey, &uptr->authKeyLen) != SNMP_ERR_NOERROR)
-		 * return SNMP_ERR_GENERR;
+		/* Change the key.
 		 *
-		 * better error?
+		 * XXX	Assumes the amount memory allocated for uptr->authKey 
+		 *	is adequate for the new key.
 		 */
+		if ( decode_keychange(
+				uptr->authProtocol, uptr->authProtocolLen,
+				uptr->authKey, uptr->authKeyLen,
+				string, size,
+				uptr->authKey, &uptr->authKeyLen) 
+							!= SNMPERR_SUCCESS )
+		{
+			return SNMP_ERR_GENERR;
+		}
 	}  /* endif -- COMMIT */
 
 
@@ -638,13 +642,20 @@ write_usmUserOwnAuthKeyChange(action, var_val, var_val_type, var_val_len, statP,
         return SNMP_ERR_NOSUCHNAME;
       }
 
-      /* Change the key */
-      	/* FIXupdate to current name/signature
-		what assumed functionality must still be provided?
-      if (do_keychange(uptr->secName, 1, string, size,
-                       &uptr->authKey, &uptr->authKeyLen) != SNMP_ERR_NOERROR)
-        return SNMP_ERR_GENERR;
-	 */
+      /* Change the key.
+       *
+       * XXX	Assumes the amount memory allocated for uptr->authKey is
+       *	adequate for the new key.
+       */
+      if ( decode_keychange(
+  		    uptr->authProtocol, uptr->authProtocolLen,
+  		    uptr->authKey, uptr->authKeyLen,
+  		    string, size,
+  		    uptr->authKey, &uptr->authKeyLen) 
+  					    != SNMPERR_SUCCESS )
+      {
+  	    return SNMP_ERR_GENERR;
+      }
   }
   return SNMP_ERR_NOERROR;
 }  /* end write_usmUserOwnAuthKeyChange() */
@@ -733,13 +744,20 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
         return SNMP_ERR_NOSUCHNAME;
       }
 
-      /* Change the key */
-      	/* FIXupdate to current name/signature
-		what assumed functionality must still be provided?
-      if (do_keychange(uptr->secName, 0, string, size,
-                       &uptr->privKey, &uptr->privKeyLen) != SNMP_ERR_NOERROR)
-        return SNMP_ERR_GENERR;
-	 */
+      /* Change the key.
+       *
+       * XXX	Assumes the amount memory allocated for uptr->authKey is
+       *	adequate for the new key.
+       */
+      if ( decode_keychange(
+  		    uptr->privProtocol, uptr->privProtocolLen,
+  		    uptr->privKey, uptr->privKeyLen,
+  		    string, size,
+  		    uptr->privKey, &uptr->privKeyLen) 
+  					    != SNMPERR_SUCCESS )
+      {
+  	    return SNMP_ERR_GENERR;
+      }
   }
   return SNMP_ERR_NOERROR;
 }  /* end write_usmUserPrivKeyChange() */
@@ -777,13 +795,20 @@ write_usmUserOwnPrivKeyChange(action, var_val, var_val_type, var_val_len, statP,
         return SNMP_ERR_NOSUCHNAME;
       }
 
-      /* Change the key */
-      	/* FIXupdate to current name/signature
-		what assumed functionality must still be provided?
-      if (do_keychange(uptr->secName, 1, string, size,
-                       &uptr->privKey, &uptr->privKeyLen) != SNMP_ERR_NOERROR)
-        return SNMP_ERR_GENERR;
-	 */
+      /* Change the key.
+       *
+       * XXX	Assumes the amount memory allocated for uptr->authKey is
+       *	adequate for the new key.
+       */
+      if ( decode_keychange(
+  		    uptr->privProtocol, uptr->privProtocolLen,
+  		    uptr->privKey, uptr->privKeyLen,
+  		    string, size,
+  		    uptr->privKey, &uptr->privKeyLen) 
+  					    != SNMPERR_SUCCESS )
+      {
+  	    return SNMP_ERR_GENERR;
+      }
   }
   return SNMP_ERR_NOERROR;
 }  /* end write_usmUserOwnPrivKeyChange() */

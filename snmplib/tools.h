@@ -13,6 +13,8 @@
 #define SNMP_MAXBUF		4096
 #define SNMP_MAXBUF_SMALL	512
 
+#define SNMP_MAXOID		64
+
 #define SNMP_FILEMODE		0600
 
 #define BYTESIZE(bitsize)       ((bitsize + 7) >> 3)

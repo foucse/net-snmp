@@ -13,8 +13,6 @@
  */
 #define ETIMELIST_SIZE	23
 
-#define SET_HASH_TRANSFORM(t)	kmt_hash = t;
-
 /* XXX	Perhaps these two deserve a more conspicuous location?
  */
 #define ENGINETIME_MAX	2147483647	/* ((2^31)-1) */
