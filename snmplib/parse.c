@@ -4206,8 +4206,29 @@ static void print_mib_leaves(FILE *f, struct tree *tp, int width)
   char last_ipch = *ip;
 
   *ip = '+';
-  if (tp->type == 0)
+  if (tp->type == 0) {
     fprintf(f, "%s--%s(%ld)\n", leave_indent, tp->label, tp->subid);
+    if (tp->indexes) {
+      struct index_list *xp = tp->indexes;
+      int first = 1, cpos = 0, len, cmax = width - strlen(leave_indent) - 12;
+      *ip = last_ipch;
+      fprintf(f, "%s  |  Index: ", leave_indent);
+      while (xp) {
+	if (first) first = 0;
+	else fprintf (f, ", ");
+	cpos += (len = strlen(xp->ilabel) + 2);
+	if (cpos > cmax) {
+	  fprintf(f, "\n");
+	  fprintf(f, "%s  |         ", leave_indent);
+	  cpos = len;
+	}
+        fprintf(f, "%s", xp->ilabel);
+	xp = xp->next;
+      }
+      fprintf(f, "\n");
+      *ip = '+';
+    }
+  }
   else {
     const char *acc, *typ;
     int size = 0;
