@@ -982,12 +982,13 @@ snmpv3_scopedPDU_build(struct snmp_pdu *pdu, char *pdu_buf, int pdu_buf_len,
   
 {
   u_char msg_buf[SNMP_MAX_MSG_SIZE];
+  u_char spdu_buf[SNMP_MAX_MSG_SIZE];
   int spdu_buf_len, msg_buf_len, init_length;
   u_char *scopedPdu, *pb, *pb0e;
 
   init_length = *out_length;
 
-  pb = scopedPdu = pdu_buf;
+  pb = scopedPdu = spdu_buf;
   pb = asn_build_sequence(pb, out_length, 
                           (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
   if (pb == NULL) return NULL;
@@ -1009,7 +1010,7 @@ snmpv3_scopedPDU_build(struct snmp_pdu *pdu, char *pdu_buf, int pdu_buf_len,
   *out_length -= pdu_buf_len;
   
   /* insert actual length */
-  if(asn_build_sequence(pdu_buf, out_length, 
+  if(asn_build_sequence(spdu_buf, out_length, 
                         (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
                         pb - pb0e) == NULL)
     return NULL;
@@ -1022,7 +1023,7 @@ snmpv3_scopedPDU_build(struct snmp_pdu *pdu, char *pdu_buf, int pdu_buf_len,
                      SNMP_SEC_MODEL_USM, 
                      pdu->contextEngineID, pdu->contextEngineIDLen,
                      pdu->securityName, pdu->securityNameLen,
-                     pdu->securityLevel, pdu_buf, pdu_buf_len,
+                     pdu->securityLevel, spdu_buf, pdu_buf_len,
                      sec_param_buf, sec_param_buf_len,
                      msg_buf, &msg_buf_len);
 
