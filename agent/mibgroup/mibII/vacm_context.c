@@ -13,10 +13,58 @@
 #include "snmp_api.h"
 #include "snmp_client.h"
 #include "helpers/table.h"
+#include "helpers/table_iterator.h"
 
 static oid vacm_context_oid[] = {1,3,6,1,6,3,16,1,1};
 
 #define CONTEXTNAME_COLUMN 1
+
+/*
+ * return the index data from the first node in the agent's
+ * subtree_context_cache list.
+ */
+struct variable_list *
+get_first_context(void **my_loop_context, void **my_data_context,
+                  struct variable_list *put_data) {
+    subtree_context_cache *context_ptr;
+    context_ptr = get_top_context_cache();
+
+    if (!context_ptr)
+        return NULL;
+
+    *my_loop_context = context_ptr;
+    *my_data_context = context_ptr;
+
+    snmp_set_var_value(put_data, context_ptr->context_name,
+                       strlen(context_ptr->context_name));
+    return put_data;
+}
+
+/*
+ * return the next index data from the first node in the agent's
+ * subtree_context_cache list.
+ */
+struct variable_list *
+get_next_context(void **my_loop_context,
+                 void **my_data_context,
+                 struct variable_list *put_data) {
+    subtree_context_cache *context_ptr;
+
+    if (!my_loop_context || !*my_loop_context)
+        return NULL;
+    
+    context_ptr = (subtree_context_cache *) (*my_loop_context);
+    context_ptr = context_ptr->next;
+    *my_loop_context = context_ptr;
+    *my_data_context = context_ptr;
+
+    if (!context_ptr)
+        return NULL;
+    
+    snmp_set_var_value(put_data, context_ptr->context_name,
+                       strlen(context_ptr->context_name));
+    return put_data;
+}
 
 void
 init_vacm_context(void) {
@@ -42,7 +90,9 @@ init_vacm_context(void) {
     table_helper_add_index(table_info, ASN_OCTET_STR)
     table_info->min_column = 1;
     table_info->max_column = 1;
-    register_table(my_handler, table_info);
+    table_info->get_first_data_point = get_first_context;
+    table_info->get_next_data_point = get_next_context;
+    register_table_iterator(my_handler, table_info);
 }
 
 /*
@@ -54,98 +104,37 @@ vacm_context_handler(mib_handler               *handler,
                      handler_registration      *reginfo,
                      agent_request_info        *reqinfo,
                      request_info              *requests) {
-
-    table_registration_info
-        *handler_reg_info = (table_registration_info *) handler->prev->myvoid;
-    table_request_info *table_info;
-    u_long result;
-    size_t result_len;
-    int x, y;
-    const char *index_string;
-    int index_string_len;
-    int best_candidate_len;
     subtree_context_cache *context_ptr;
-    
+
     while(requests) {
         struct variable_list *var = requests->requestvb;
-
+        
         if (requests->processed != 0)
             continue;
 
-        table_info = (table_request_info *) requests->parent_data;
-        if (table_info==NULL) {
+        context_ptr = (subtree_context_cache *) requests->parent_data;
+        
+        if (context_ptr==NULL) {
+            snmp_log(LOG_ERR, "vacm_context_handler called without data\n");
             requests = requests->next;
             continue;
         }
 
         switch(reqinfo->mode) {
-            case MODE_GETNEXT:
-                /* beyond our search range? */
-                if (table_info->colnum > CONTEXTNAME_COLUMN)
-                    break;
-
-                /* below our minimum column? */
-                if (table_info->colnum < CONTEXTNAME_COLUMN ||
-                    /* or no index specified */
-                    table_info->indexes->val.string == 0) {
-                    table_info->colnum = CONTEXTNAME_COLUMN;
-                    index_string = "";
-                } else {
-                    index_string = table_info->indexes->val.string;
-                }
-                index_string_len = strlen(index_string);
-
-                for(context_ptr = get_top_context_cache();
-                    context_ptr;
-                    context_ptr = context_ptr->next) {
-                    /* find something just greater than our current index */
-                    oid result[MAX_OID_LEN];
-                    struct variable_list *var = NULL;
-                    snmp_varlist_add_variable(&var, NULL, 0, ASN_OCTET_STR,
-                                              context_ptr->context_name,
-                                              strlen(context_ptr->context_name));
-                    build_oid_noalloc(result, MAX_OID_LEN, &result_len,
-                                      NULL, 0, var);
-/*                     if (snmp_oid_compare(table_info->indexes->name, */
-/*                                          table_info->indexes->name_length, */
-/*                                          result->name, result->name_length) > 0) { */
-/*                         if (best_candidate */
-/*                     int name_len = strlen(context_ptr->context_name); */
-/*                     if (name_len >= index_string_len && */
-/*                         strncmp(index_string, context_ptr->context_name, */
-/*                                 index_string_len) < 0 */
-/*                         (!best_candidate || */
-/*                          (name_len >=  */
-
-/* strcmp(context_ptr->context_name */
-
-/*                     *(table_info->indexes->val.integer) = x; */
-/*                     *(table_info->indexes->next_variable->val.integer) = y; */
-/*                     table_build_result(reginfo, requests, */
-/*                                        table_info, ASN_INTEGER, */
-/*                                        (u_char *) &result, */
-/*                                        sizeof(result)); */
-                }
-                
-                break;
-                
             case MODE_GET:
-                if (var->type == ASN_NULL) { /* valid request if ASN_NULL */
-                    /* is it the right column? */
-                    if (table_info->colnum == CONTEXTNAME_COLUMN) {
-                        if (find_first_subtree(table_info->indexes->val.string)) {
-                            if (table_info->indexes->val.string)
-                                snmp_set_var_typed_value(var, ASN_OCTET_STR,
-                                                         table_info->indexes->val.string,
-                                                         strlen(table_info->indexes->val.string));
-                            else
-                                snmp_set_var_typed_value(var, ASN_OCTET_STR,
-                                                         "", 0);
-                            
-                        }
-                    }
-                }
+                /* if here we should have a context_ptr passed in already */
+                snmp_set_var_typed_value(var, ASN_OCTET_STR,
+                                         context_ptr->context_name,
+                                         strlen(context_ptr->context_name));
+
                 break;
+
+            default:
+                /* We should never get here, getnext already have been
+                   handled by the table_iterator and we're read_only */
+                snmp_log(LOG_ERR, "vacm_context table accessed as mode=%d.  We're improperly registered!", reqinfo->mode);
+                break;
+                
 
         }
 
