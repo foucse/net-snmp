@@ -1,8 +1,8 @@
 #!/usr/bin/perl
-use Convert::BER(BER_CONSTRUCTOR,BER_CONTEXT);
 use Getopt::Std;
-use Socket;
+use Convert::BER(BER_CONSTRUCTOR,BER_CONTEXT);
 use SSLeay;
+use Socket;
 
 my $pktTmpl = 
 { TAG => snmpV3Msg,
@@ -113,6 +113,8 @@ sub pkt_read_packet_data {
 
     while (<DATA>) {
 	chomp;
+	next if /^\s*\#/;
+	next if /^\s*$/;
 	$line .= $_;
 	next if $line =~ s/\\\s*$//;
 	($k,$v) = $line =~ /^\s*(\w+)\s*=>\s*
@@ -120,12 +122,16 @@ sub pkt_read_packet_data {
                               | \'.*\'
                               | \".*\"
                               | \[.*\]
-                              | \&\w+\(.*\)
+                              | \|?\&\w+\(.*\)
                               | 0[xX][\s0-9A-Fa-f]*
                               | \S+
                               )\s*;/x;
 	undef $line;
-	next unless defined $k and defined $v;
+	unless (defined $k and defined $v) {
+	    warn "pkt_read_packet_data: unable to parse line [$file:$.]\n" 
+		if $opt_w;
+	    next;
+	}
 	if (exists $data{$k}) {
 	    if (ref $data{$k} eq ARRAY) {
 		push(@{$data{$k}}, $v);
@@ -178,6 +184,15 @@ sub pkt_resolve_field {
 
     # resolve function call
     $val = eval($val) if $val =~ /^\&\w+/;
+    
+    # handle values which is piped through filter function
+    my $filter_sub;
+    if ($val =~ s/\|\&(\w+\(.*\))//) {
+	$filter_sub = $1 ;
+	print "pkt_resolve_field: found filter sub $filter_sub [$']\n" 
+	    if $filter_sub and $opt_D;
+	undef $val unless length $val;
+    }
 
     # if literal octet field convert type to BER
     $type = 'BER' if $val =~ s/^<(.*)>$/$1/;
@@ -199,7 +214,7 @@ sub pkt_resolve_field {
 	    last;
 	};
 	/^INTEGER/ and do {
-	    if ($val =~ /^[^+-\d]*$/) {
+	    if ($val !~ /^[+-\d]*$/) {
 		warn "pkt_resolve_field: unable to resolve INTEGER ENUM $val\n"
 		    if $opt_w;
 	    }
@@ -305,6 +320,7 @@ sub pkt_resolve_field {
 	    last;
 	};
     }
+    $val = [$filter_sub, $val] if $filter_sub;
     return ($type,$val,$seq_of);
 }
 
@@ -316,6 +332,7 @@ sub pkt_compile_ber_encode_arg {
     my $arg;
     my $tag = $obj->{TAG};
     my $seq_of;
+    my $filter_sub;
 
     print "pkt_compile_ber_encode_arg: (tag=>$tag, in_seq_of=>$in_seq_of)\n" 
 	if $opt_D;
@@ -324,6 +341,20 @@ sub pkt_compile_ber_encode_arg {
 
     print "pkt_compile_ber_encode_arg: resolved [$tag, $type, $rval, $seq_of]\n" 
 	if $opt_D;
+
+    # if $rval is an array ref then the first element is a function
+    # name and args which will be run as a filter on the resulting
+    # field values. If present the second element in the array ref is
+    # the resolved value which has supplied by the user. (note:
+    # handling this filter function on a 'BER' type is tricky, $rval
+    # will be a code ref as well)
+    my $filter_sub;
+    if (ref $rval eq 'ARRAY') {
+	$filter_sub = shift(@{$rval});
+	$rval = shift(@{$rval});
+	print "pkt_compile_ber_encode_arg: got filter sub $filter_sub\n" 
+	    if $opt_D;
+    }
 
     # if $rval is not defined then we still need to look
     # for sub definition and resolve this BER clause
@@ -352,19 +383,32 @@ sub pkt_compile_ber_encode_arg {
 	    if ($type eq 'STRING') {
 		$arg = 
 		    [$type => 
-		     sub {my $b = new Convert::BER(@sub_args);$b->buffer}];
+		     sub {new Convert::BER(@sub_args)->buffer}];
 	    } else {
 		# pass back sub constructs or empty list (probably 
 		# meaning a "seq_of" with no elements)
 		$arg = (@sub_args ? [$type => [ @sub_args ]] : []);
 	    }
 	} else {
-	    warn "no value, default or DEF found for (tag=>$tag)\n" if $opt_w;
+	    warn "no value, default or DEF found for (tag=>$tag)\n" 
+		if $opt_w and not $in_seq_of;
 	    $arg = [];
 	}
-     } else {
-	 $arg = [$type => $rval];
-     }
+    } else {
+	$arg = [$type => $rval];
+    }
+    if ($filter_sub) {
+	my $input_arg = $arg;
+	my $sub = $filter_sub;
+	$arg = [BER => 
+		sub {
+		    # provide $ber as 'local' var to filter_sub
+		    local $ber = new Convert::BER(@{$input_arg});
+		    print "TRYING to call $sub\n";
+		    eval $sub;
+		    return $ber;
+		}];
+    }
     return $arg;
 }
 
@@ -523,7 +567,7 @@ sub pkt_auth_param {
     my $engine_id = shift;
 
     my $ku = pkt_gen_ku($auth_proto,$passphrase);
-    $engine_id = pkt_cvt_hex($engine_id);
+    $engine_id = pkt_cvt_hex($engine_id) if $engine_id =~ /^\s*0[xX]/;
     my $kul = pkt_gen_kul($auth_proto,$ku,$engine_id);
     
     my $extAuthKey = pack("a64",$kul);
@@ -562,6 +606,35 @@ sub pkt_auth_param {
     return "0x000000000000000000000000";
 }
 
+sub pkt_encrypt_data {
+    my $priv_proto = shift;
+    my $auth_proto = shift;
+    my $passphrase = shift;
+    my $engine_id = shift;
+    my $buf = $ber->buffer();
+    $buf .= "\0" x (8 - length($buf) % 8) if length($buf) % 8;
+    print "pkt_encrypt_data: called [$priv_proto, $passphrase, ",
+    length($buf), join(" ", ", 0x", map {sprintf "%02X", $_;} unpack("C*", $buf)),"]\n";
+
+    my $ku = pkt_gen_ku($auth_proto,$passphrase);
+    $engine_id = pkt_cvt_hex($engine_id) if $engine_id =~ /^\s*0[xX]/;
+    my $kul = pkt_gen_kul($auth_proto,$ku,$engine_id);
+
+    my $des_key = substr($kul,0,8);
+    my $pre_iv = substr($kul,-8,8); # last 8, this may not be right for SHA
+#    my $salt = pack('NN',rand(0xffffffff),rand(0xffffffff));
+    my $salt = pack('NN',1,1);
+    my $iv = $pre_iv ^ $salt;
+    my $cipher = new SSLeay::Cipher('des-cbc');
+    $cipher->init($des_key, $iv, 1);
+    $buf = $cipher->update($buf);
+    print "pkt_encrypt_data: called [buflen => ", length($buf), "buf => ", 
+    join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $buf)),", iv => ",
+    join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $iv)),", key => ",
+    join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $kul)),"]\n";
+    $ber = new Convert::BER(STRING => $buf);
+}
+
 #main
 
 getopts("p:a:w:dD");
@@ -573,7 +646,7 @@ my $pktData = pkt_read_packet_data($pktDataFile);
 
 my $ber_packet = pkt_encode_ber_packet($pktTmpl,$pktData);
 
-print "warning: input packet data fields ignored @{keys %$pktData}\n" if $opt_D and keys %$pktData;
+print "warning: input packet data fields ignored [@{keys %$pktData}]\n" if $opt_D and keys %$pktData;
 
 pkt_display_packet($ber_packet) if $opt_d;
 

@@ -1,12 +1,14 @@
 msgID => 1;
-msgFlags => reportableFlag|authFlag; # or 0x04 or reportableFlag or reportableFlag|authFlag
+msgFlags => reportableFlag|authFlag|privFlag; # or 0x04 or reportableFlag or reportableFlag|authFlag
 # literal definition, will not be wrapped in STRING
 msgEngineID => <0x 04 0C 80 00 07 E5 04 74 65 73 74 69 74 00>;
 msgEngineBoots => 1;
 msgEngineTime => 1;
 msgUserName => initial;
 # function is called with given params, will push post process tasks on stack
-msgAuthParam => &pkt_auth_param('md5','my_passphrase','0x80 00 07 E5 04 74 65 73 74 69 74 00');
+msgAuthParam => &pkt_auth_param('md5','my_passphrase','0x800007E50474657374697400');
+msgPrivParam => 0x0000000100000001;
+scopedPDU => |&pkt_encrypt_data('des','md5','my_passphrase','0x800007E50474657374697400');
 # octet assignment, will be wrapped in string tag and length
 contextEngineID => 0x80 00 07 E5 04 74 65 73 74 69 74 00;
 contextName => "default";
