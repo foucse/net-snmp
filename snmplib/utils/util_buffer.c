@@ -203,8 +203,10 @@ buffer_append_hexstr(netsnmp_buf *buf, char *string, int len)
         return -1;		/* XXX - Lazy, Dave! */
     }
 
-    for (i=0, cp=tmp_buf; i<len; i++, cp+=2) {
-        sprintf(cp, "%2x", string[i]);
+    memset(tmp_buf, 0, BUFSIZ);
+    sprintf(tmp_buf, "0x");
+    for (i=0, cp=tmp_buf+2; i<len; i++, cp+=2) {
+        sprintf(cp, "%02x", string[i]);
     }
 
     return buffer_append(buf, tmp_buf, 2*len);
