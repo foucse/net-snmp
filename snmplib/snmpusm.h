@@ -20,7 +20,12 @@ static oid usmDESPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,2 };
 
 #define USM_LENGTH_OID_TRANSFORM	10
 
-
+#define USM_ERR_NO_ERROR			(-1300)
+#define USM_ERR_GENERIC_ERROR			(-1301)
+#define USM_ERR_UNKNOWN_SECURITY_NAME		(-1302)
+#define USM_ERR_UNSUPPORTED_SECURITY_LEVEL	(-1303)
+#define USM_ERR_ENCRYPTION_ERROR		(-1304)
+#define USM_ERR_AUTHENTICATION_FAILURE		(-1305)
 
 /* struct usmUser: a structure to represent a given user in a list */
 
