@@ -104,10 +104,11 @@
 #include "snmp_alarm.h"
 #include "default_store.h"
 #include "ds_agent.h"
-#include "mib_module_includes.h"
 #include "helpers/table.h"
+#include "helpers/table_iterator.h"
 #include "helpers/table_data.h"
 #include "helpers/table_dataset.h"
+#include "mib_module_includes.h"
 
 char dontReadConfigFiles;
 char *optconfigfile;

@@ -128,6 +128,7 @@ PERFORMANCE OF THIS SOFTWARE.
 #include "callback.h"
 #include "snmp_alarm.h"
 #include "snmpd.h"
+#include "helpers/table.h"
 #include "mib_module_includes.h"
 
 #ifndef  MIN

@@ -145,6 +145,8 @@ typedef long    fd_mask;
 
 #include "version.h"
 
+#include <helpers/table.h>
+#include <helpers/table_iterator.h>
 #include "mib_module_includes.h"
 
 /*
