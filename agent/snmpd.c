@@ -706,6 +706,7 @@ main(argc, argv)
                     usage(argv[0]);
                     break;
                 case 'H':
+                    init_snmpv3("snmpd");
                     init_agent();            /* register our .conf handlers */
                     register_mib_handlers(); /* snmplib .conf handlers */
                     fprintf(stderr, "Configuration directives understood:\n");
