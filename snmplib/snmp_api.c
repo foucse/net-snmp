@@ -176,12 +176,6 @@ struct internal_snmp_pdu {
     int	    contextNameLen;  /* Length of contextName */
     u_char  *securityName;	/* on behalf of this principal */
     int	    securityNameLen;  /* Length of securityName. */
-    oid     *securityAuthProto; /* auth protocol oid */
-    int     securityAuthProtoLen; /* Length of auth protocol oid */
-    u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol */
-    oid     *securityPrivProto; /* priv protocol oid */
-    int     securityPrivProtoLen; /* Length of priv protocol oid */
-    u_char  securityPrivKey[USM_PRIV_KU_LEN];  /* Ku for privacy protocol */
     int	    securityModel;
     int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
     oid     *srcParty;
@@ -602,6 +596,34 @@ snmp_sess_open(in_session)
 
     if (session->securityLevel <= 0)
       session->securityLevel = get_default_secLevel();
+
+    if (session->securityAuthProtoLen > 0) {
+      cp = (u_char*)malloc((unsigned)session->securityAuthProtoLen *
+			   sizeof(oid));
+      if (cp == NULL) {
+	snmp_errno = SNMPERR_GENERR;
+	in_session->s_snmp_errno = SNMPERR_GENERR;
+	snmp_sess_close(slp);
+	return(NULL);
+      }
+      memmove(cp, session->securityAuthProto,
+	      session->securityAuthProtoLen * sizeof(oid));
+      session->securityAuthProto = (oid*)cp;
+    }
+    if (session->securityPrivProtoLen > 0) {
+      cp = (u_char*)malloc((unsigned)session->securityPrivProtoLen *
+			   sizeof(oid));
+      if (cp == NULL) {
+	snmp_errno = SNMPERR_GENERR;
+	in_session->s_snmp_errno = SNMPERR_GENERR;
+	snmp_sess_close(slp);
+	return(NULL);
+      }
+      memmove(cp, session->securityPrivProto,
+	      session->securityPrivProtoLen * sizeof(oid));
+      session->securityPrivProto = (oid*)cp;
+    }
+
     if (session->contextEngineIDLen > 0) {
       cp = (u_char*)malloc((unsigned)session->contextEngineIDLen *
 			   sizeof(u_char));
@@ -875,6 +897,11 @@ snmp_sess_close(sessp)
 	free_request_list(slp->internal->requests);
     }
 
+    _snmp_free((char *)slp->session->contextEngineID);
+    _snmp_free((char *)slp->session->contextName);
+    _snmp_free((char *)slp->session->securityName);
+    _snmp_free((char *)slp->session->securityAuthProto);
+    _snmp_free((char *)slp->session->securityPrivProto);
     _snmp_free((char *)slp->session->context);
     _snmp_free((char *)slp->session->dstParty);
     _snmp_free((char *)slp->session->srcParty);

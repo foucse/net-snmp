@@ -51,12 +51,6 @@ struct snmp_pdu {
     int	    contextNameLen;  /* Length of contextName */
     u_char  *securityName;	/* on behalf of this principal */
     int	    securityNameLen;  /* Length of securityName. */
-    oid     *securityAuthProto; /* auth protocol oid */
-    int     securityAuthProtoLen; /* Length of auth protocol oid */
-    u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol */
-    oid     *securityPrivProto; /* priv protocol oid */
-    int     securityPrivProtoLen; /* Length of priv protocol oid */
-    u_char  securityPrivKey[USM_PRIV_KU_LEN];  /* Ku for privacy protocol */
     int	    securityModel;
     int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
     oid	    *srcParty;
@@ -99,9 +93,11 @@ struct snmp_session {
     oid     *securityAuthProto; /* auth protocol oid */
     int     securityAuthProtoLen; /* Length of auth protocol oid */
     u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol */
+    int     securityAuthKeyLen; /* Length of Ku for auth protocol */
     oid     *securityPrivProto; /* priv protocol oid */
     int     securityPrivProtoLen; /* Length of priv protocol oid */
     u_char  securityPrivKey[USM_PRIV_KU_LEN];  /* Ku for privacy protocol */
+    int     securityPrivKeyLen; /* Length of Ku for priv protocol */
     int	    securityModel;
     int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
     int	    retries;	/* Number of retries before timeout. */
