@@ -278,7 +278,9 @@ read_config(filename, line_handler, when)
       /* check blank line or # comment */
       if ((cptr = skip_white(cptr)))
 	{
+#ifdef SNMP_TESTING_CODE
           DEBUGP("%s:%d Parsing: %s\n", filename, linecount, line);
+#endif
           copy_word(cptr,word);
           cptr = skip_not_white(cptr);
           cptr = skip_white(cptr);
