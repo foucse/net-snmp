@@ -321,6 +321,7 @@ EM(-1); /* */
  * FIX	Use something other than sprint_hexstring which doesn't add 
  *	trailing spaces and (sometimes embedded) newlines...
  */
+#ifdef SNMP_TESTING_CODE
 char *
 dump_snmpEngineID(u_char *estring, u_int *estring_len)
 {
@@ -490,7 +491,7 @@ dump_snmpEngineID_quit:
 
 #undef eb
 }  /* end dump_snmpEngineID() */
-
+#endif /* SNMP_TESTING_CODE */
 
 
 
