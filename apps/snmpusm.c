@@ -86,13 +86,13 @@ static char *successNotes[CMD_NUM] = {
 
 #define                   USM_OID_LEN    12
 
-static oid  authKeyOid[MAX_OID_LEN]          = {1,3,6,1,6,3,12,1,2,2,1,6},
-            ownAuthKeyOid[MAX_OID_LEN]       = {1,3,6,1,6,3,12,1,2,2,1,7},
-            privKeyOid[MAX_OID_LEN]          = {1,3,6,1,6,3,12,1,2,2,1,9},
-            ownPrivKeyOid[MAX_OID_LEN]       = {1,3,6,1,6,3,12,1,2,2,1,10},
-            usmUserCloneFrom[MAX_OID_LEN]    = {1,3,6,1,6,3,12,1,2,2,1,4},
-            usmUserSecurityName[MAX_OID_LEN] = {1,3,6,1,6,3,12,1,2,2,1,3},
-            usmUserStatus[MAX_OID_LEN]       = {1,3,6,1,6,3,12,1,2,2,1,13}
+static oid  authKeyOid[MAX_OID_LEN]          = {1,3,6,1,6,3,15,1,2,2,1,6},
+            ownAuthKeyOid[MAX_OID_LEN]       = {1,3,6,1,6,3,15,1,2,2,1,7},
+            privKeyOid[MAX_OID_LEN]          = {1,3,6,1,6,3,15,1,2,2,1,9},
+            ownPrivKeyOid[MAX_OID_LEN]       = {1,3,6,1,6,3,15,1,2,2,1,10},
+            usmUserCloneFrom[MAX_OID_LEN]    = {1,3,6,1,6,3,15,1,2,2,1,4},
+            usmUserSecurityName[MAX_OID_LEN] = {1,3,6,1,6,3,15,1,2,2,1,3},
+            usmUserStatus[MAX_OID_LEN]       = {1,3,6,1,6,3,15,1,2,2,1,13}
 ;
                            
 
