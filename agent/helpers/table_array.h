@@ -1,4 +1,7 @@
-/* table_array.h */
+/*
+ * table_array.h
+ * $Id$
+ */
 #ifndef _TABLE_ARRAY_HANDLER_H_
 #define _TABLE_ARRAY_HANDLER_H_
 
@@ -21,18 +24,51 @@ extern "C" {
 
 #define TABLE_ARRAY_NAME "table_array"
 
-    /*
-     * structure for holding important info for each table.
-     */
-typedef struct table_array_data_s {
-    table_registration_info * tblreg_info;
-    oid_array                 array;
-} table_array_data;
+/*
+ * group_item is to allow us to keep a list of requests without
+ * disrupting the actual request_info list.
+ */
+typedef struct array_group_item_s {
+    request_info              *ri;
+    table_request_info        *tri;
+    struct array_group_item_s *next;
+} array_group_item;
+
+/*
+ * structure to keep a list of requests for each unique index
+ */
+typedef struct array_group_s {
+    oid_array_header   *row;
+    array_group_item   *list;
+} array_group;
 
 
-mib_handler *get_table_array_handler(table_registration_info *tabreq);
+typedef int (UserGetProcessor)(request_info *, oid_array_header *,
+                               table_request_info *);
+typedef int (UserSetProcessor)( array_group * );
+
+
+mib_handler *
+get_table_array_handler(table_registration_info *tabreq,
+                        UserGetProcessor        *get_value,
+                        UserSetProcessor        *set_reserve1,
+                        UserSetProcessor        *set_reserve2,
+                        UserSetProcessor        *set_action,
+                        UserSetProcessor        *set_commit,
+                        UserSetProcessor        *set_free,
+                        UserSetProcessor        *set_undo,
+                        int                     group_rows);
+
 int register_table_array(handler_registration *reginfo,
-                            table_registration_info *tabreq);
+                         table_registration_info *tabreq,
+                         UserGetProcessor        *get_value,
+                         UserSetProcessor        *set_reserve1,
+                         UserSetProcessor        *set_reserve2,
+                         UserSetProcessor        *set_action,
+                         UserSetProcessor        *set_commit,
+                         UserSetProcessor        *set_free,
+                         UserSetProcessor        *set_undo,
+                         int                     group_rows);
 
 oid_array *extract_array_context(request_info *);
 
