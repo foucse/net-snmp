@@ -1,8 +1,9 @@
 /*
- * snmpd.c - rrespond to SNMP queries from management stations
- *
+ * snmpd.c
  */
-/***********************************************************
+/** @defgroup agent The snmp agent
+ * The snmp agent responds to SNMP queries from management stations
+ */
 	Copyright 1988, 1989 by Carnegie Mellon University
 
                       All Rights Reserved

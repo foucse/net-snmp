@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+/** @addgroup handler */
+
 struct handler_registration_s;
 
 typedef struct mib_handler_s {

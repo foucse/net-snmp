@@ -1,4 +1,5 @@
-/** @addgroup handler @{ */
+/** @addgroup handler
+ *  @{ */
 
 
 /** call the initialization sequence for all handlers with init_ routines. */
@@ -9,3 +10,4 @@ init_helpers(void)
     init_read_only_helper();
 }
 
+/** @} */

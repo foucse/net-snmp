@@ -17,6 +17,10 @@
 #include <dmalloc.h>
 #endif
 
+/** @defgroup instance Helper to process scalars and other instances easily.
+ *  @ingroup handler
+ *  @{
+ */
 mib_handler *
 get_instance_handler(void) {
     return create_handler("instance", instance_helper_handler);
@@ -318,3 +322,4 @@ instance_helper_handler(
     return SNMP_ERR_GENERR;
 }
 
+/* @} */

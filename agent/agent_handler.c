@@ -15,11 +15,107 @@
 /***********************************************************************/
 /* New Handler based API */
 /***********************************************************************/
-/** @defgroup handler All about handlers
- *  @{
+/** @defgroup handler Agent handler API
+ *  @ingroup agent
+ *
+ *  The basic theory goes something like this: In the past, with the
+ *  original mib module api (which derived from the original CMU SNMP
+ *  code) the underlying mib modules were passed very little
+ *  information (only the truly most basic information about a
+ *  request).  This worked well at the time but in todays world of
+ *  subagents, device instrumentation, low resource consumption, etc,
+ *  it just isn't flexible enough.  "handlers" are here to fix all that.
+ *
+ *  With the rewrite of the agent internals for the net-snmp 5.0
+ *  release, we introduce a modular calling scheme that allows agent
+ *  modules to be written in a very flexible manner, and more
+ *  importantly allows reuse of code in a decent way (and without the
+ *  memory and speed overheads of OO languages like C++).
+ *
+ *  Functionally, the notion of what a handler does is the same as the
+ *  older api: A handler is @link create_handler() created@endlink and
+ *  then @link register_handler() registered@endlink with the main
+ *  agent at a given OID in the OID tree and gets called any time a
+ *  request is made that it should respond to.  You probably should
+ *  use one of the convenience helpers instead of doing anything else
+ *  yourself though:
+ *
+ *  Most importantly, though, is that the handlers are built on the
+ *  notion of modularity and reuse.  Specifically, rather than do all
+ *  the really hard work (like parsing table indexes out of an
+ *  incoming oid request) in each module, the API is designed to make
+ *  it easy to write "helper" handlers that merely process some aspect
+ *  of the request before passing it along to the final handler that
+ *  returns the real answer.  Most people will want to make use of the
+ *  @link instance instance@endlink, @link table table@endlink, @link
+ *  table_iterator table_iterator@endlink, @link data_table
+ *  data_table@endlink, or @link dataset_table dataset_table@endlink
+ *  helpers to make their life easier.  These "helpers" interpert
+ *  important aspects of the request and pass them on to you.
+ *
+ *  For instance, the @link table table@endlink helper is designed to
+ *  hand you a list of extracted index values from an incoming
+ *  request.  THe @link table_iterator table_iterator@endlink helper
+ *  is built on top of the table helper, and is designed to help you
+ *  iterate through data stored elsewhere (like in a kernel) that is
+ *  not in OID lexographical order (ie, don't write your own index/oid
+ *  sorting routine, use this helper instead).  The beauty of the
+ *  @link table_iterator table_iterator helper@, as well as the @link
+ *  instance instance@ helper is that they take care of the complex
+ *  GETNEXT processing entirely for you and hand you everything you
+ *  need to merely return the data as if it was a GET request.  Much
+ *  less code and hair pulling.  I've pulled all my hair out to help
+ *  you so that only one of us has to be bald.
+ *
+ * @{
  */
 
-/** register a handler, as defined by the handler_registration pointer */ 
+/** creates a mib_handler structure given a name and a access method.
+ *  The returned handler should then be @link register_handler()
+ *  registered.@endlink
+ *  @see create_handler_registration()
+ *  @see register_handler()
+ */
+mib_handler *
+create_handler(const char *name, NodeHandler *handler_access_method) {
+    mib_handler *ret = SNMP_MALLOC_TYPEDEF(mib_handler);
+    ret->handler_name = strdup(name);
+    ret->access_method = handler_access_method;
+    return ret;
+}
+
+/** creates a handler registration structure given a name, a
+ *  access_method function, a registration location oid and the modes
+ *  the handler supports. If modes == 0, then modes will automatically
+ *  be set to the default value of only HANDLER_CAN_DEFAULT, which is
+ *  by default read-only GET and GETNEXT requests.
+ *  @note This ends up calling create_handler(name, handler_access_method)
+ *  @see create_handler()
+ *  @see register_handler()
+ */
+handler_registration *
+create_handler_registration(const char *name,
+                            NodeHandler *handler_access_method,
+                            oid *reg_oid, size_t reg_oid_len,
+                            int modes) {
+    handler_registration *the_reg;
+    the_reg = SNMP_MALLOC_TYPEDEF(handler_registration);
+    if (!the_reg)
+        return NULL;
+
+    if (modes)
+        the_reg->modes = modes;
+    else
+        the_reg->modes = HANDLER_CAN_DEFAULT;
+
+    the_reg->handler = create_handler(name, handler_access_method);
+    memdup((u_char **) &the_reg->rootoid, (const u_char *) reg_oid,
+           reg_oid_len * sizeof(oid));
+    the_reg->rootoid_len = reg_oid_len;
+    return the_reg;
+}
+
+/** register a handler, as defined by the handler_registration pointer. */ 
 int
 register_handler(handler_registration *reginfo) {
     mib_handler *handler;
@@ -72,7 +168,7 @@ inject_handler(handler_registration *reginfo, mib_handler *handler) {
 }
 
 /** @internal
- *  calls all the hnadlers for a given mode.
+ *  calls all the handlers for a given mode.
  */
 int call_handlers(handler_registration *reginfo,
                   agent_request_info   *reqinfo,
@@ -187,41 +283,6 @@ inline int call_next_handler(mib_handler          *current,
     return call_handler(current->next, reginfo, reqinfo, requests);
 }
 
-/** creates a mib_handler structure given a name and a access method */
-mib_handler *
-create_handler(const char *name, NodeHandler *handler_access_method) {
-    mib_handler *ret = SNMP_MALLOC_TYPEDEF(mib_handler);
-    ret->handler_name = strdup(name);
-    ret->access_method = handler_access_method;
-    return ret;
-}
-
-/** creates a handler registration structure given a name, a
-    access_method function, a registration location oid and the modes
-    the handler supports. If modes == 0, then modes will automatically
-    be set to the default value of only HANDLER_CAN_DEFAULT, which is by default. */
-handler_registration *
-create_handler_registration(const char *name,
-                            NodeHandler *handler_access_method,
-                            oid *reg_oid, size_t reg_oid_len,
-                            int modes) {
-    handler_registration *the_reg;
-    the_reg = SNMP_MALLOC_TYPEDEF(handler_registration);
-    if (!the_reg)
-        return NULL;
-
-    if (modes)
-        the_reg->modes = modes;
-    else
-        the_reg->modes = HANDLER_CAN_DEFAULT;
-
-    the_reg->handler = create_handler(name, handler_access_method);
-    memdup((u_char **) &the_reg->rootoid, (const u_char *) reg_oid,
-           reg_oid_len * sizeof(oid));
-    the_reg->rootoid_len = reg_oid_len;
-    return the_reg;
-}
-
 /** creates a cache of information which can be saved for future
    reference.  Use handler_check_cache() later to make sure it's still
    valid before referencing it in the future. */
@@ -270,6 +331,7 @@ handler_mark_requests_as_delegated(request_info *requests, int isdelegated)
     }
 }
 
+/** add data to a request that can be extracted later by submodules */
 inline void
 request_add_list_data(request_info *request, data_list *node) 
 {
@@ -281,6 +343,7 @@ request_add_list_data(request_info *request, data_list *node)
   }
 }
 
+/** extract data from a request that was added previously by a parent module */
 inline void *
 request_get_list_data(request_info *request, const char *name)
 {
@@ -289,6 +352,7 @@ request_get_list_data(request_info *request, const char *name)
   return NULL;
 }
 
+/** Free the extra data stored in a request */
 inline void
 free_request_data_set(request_info *request)
 {
@@ -296,6 +360,7 @@ free_request_data_set(request_info *request)
     free_list_data(request->parent_data);
 }
 
+/** Free the extra data stored in a bunch of requests (all data in the chain) */
 inline void
 free_request_data_sets(request_info *request) 
 {
