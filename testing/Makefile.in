@@ -54,20 +54,8 @@ dependlocal:
 	makedepend $(CPPFLAGS) $(srcdir)/*.c
 
 depend: dependlocal
-<<<<<<< Makefile.in
-	for i in $(SUBDIRS) ; do		\
-		( cd $$i ; $(MAKE) depend ) ;	\
-	done
-=======
->>>>>>> 1.1.6.2
 
 nosysdepend: 
-<<<<<<< Makefile.in
-	for i in $(SUBDIRS) ; do			\
-		( cd $$i ; $(MAKE) nosysdepend ) ;	\
-	done
-=======
->>>>>>> 1.1.6.2
 	makedepend $(CPPFLAGS) *.c
 	perl -n -i.bak -e ' if (/^# DO NOT DELETE THIS LINE/) {$$doit=1;} if ($$doit == 1) {s#/usr/(include|lib)/[^\s]+##g ; print if (! /^[\w]+\.o:\s*$$/);} else {print;}' Makefile
 
