@@ -2367,27 +2367,28 @@ EOF
        fi
 fi
 
-echo $ac_n "checking for rpmdbOpen in -lrpm""... $ac_c" 1>&6
-echo "configure:2372: checking for rpmdbOpen in -lrpm" >&5
-ac_lib_var=`echo rpm'_'rpmdbOpen | sed 'y%./+-%__p_%'`
+if test "x$ac_cv_lib_rpm_rpmdbOpen" = "xyes"; then
+  echo $ac_n "checking for zlibVersion in -lz""... $ac_c" 1>&6
+echo "configure:2373: checking for zlibVersion in -lz" >&5
+ac_lib_var=`echo z'_'zlibVersion | sed 'y%./+-%__p_%'`
 if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   ac_save_LIBS="$LIBS"
-LIBS="-lrpm -ldb1 -lz $LIBS"
+LIBS="-lz  $LIBS"
 cat > conftest.$ac_ext <<EOF
-#line 2380 "configure"
+#line 2381 "configure"
 #include "confdefs.h"
 /* Override any gcc2 internal prototype to avoid an error.  */
 /* We use char because int might match the return type of a gcc2
     builtin and then its argument prototype would still apply.  */
-char rpmdbOpen();
+char zlibVersion();
 
 int main() {
-rpmdbOpen()
+zlibVersion()
 ; return 0; }
 EOF
-if { (eval echo configure:2391: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+if { (eval echo configure:2392: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
   rm -rf conftest*
   eval "ac_cv_lib_$ac_lib_var=yes"
 else
@@ -2402,28 +2403,27 @@ LIBS="$ac_save_LIBS"
 fi
 if eval "test \"`echo '$ac_cv_lib_'$ac_lib_var`\" = yes"; then
   echo "$ac_t""yes" 1>&6
-  
-  cat >> confdefs.h <<\EOF
-#define HAVE_LIBRPM 1
+    ac_tr_lib=HAVE_LIB`echo z | sed -e 's/[^a-zA-Z0-9_]/_/g' \
+    -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`
+  cat >> confdefs.h <<EOF
+#define $ac_tr_lib 1
 EOF
 
-  LIBS="$LIBS -lrpm -ldb1"
+  LIBS="-lz $LIBS"
 
 else
   echo "$ac_t""no" 1>&6
 fi
 
-
-if test "x$ac_cv_lib_rpm_rpmdbOpen" = "xno"; then
-  unset ac_cv_lib_rpm_rpmdbOpen
-  echo $ac_n "checking for rpmdbOpen in -lrpm""... $ac_c" 1>&6
+fi
+echo $ac_n "checking for rpmdbOpen in -lrpm""... $ac_c" 1>&6
 echo "configure:2421: checking for rpmdbOpen in -lrpm" >&5
 ac_lib_var=`echo rpm'_'rpmdbOpen | sed 'y%./+-%__p_%'`
 if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   ac_save_LIBS="$LIBS"
-LIBS="-lrpm -ldb -lz $LIBS"
+LIBS="-lrpm -ldb1 -lz $LIBS"
 cat > conftest.$ac_ext <<EOF
 #line 2429 "configure"
 #include "confdefs.h"
@@ -2452,37 +2452,37 @@ fi
 if eval "test \"`echo '$ac_cv_lib_'$ac_lib_var`\" = yes"; then
   echo "$ac_t""yes" 1>&6
   
-    cat >> confdefs.h <<\EOF
+  cat >> confdefs.h <<\EOF
 #define HAVE_LIBRPM 1
 EOF
 
-    LIBS="$LIBS -lrpm -ldb"
-  
+  LIBS="-lrpm -ldb1 $LIBS"
+
 else
   echo "$ac_t""no" 1>&6
 fi
 
-fi
 
-if test "x$ac_cv_lib_rpm_rpmdbOpen" = "xyes"; then
-  echo $ac_n "checking for zlibVersion in -lz""... $ac_c" 1>&6
-echo "configure:2470: checking for zlibVersion in -lz" >&5
-ac_lib_var=`echo z'_'zlibVersion | sed 'y%./+-%__p_%'`
+if test "x$ac_cv_lib_rpm_rpmdbOpen" = "xno"; then
+  unset ac_cv_lib_rpm_rpmdbOpen
+  echo $ac_n "checking for rpmdbOpen in -lrpm""... $ac_c" 1>&6
+echo "configure:2470: checking for rpmdbOpen in -lrpm" >&5
+ac_lib_var=`echo rpm'_'rpmdbOpen | sed 'y%./+-%__p_%'`
 if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   ac_save_LIBS="$LIBS"
-LIBS="-lz  $LIBS"
+LIBS="-lrpm -ldb -lz $LIBS"
 cat > conftest.$ac_ext <<EOF
 #line 2478 "configure"
 #include "confdefs.h"
 /* Override any gcc2 internal prototype to avoid an error.  */
 /* We use char because int might match the return type of a gcc2
     builtin and then its argument prototype would still apply.  */
-char zlibVersion();
+char rpmdbOpen();
 
 int main() {
-zlibVersion()
+rpmdbOpen()
 ; return 0; }
 EOF
 if { (eval echo configure:2489: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
@@ -2500,19 +2500,19 @@ LIBS="$ac_save_LIBS"
 fi
 if eval "test \"`echo '$ac_cv_lib_'$ac_lib_var`\" = yes"; then
   echo "$ac_t""yes" 1>&6
-    ac_tr_lib=HAVE_LIB`echo z | sed -e 's/[^a-zA-Z0-9_]/_/g' \
-    -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`
-  cat >> confdefs.h <<EOF
-#define $ac_tr_lib 1
+  
+    cat >> confdefs.h <<\EOF
+#define HAVE_LIBRPM 1
 EOF
 
-  LIBS="-lz $LIBS"
-
+    LIBS="-lrpm -ldb $LIBS"
+  
 else
   echo "$ac_t""no" 1>&6
 fi
 
 fi
+
 echo $ac_n "checking for kstat_lookup in -lkstat""... $ac_c" 1>&6
 echo "configure:2518: checking for kstat_lookup in -lkstat" >&5
 ac_lib_var=`echo kstat'_'kstat_lookup | sed 'y%./+-%__p_%'`
