@@ -4,8 +4,6 @@
 
 TARG		= etest ktest misctest stest
 
-SUBDIRS		= 
-
 USELIBS		= ../snmplib/libsnmp.$(SHLIB_EXTENSION)$(SHLIB_VERSION)
 LIBS		= -L../snmplib $(CC_RUNTIME_ARG) -lsnmp @LIBS@
 
@@ -15,14 +13,7 @@ CPPFLAGS	= -I.. -I$(srcdir)/.. -I$(srcdir)/../snmplib @CPPFLAGS@
 CC		= @CC@ $(CPPFLAGS)
 
 
-all: $(TARG) subdirs
-
-
-subdirs:
-	for i in $(SUBDIRS) ; do 	\
-        	( cd $$i ; $(MAKE) ) ;	\
-	done
-
+all: $(TARG)
 
 #
 # FIX	Ick, get rid of the direct reference to libsnmp.a...
@@ -42,15 +33,9 @@ stest:    scapitest.o $(PARSEOBJS) $(USELIBS)
 
 clean:
 	rm -f *.o core *.core $(TARG) 
-	for i in $(SUBDIRS) ; do		\
-		( cd $$i ; $(MAKE) clean ) ;	\
-	done
 
 
-install: installdirs subdirs $(TARG)
-	for i in $(SUBDIRS) ; do		\
-        	( cd $$i ; $(MAKE) install ) ;	\
-	done
+install: installdirs $(TARG)
 	@for i in $(TARG) ; do $(INSTALL) $$i $(bindir) ; echo "install:  installed $$i in $(bindir)" ; done
 	@for i in ; do $(INSTALL) $$i $(sbindir) ; echo "install:  installed $$i in $(sbindir)" ; done
 
@@ -63,14 +48,8 @@ dependlocal:
 	makedepend $(CPPFLAGS) $(srcdir)/*.c
 
 depend: dependlocal
-	for i in $(SUBDIRS) ; do		\
-        	( cd $$i ; $(MAKE) depend ) ;	\
-	done
 
 nosysdepend: 
-	for i in $(SUBDIRS) ; do			\
-        	( cd $$i ; $(MAKE) nosysdepend ) ;	\
-	done
 	makedepend $(CPPFLAGS) *.c
 	perl -n -i.bak -e ' if (/^# DO NOT DELETE THIS LINE/) {$$doit=1;} if ($$doit == 1) {s#/usr/(include|lib)/[^\s]+##g ; print if (! /^[\w]+\.o:\s*$$/);} else {print;}' Makefile
 
