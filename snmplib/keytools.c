@@ -2,9 +2,10 @@
  * keytools.c
  */
 
+#include "all_system.h"
+#include "all_general_local.h"
+
 #include "keytools.h"
-
-
 
 /*******************************************************************-o-******
  * generate_kul

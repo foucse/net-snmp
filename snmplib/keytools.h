@@ -5,13 +5,6 @@
 #ifndef _KEYTOOLS_H
 #define _KEYTOOLS_H
 
-#include "all_system.h"
-#include "all_general_local.h"
-
-
-
-
-
 /*
  * Prototypes.h
  */
