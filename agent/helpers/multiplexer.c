@@ -8,6 +8,10 @@
 #include "agent_registry.h"
 #include "multiplexer.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 mib_handler *
 get_multiplexer_handler(mib_handler_methods *req) {
     mib_handler *ret = NULL;

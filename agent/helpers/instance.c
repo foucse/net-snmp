@@ -13,6 +13,10 @@
 #include "serialize.h"
 #include "read_only.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 mib_handler *
 get_instance_handler(void) {
     return create_handler("instance", instance_helper_handler);

@@ -16,6 +16,10 @@
 #include "snmp_agent.h"
 #include "table.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 mib_handler    *
 get_table_handler(table_registration_info * tabreq)
 {

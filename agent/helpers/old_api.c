@@ -11,6 +11,10 @@
 #include "snmp_agent.h"
 #include "old_api.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 #define MIB_CLIENTS_ARE_EVIL 1
 
 mib_handler *

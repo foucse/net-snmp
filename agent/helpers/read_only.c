@@ -11,6 +11,10 @@
 #include "snmp_agent.h"
 #include "read_only.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 mib_handler *
 get_read_only_handler(void) {
     return create_handler("read_only", read_only_helper);

@@ -11,6 +11,10 @@
 #include "snmp_agent.h"
 #include "serialize.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 mib_handler *
 get_serialize_handler(void) {
     return create_handler("serialize", serialize_helper_handler);

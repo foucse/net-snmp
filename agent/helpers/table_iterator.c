@@ -15,6 +15,10 @@
 #include "serialize.h"
 #include "table_iterator.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 /* doesn't work yet, but shouldn't be serialized (for efficiency) */
 #undef NOT_SERIALIZED
 

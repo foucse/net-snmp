@@ -13,6 +13,10 @@
 #include "parse.h"
 #include "data_list.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 static data_list *auto_tables;
 
 typedef struct data_set_tables_s {
@@ -237,7 +241,7 @@ table_data_set_helper_handler(
                                           SNMP_ERR_WRONGTYPE);
                     }
                 } else {
-                    /* create data, possibly new row */
+                    /* XXXWWW: create data, possibly new row */
                 }
                 break;
 

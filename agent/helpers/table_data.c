@@ -11,6 +11,10 @@
 #include "table_data.h"
 #include "read_only.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 /**
  * generates the index portion of an table oid from a varlist
  */

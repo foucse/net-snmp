@@ -10,6 +10,10 @@
 #include "tools.h"
 #include "snmp_agent.h"
 
+#if HAVE_DMALLOC_H
+#include <dmalloc.h>
+#endif
+
 #include "null.h"
 
 int register_null(oid *loc, size_t loc_len) {
