@@ -98,10 +98,12 @@ install: installdirs subdirs $(TARG)
 	for i in $(SUBDIRS) ; do \
         ( cd $$i ; $(MAKE) install ) ; \
 	done
-	@for i in $(TARG) ; do $(INSTALL) $$i $(bindir) ; echo "install:  installed $$i in $(bindir)" ; done
+	@$(INSTALL) $(TARG) $(bindir)
+	@for i in $(TARG) ; do echo "install:  installed $$i in $(bindir)" ; done
 	rm -f $(bindir)/snmpinform
 	(cd $(bindir) && $(LN_S) snmptrap snmpinform)
-	@for i in $(SBINTARG) ; do $(INSTALL) $$i $(sbindir) ; echo "install:  installed $$i in $(sbindir)" ; done
+	@$(INSTALL) $(SBINTARG) $(sbindir)
+	@for i in $(SBINTARG) ; do echo "install:  installed $$i in $(sbindir)" ; done
 
 installdirs:
 	@$(SHELL) $(srcdir)/../mkinstalldirs $(snmplibdir) $(bindir) $(sbindir)
