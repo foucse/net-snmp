@@ -99,7 +99,8 @@ int             usm_check_secLevel(int level, struct usmUser *user);
 struct usmUser *usm_get_userList();
 struct usmUser *usm_get_user(char *engineID, int engineIDLen, char *name);
 struct usmUser *usm_get_user_from_list(char *engineID, int engineIDLen,
-                                       char *name, struct usmUser *userList);
+                                       char *name, struct usmUser *userList,
+                                       int use_default);
 struct usmUser *usm_add_user(struct usmUser *user);
 struct usmUser *usm_add_user_to_list(struct usmUser *user,
                                      struct usmUser *userList);
@@ -119,6 +120,6 @@ struct usmUser *usm_read_user(char *line);
 void            usm_parse_config_usmUser(char *token, char *line);
 
 void            usm_set_password(char *token, char *line);
-
+void            init_usm_post_config(void);
 
 #endif /* SNMPUSM_H */

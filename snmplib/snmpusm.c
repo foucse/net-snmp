@@ -1530,13 +1530,29 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 	return USM_ERR_NO_ERROR;
 }
 
+/*
+ * initializations for the USM.
+ *
+ * Should be called after the configuration files have been read.
+ */
+
+void
+init_usm_post_config(void) {
+  initialUser = usm_create_initial_user();
+  if (initialUser->engineID)
+    free(initialUser->engineID);
+  initialUser->engineID = NULL;
+  initialUser->engineIDLen = 0;
+}
+ 
+
 /* 
  * Local storage (LCD) of the default user list.
  */
 static struct usmUser *userList=NULL;
 
 struct usmUser *
-usm_get_userList()
+usm_get_userList(void)
 {
   return userList;
 }
@@ -1585,12 +1601,12 @@ struct usmUser *
 usm_get_user(char *engineID, int engineIDLen, char *name)
 {
   DEBUGPL(("getting user %s\n", name));
-  return usm_get_user_from_list(engineID, engineIDLen, name, userList);
+  return usm_get_user_from_list(engineID, engineIDLen, name, userList, 1);
 }
 
 struct usmUser *
 usm_get_user_from_list(char *engineID, int engineIDLen,
-                                       char *name, struct usmUser *userList)
+                       char *name, struct usmUser *userList, int use_default)
 {
   struct usmUser *ptr;
   char *noName = "";
@@ -1605,7 +1621,7 @@ usm_get_user_from_list(char *engineID, int engineIDLen,
           memcmp(ptr->engineID, engineID, engineIDLen) == 0)))
       return ptr;
   }
-  if (!strcmp(name, "initial")) return initialUser;
+  if (use_default && !strcmp(name, "initial")) return initialUser;
   return NULL;
 }
 
@@ -1936,10 +1952,8 @@ usm_create_initial_user(void)
   if ((newUser->secName = strdup("initial")) == NULL)
     return usm_free_user(newUser);
 
-  /* leave null to signify wildcard on engineID entry
   if ((newUser->engineID = snmpv3_generate_engineID(&newUser->engineIDLen)) == NULL)
-      return usm_free_user(newUser); 
-   */
+    return usm_free_user(newUser); 
 
   if ((newUser->cloneFrom = (oid *) malloc(sizeof(oid)*2)) == NULL)
     return usm_free_user(newUser);
@@ -1967,8 +1981,6 @@ usm_create_initial_user(void)
   newUser->userStatus = RS_ACTIVE;
   newUser->userStorageType = ST_READONLY;
   
-  initialUser = newUser;
-
   return newUser;
 }
 
