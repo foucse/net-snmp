@@ -84,10 +84,10 @@ void print_mib (FILE *fp)
 
 int read_objid (char *input, oid *output, int *out_len)
 {
-    struct netsnmp_oid_t  o;
+    netsnmp_oid  o;
     int i;
 
-    memset( &o, 0, sizeof( struct netsnmp_oid_t ));
+    memset( &o, 0, sizeof( netsnmp_oid ));
     if ( var_set_oid( &o, input ) < 0 ) {
 	return 0;
     }
@@ -131,11 +131,11 @@ int get_module_node (char *name, char *module, oid *objid, int *objidlen)
 
 
 
-netsnmp_mib mib_find_by_oid( netsnmp_oid o );
+netsnmp_mib* mib_find_by_oid( netsnmp_oid *o );
 void fprint_description (FILE *fp, oid *objid, int objidlen)
 {
-    SmiNode *node;
-    netsnmp_oid o;
+    SmiNode     *node;
+    netsnmp_oid *o;
 
     o = var_create_oid_ucd( objid, objidlen );
     node = (SmiNode*)mib_find_by_oid( o );

@@ -1,15 +1,16 @@
 /*******************************
  *
- *	mib_dir.c
+ *      mib_dir.c
  *
- *	Net-SNMP library - MIB-handling interface
+ *      Net-SNMP library - MIB-handling interface
  *
- *	Module-related routines
+ *      Module-related routines
  *
  *******************************/
 
 #ifndef linux
-#define HAVE_SYS_SYSLIMITS_H  1	/* XXX - until we tweak configure to check for this */
+#define HAVE_SYS_SYSLIMITS_H  1 /* XXX - until we tweak configure to check
+                                 * for this */
 #endif
 
 #include <config.h>
@@ -50,47 +51,48 @@
 #include <net-snmp/utils.h>
 #include <smi.h>
 
-static int _mib_load_dir( char *dir );
+static int      _mib_load_dir(char *dir);
 
 
-		/**************************************
-		 *
-		 *	Public API
-		 *	   (see <net-snmp/mib_api.h>)
-		 *
-		 **************************************/
-		/** @package mib_api */
+                /**************************************
+                 *
+                 *      Public API
+                 *         (see <net-snmp/mib_api.h>)
+                 *
+                 **************************************/
+                /** @package mib_api */
 
    /**
     *
     * Returns the list of modules currently loaded
     *
     * The calling routine is responsible for freeing
-    *	this memory when no longer required.
+    *   this memory when no longer required.
     *
     */
-char *mib_list_modules()
+char*
+mib_list_modules()
 {
-    SmiModule *mod;
-    char *list, *cp;
+    SmiModule      *mod;
+    char           *list, *cp;
 
     mod = smiGetFirstModule();
-    if ( mod == NULL ) {
-	return NULL;
+    if (NULL == mod) {
+        return NULL;
     }
 
-    list = strdup( mod->name );
-    if ( list == NULL ) {
-	return NULL;
+    list = strdup(mod->name);
+    if (NULL == list) {
+        return NULL;
     }
 
-    while (( mod = smiGetNextModule( mod )) != NULL ) {
-	cp = list_add_token( list, mod->name, PATH_SEPARATOR );
-	if ( cp == NULL ) {
-	    free( list );
-	    return NULL;
-	}
-	list = cp;
+    while (NULL != (mod = smiGetNextModule(mod))) {
+        cp = list_add_token(list, mod->name, PATH_SEPARATOR);
+        if (NULL == cp) {
+            free(list);
+            return NULL;
+        }
+        list = cp;
     }
     return list;
 }
@@ -103,38 +105,38 @@ char *mib_list_modules()
     *  Return 0 on success, -ve on failure
     *
     */
-int   mib_load_modules( char *list )
+int
+mib_load_modules(char *list)
 {
-    char *copy;
-    char *token;
-    char *s;
-    char sep[2];
-    char *res;
+    char       *copy;
+    char       *token;
+    char       *s;
+    char        sep[2];
+    char       *res;
 
-    if (( list == NULL ) ||
-	(*list == '\0' )) {
-	return -1;
+    if ((NULL == list) || ('\0' == *list)) {
+        return -1;
     }
 
-    copy = strdup( list );
-    s    = copy;
-    if ( copy == NULL ) {
-	return -1;
+    copy = strdup(list);
+    s = copy;
+    if (NULL == copy) {
+        return -1;
     }
 
     sep[0] = PATH_SEPARATOR;
     sep[1] = '\0';
-    while (( token = strsep( &s, sep )) != NULL ) {
-	res = smiLoadModule( token );
-	if ( res == NULL ) {
-	    free( copy );
-	    return -1;
-	}
- /*	s = NULL;	*/
+    while (NULL != (token = strsep(&s, sep))) {
+        res = smiLoadModule(token);
+        if (NULL == res) {
+            free(copy);
+            return -1;
+        }
+        /* s = NULL;       */
     }
 
-    free( copy );
-    return 0; 
+    free(copy);
+    return 0;
 }
 
 
@@ -145,32 +147,32 @@ int   mib_load_modules( char *list )
     *  Return 0 on success, -ve on failure
     *
     */
-int   mib_load_all( void )
+int
+mib_load_all(void)
 {
-    char *list;
-    char *token;
-    char *s;
-    char sep[2];
+    char       *list;
+    char       *token;
+    char       *s;
+    char        sep[2];
 
     list = smiGetPath();
-    s    = list;
-    if (( list == NULL ) ||
-	(*list == '\0' )) {
-	return -1;
+    s = list;
+    if ((NULL == list) || ('\0' == *list)) {
+        return -1;
     }
 
     sep[0] = PATH_SEPARATOR;
     sep[1] = '\0';
-    while (( token = strsep( &s, sep )) != NULL ) {
-		/*
-		 *  Load the contents of 'token' directory
-		 */
-	(void) _mib_load_dir( token );
-/*	s = NULL;	*/
+    while (NULL != (token = strsep(&s, sep))) {
+            /* 
+             *  Load the contents of 'token' directory
+             */
+        (void) _mib_load_dir(token);
+        /* s = NULL;       */
     }
 
-    free( list );
-    return 0; 
+    free(list);
+    return 0;
 }
 
 
@@ -181,24 +183,25 @@ int   mib_load_all( void )
     *  Return 0 on success, -ve on failure
     *
     */
-int   mib_unload_modules( char *list )
+int
+mib_unload_modules(char *list)
 {
-    char *old_list, *new_list;
-    int res;
+    char       *old_list, *new_list;
+    int         res;
 
-    old_list  = mib_list_modules();
-    if ( old_list == NULL ) {
-	return -1;
+    old_list = mib_list_modules();
+    if (NULL == old_list) {
+        return -1;
     }
-    new_list  = list_remove_tokens( old_list, list, PATH_SEPARATOR );
-    if ( new_list == NULL ) {
-	free( old_list );
-	return -1;
+    new_list = list_remove_tokens(old_list, list, PATH_SEPARATOR);
+    if (NULL == new_list) {
+        free(old_list);
+        return -1;
     }
 
-    res = mib_load_modules( new_list );
-    free( old_list );
-    free( new_list );
+    res = mib_load_modules(new_list);
+    free(old_list);
+    free(new_list);
     return res;
 }
 
@@ -210,17 +213,18 @@ int   mib_unload_modules( char *list )
     *  Return 0 on success, -ve on failure
     *
     */
-int   mib_unload_all( void )
+int
+mib_unload_all(void)
 {
-    char *list;
-    int res;
+    char       *list;
+    int         res;
 
-    list  = mib_list_modules();
-    if ( list == NULL ) {
-	return 0;
+    list = mib_list_modules();
+    if (NULL == list) {
+        return 0;
     }
-    res = mib_unload_modules( list );
-    free( list );
+    res = mib_unload_modules(list);
+    free(list);
     return res;
 }
 
@@ -230,72 +234,70 @@ int   mib_unload_all( void )
     * Return the name of the file defining a particular module
     *
     * The calling routine is responsible for freeing
-    *	this memory when no longer required.
+    *   this memory when no longer required.
     */
-char *mib_module_to_file( char *name )
+char*
+mib_module_to_file(char *name)
 {
-    SmiModule *mod;
+    SmiModule  *mod;
 
-    mod = smiGetModule( name );
-    if ( mod != NULL ) {
-	return strdup( mod->path );
+    mod = smiGetModule(name);
+    if (NULL != mod) {
+        return strdup(mod->path);
     }
     return NULL;
 }
 
 
-		/**************************************
-		 *
-		 *	Internal utility routines
-		 *
-		 **************************************/
+                /**************************************
+                 *
+                 *      Internal utility routines
+                 *
+                 **************************************/
 
 #ifndef DIR_SEPARATOR
 #define DIR_SEPARATOR '/'
 #endif
 
-   /*
+   /* 
     *
     * Load all the modules in the specified directory
     *
     *  Return 0 on success, -ve on failure
     *
     */
-static int _mib_load_dir( char *dir )
+static int
+_mib_load_dir(char *dir)
 {
-    DIR           *dir_ptr, *d2;
-    struct dirent *dir_ent;
-    char           tmpname[ PATH_MAX ];
+    DIR            *dir_ptr, *d2;
+    struct dirent  *dir_ent;
+    char            tmpname[PATH_MAX];
 
-    dir_ptr = opendir( dir );
-    if ( dir_ptr == NULL ) {
-	return -1;
+    dir_ptr = opendir(dir);
+    if (NULL == dir_ptr) {
+        return -1;
     }
 
-    while ((dir_ent = readdir( dir_ptr )) != NULL ) {
+    while (NULL != (dir_ent = readdir(dir_ptr))) {
 
-	if ( !dir_ent->d_name ) {
-	    continue;		/* No name ? */
-	}
+        if ((       !dir_ent->d_name)    ||     /* No name     */
+            ('\0' == dir_ent->d_name[0]) ||     /* Null name   */
+            ('.'  == dir_ent->d_name[0])) {     /* Hidden file */
+            continue;
+        }
 
-	if ((!dir_ent->d_name )            ||	/* No name     */
-	    ( dir_ent->d_name[0] == '\0' ) ||	/* Null name   */
-	    ( dir_ent->d_name[0] == '.' )) {	/* Hidden file */
-	    continue;
-	}
+        memset(tmpname, 0, PATH_MAX);
+        snprintf(tmpname, PATH_MAX, "%s%c%s",
+                 dir, DIR_SEPARATOR, dir_ent->d_name);
 
-	memset( tmpname, 0, PATH_MAX );
-	snprintf( tmpname, PATH_MAX, "%s%c%s",
-				dir, DIR_SEPARATOR, dir_ent->d_name );
-
-	d2 = opendir( tmpname );		/* Skip subdirectories */
-	if ( d2 != NULL ) {
-	    closedir( d2 );
-	    continue;
-	}
-	(void)smiLoadModule( tmpname );		/* Load the file */
+        d2 = opendir(tmpname);          /* Skip subdirectories */
+        if (NULL != d2) {
+            closedir(d2);
+            continue;
+        }
+        (void) smiLoadModule(tmpname);  /* Load the file */
     }
 
-    (void) closedir( dir_ptr );
+    (void) closedir(dir_ptr);
     return 0;
 }

@@ -1,10 +1,10 @@
 /*******************************
  *
- *	varbind/varbind.c
+ *      varbind/varbind.c
  *
- *	Net-SNMP library - Variable-handling interface
+ *      Net-SNMP library - Variable-handling interface
  *
- *	Variable-binding handling routines
+ *      Variable-binding handling routines
  *
  *******************************/
 
@@ -27,13 +27,13 @@
 
 
 
-		/**************************************
-		 *
-		 *	Public API
-		 *	   (see <net-snmp/varbind_api.h>)
-		 *
-		 **************************************/
-		/** @package varbind_api */
+                /**************************************
+                 *
+                 *      Public API
+                 *         (see <net-snmp/varbind_api.h>)
+                 *
+                 **************************************/
+                /** @package varbind_api */
 
 
    /**
@@ -43,30 +43,30 @@
     *  Returns 0 if successful, -ve otherwise.
     *
     */
-int var_set_varbind( netsnmp_varbind vb, netsnmp_oid oid, netsnmp_value value )
+int
+var_set_varbind(netsnmp_varbind *vb, netsnmp_oid *oid, netsnmp_value *value)
 {
-    if ( vb == NULL ) {
-	return -1;
+    if (NULL == vb) {
+        return -1;
     }
-    if (( oid   == NULL ) &&
-        ( value == NULL )) {
-	return -1;
-    }
-
-    if ( vb->oid ) {
-	var_free_oid( vb->oid );
-    }
-    vb->oid = var_copy_oid( oid );
-    if ( vb->oid == NULL ) {
-	return -1;
+    if ((NULL == oid) && (NULL == value)) {
+        return -1;
     }
 
-    if ( vb->value ) {
-	var_free_value( vb->value );
+    if (NULL != vb->oid) {
+        var_free_oid(vb->oid);
     }
-    vb->value = var_copy_value( value );
-    if ( vb->value == NULL ) {
-	return -1;
+    vb->oid = var_copy_oid(oid);
+    if (NULL == vb->oid) {
+        return -1;
+    }
+
+    if (NULL != vb->value) {
+        var_free_value(vb->value);
+    }
+    vb->value = var_copy_value(value);
+    if (NULL == vb->value) {
+        return -1;
     }
     return 0;
 }
@@ -80,28 +80,30 @@ int var_set_varbind( netsnmp_varbind vb, netsnmp_oid oid, netsnmp_value value )
     *  The calling routine is responsible for freeing this memory
     *  when it is not longer required.
     */
-netsnmp_varbind var_create_varbind( void )
+netsnmp_varbind*
+var_create_varbind(void)
 {
-    netsnmp_varbind varbind;
+    netsnmp_varbind *varbind;
 
-    varbind = (netsnmp_varbind)calloc( 1, sizeof( struct netsnmp_varbind_t ));
+    varbind = (netsnmp_varbind*) calloc(1, sizeof(netsnmp_varbind));
 
-    if ( varbind ) {
-	varbind->oid   = var_create_oid();
-	varbind->value = var_create_value();
+    if (NULL != varbind) {
+        varbind->oid   = var_create_oid();
+        varbind->value = var_create_value();
 
-	if (( varbind->oid   == NULL ) ||
-	    ( varbind->value == NULL )) {
+        if ((NULL == varbind->oid) || (NULL == varbind->value)) {
 
-	    if ( varbind->oid ) {
-		free( varbind->oid );
-	    }
-	    if ( varbind->value ) {
-		free( varbind->value );
-	    }
-	    free( varbind );
-	    varbind = NULL;
-	}
+            if (NULL != varbind->oid) {
+                free(varbind->oid);
+                varbind->oid = NULL;
+            }
+            if (NULL != varbind->value) {
+                free(varbind->value);
+                varbind->value = NULL;
+            }
+            free(varbind);
+            varbind = NULL;
+        }
     }
     return varbind;
 }
@@ -115,15 +117,16 @@ netsnmp_varbind var_create_varbind( void )
     *  The calling routine is responsible for freeing this memory
     *  when it is not longer required.
     */
-netsnmp_varbind var_create_set_varbind( netsnmp_oid oid, netsnmp_value value )
+netsnmp_varbind*
+var_create_set_varbind(netsnmp_oid *oid, netsnmp_value *value)
 {
-    netsnmp_varbind varbind;
+    netsnmp_varbind *varbind;
 
     varbind = var_create_varbind();
 
-    if (varbind && (var_set_varbind( varbind, oid, value ) < 0 )) {
-	free( varbind );
-	varbind = NULL;
+    if (varbind && (0 > var_set_varbind(varbind, oid, value))) {
+        free(varbind);
+        varbind = NULL;
     }
     return varbind;
 }
@@ -137,12 +140,13 @@ netsnmp_varbind var_create_set_varbind( netsnmp_oid oid, netsnmp_value value )
     *  The calling routine is responsible for freeing this memory
     *  when it is not longer required.
     */
-netsnmp_varbind var_copy_varbind( netsnmp_varbind vb )
+netsnmp_varbind*
+var_copy_varbind(netsnmp_varbind *vb)
 {
-    if ( vb == NULL ) {
-	return NULL;
+    if (NULL == vb) {
+        return NULL;
     }
-    return( var_create_set_varbind( vb->oid, vb->value ));
+    return (var_create_set_varbind(vb->oid, vb->value));
 }
 
 
@@ -153,15 +157,16 @@ netsnmp_varbind var_copy_varbind( netsnmp_varbind vb )
     *  The varbind structure should not be regarded as valid
     *  once this routine has been called.
     */
-void var_free_varbind( netsnmp_varbind vb )
+void
+var_free_varbind(netsnmp_varbind *vb)
 {
-    if ( vb == NULL ) {
-	return;
+    if (NULL == vb) {
+        return;
     }
-    var_free_oid(   vb->oid   );
-    var_free_value( vb->value );
-    memset((void*)vb, 0, sizeof( struct netsnmp_varbind_t ));
-    free( vb );
+    var_free_oid(  vb->oid);
+    var_free_value(vb->value);
+    memset((void *) vb, 0, sizeof(netsnmp_varbind));
+    free(vb);
     return;
 }
 
@@ -172,27 +177,21 @@ void var_free_varbind( netsnmp_varbind vb )
     *  Returns 0 if successful, -ve otherwise
     *
     */
-int var_bprint_varbind( netsnmp_buf buf, netsnmp_varbind varbind )
+int
+var_bprint_varbind(netsnmp_buf *buf, netsnmp_varbind *varbind)
 {
-    netsnmp_mib mib;
+    netsnmp_mib     *mib;
 
-    if (( varbind == NULL ) ||
-        ( buf     == NULL )) { 
-	return -1;
+    if ((NULL == varbind) || (NULL == buf)) {
+        return -1;
     }
 
-    mib = mib_find_by_oid( varbind->oid );
+    mib = mib_find_by_oid(varbind->oid);
 
-    if ( var_bprint_oid( buf, varbind->oid ) < 0 ) {
-	return -1;
-    }
-    if ( buffer_append_string( buf, " = " ) < 0 ) {
-	return -1;
-    }
-    if ( var_bprint_value( buf, varbind->value, mib ) < 0 ) {
-	return -1;
-    }
-    
+    __B(var_bprint_oid(buf, varbind->oid))
+    __B(buffer_append_string(buf, " = "))
+    __B(var_bprint_value(buf, varbind->value, mib))
+
     return 0;
 }
 
@@ -203,49 +202,63 @@ int var_bprint_varbind( netsnmp_buf buf, netsnmp_varbind varbind )
     *  Returns a pointer to this name if successful, NULL otherwise.
     *
     */
-char *var_sprint_varbind( char *str_buf, int len, netsnmp_varbind varbind )
+char*
+var_sprint_varbind(char *str_buf, int len, netsnmp_varbind *varbind)
 {
-    netsnmp_buf buf;
-    char *cp = NULL;
+    netsnmp_buf    *buf;
+    char           *cp = NULL;
 
-    buf = buffer_new( str_buf, len, NETSNMP_BUFFER_NOFREE );
-    if ( buf == NULL ) {
-	return NULL;
+    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOFREE);
+    if (NULL == buf) {
+        return NULL;
     }
-    if ( var_bprint_varbind( buf, varbind ) == 0 ) {
-	cp = buffer_string( buf );
+    if (0 == var_bprint_varbind(buf, varbind)) {
+        cp = buffer_string(buf);
     }
-    buffer_free( buf );
+    buffer_free(buf);
     return cp;
 }
+
+
    /**
     *
     *  Print a variable binding to the specified file.
     *
     */
-void  var_fprint_varbind( FILE *fp, netsnmp_varbind varbind )
+void
+var_fprint_varbind(FILE *fp, netsnmp_varbind *varbind)
 {
-    char buf[ SPRINT_MAX_LEN ];
-    if ( var_sprint_varbind( buf, SPRINT_MAX_LEN, varbind ) != NULL ) {
-	fprintf( fp, "%s", buf );
+    netsnmp_buf    *buf;
+
+    if (NULL == varbind) {
+        return;
     }
+    buf = buffer_new(NULL, 0, NETSNMP_BUFFER_RESIZE);
+    if (NULL == buf) {
+        return;
+    }
+    if (0 == var_bprint_varbind(buf, varbind)) {
+        fprintf(fp, "%s", buf->string);
+    }
+    buffer_free(buf);
 }
+
+
    /**
     *
     *  Print a variable binding to standard output. 
     *
     */
-void  var_print_varbind( netsnmp_varbind varbind )
+void
+var_print_varbind(netsnmp_varbind *varbind)
 {
-    var_fprint_varbind( stdout, varbind );
+    var_fprint_varbind(stdout, varbind);
 }
 
 
-		/**************************************
-		 *
-		 *	internal utility routines
-		 *
-		 **************************************/
-		/** @package varbind_internals */
-
-
+                /**************************************
+                 *
+                 *      internal utility routines
+                 *
+                 **************************************/
+                /** @package varbind_internals */

@@ -1,10 +1,10 @@
 /*******************************
  *
- *	varbind/oid.c
+ *      varbind/oid.c
  *
- *	Net-SNMP library - Variable-handling interface
+ *      Net-SNMP library - Variable-handling interface
  *
- *	OID-handling routines
+ *      OID-handling routines
  *
  *******************************/
 
@@ -26,16 +26,16 @@
 
 #include "default_store.h"
 
-int _var_append_subids( netsnmp_oid oid, char *name, netsnmp_mib mib );
+int _var_append_subids(netsnmp_oid *oid, char *name, netsnmp_mib *mib);
 
 
-		/**************************************
-		 *
-		 *	Public API
-		 *	   (see <net-snmp/varbind_api.h>)
-		 *
-		 **************************************/
-		/** @package varbind_api */
+                /**************************************
+                 *
+                 *      Public API
+                 *         (see <net-snmp/varbind_api.h>)
+                 *
+                 **************************************/
+                /** @package varbind_api */
 
 
    /**
@@ -45,39 +45,38 @@ int _var_append_subids( netsnmp_oid oid, char *name, netsnmp_mib mib );
     *  Returns 0 if successful, -ve otherwise.
     *
     */
-int var_set_oid( netsnmp_oid oid, char *name )
+int
+var_set_oid(netsnmp_oid *oid, char *name)
 {
-    netsnmp_mib mib;
+    netsnmp_mib     *mib;
 
-    if (( oid  == NULL ) ||
-        ( name == NULL ) ||
-        (*name == '\0' )) {
-	return -1;
+    if ((NULL == oid) || (NULL == name) || ('\0' == *name)) {
+        return -1;
     }
 
-		/*
-		 * This OID structure previously contained a
-		 * "long" name, so release those resources.
-		 */
-    if ( oid->name && (oid->name != oid->namebuf )) {
-	free( oid->name );
-	oid->name = NULL;
+        /* 
+         * This OID structure previously contained a
+         * "long" name, so release those resources.
+         */
+    if (oid->name && (oid->name != oid->namebuf)) {
+        free(oid->name);
+        oid->name = NULL;
     }
 
-		/*
-		 * Find the MIB object for this name,
-		 * and use the internal subid list
-		 * to initialise this OID structure.
-		 */ 
-    mib = mib_find( name );
-    if ( mib != NULL ) {
-	(void)var_set_oid_value( oid, mib->oid, mib->oidlen );
+        /* 
+         * Find the MIB object for this name,
+         * and use the internal subid list
+         * to initialise this OID structure.
+         */
+    mib = mib_find(name);
+    if (NULL != mib) {
+        (void) var_set_oid_value(oid, mib->oid, mib->oidlen);
     }
 
-		/*
-		 * Append any remaining subids
-		 */
-    return _var_append_subids( oid, name, mib );
+        /* 
+         * Append any remaining subids
+         */
+    return _var_append_subids(oid, name, mib);
 }
 
 
@@ -88,38 +87,38 @@ int var_set_oid( netsnmp_oid oid, char *name )
     *  Returns 0 if successful, -ve otherwise.
     *
     */
-int var_set_oid_value( netsnmp_oid oid, u_int *name, int len )
+int
+var_set_oid_value(netsnmp_oid *oid, u_int *name, int len)
 {
-    int i;
+    int             i;
 
-    if ( oid == NULL ) {
-	return -1;
+    if (NULL == oid) {
+        return -1;
     }
-		/*
-		 * This OID structure previously contained a
-		 * "long" name, so release those resources.
-		 */
-    if ( oid->name && (oid->name != oid->namebuf )) {
-	free( oid->name );
-	oid->name = NULL;
-    }
-
-		/*
-		 * Will the new name fit into the in-line buffer ?
-		 */
-    if ( len > NETSNMP_NAMEBUF_LEN ) {
-	oid->name = (unsigned int *)calloc( len, sizeof( unsigned int ));
-	if ( oid->name == NULL ) {
-	    return -1;
-	}
-    }
-    else {
-	oid->name = oid->namebuf;
+        /* 
+         * This OID structure previously contained a
+         * "long" name, so release those resources.
+         */
+    if (oid->name && (oid->name != oid->namebuf)) {
+        free(oid->name);
+        oid->name = NULL;
     }
 
-	/* Set up the new values */
-    for ( i=0; i<len; i++ ) {
-	oid->name[i] = name[i];
+        /* 
+         * Will the new name fit into the in-line buffer ?
+         */
+    if (NETSNMP_NAMEBUF_LEN < len) {
+        oid->name = (unsigned int *) calloc(len, sizeof(unsigned int));
+        if (NULL == oid->name) {
+            return -1;
+        }
+    } else {
+        oid->name = oid->namebuf;
+    }
+
+        /* Set up the new values */
+    for (i = 0; i < len; i++) {
+        oid->name[i] = name[i];
     }
     oid->len = len;
     return 0;
@@ -134,9 +133,10 @@ int var_set_oid_value( netsnmp_oid oid, u_int *name, int len )
     *  The calling routine is responsible for freeing this memory
     *  when it is not longer required.
     */
-netsnmp_oid var_create_oid( void )
+netsnmp_oid*
+var_create_oid(void)
 {
-    return (netsnmp_oid)calloc( 1, sizeof( struct netsnmp_oid_t ));
+    return (netsnmp_oid*) calloc(1, sizeof(netsnmp_oid));
 }
 
 
@@ -148,17 +148,18 @@ netsnmp_oid var_create_oid( void )
     *  The calling routine is responsible for freeing this memory
     *  when it is not longer required.
     */
-netsnmp_oid var_create_oid_name( char *name )
+netsnmp_oid*
+var_create_oid_name(char *name)
 {
-    netsnmp_oid oid;
+    netsnmp_oid     *oid;
 
     oid = var_create_oid();
 
-    if (var_set_oid( oid, name ) < 0 ) {
-	if ( oid ) {
-	    free( oid );
-	}
-	oid = NULL;
+    if (0 > var_set_oid(oid, name)) {
+        if (oid) {
+            free(oid);
+        }
+        oid = NULL;
     }
     return oid;
 }
@@ -172,17 +173,18 @@ netsnmp_oid var_create_oid_name( char *name )
     *  The calling routine is responsible for freeing this memory
     *  when it is not longer required.
     */
-netsnmp_oid var_create_oid_value( u_int *name, int len )
+netsnmp_oid*
+var_create_oid_value(u_int * name, int len)
 {
-    netsnmp_oid oid;
+    netsnmp_oid     *oid;
 
     oid = var_create_oid();
 
-    if (var_set_oid_value( oid, name, len ) < 0 ) {
-	if ( oid ) {
-	    free( oid );
-	}
-	oid = NULL;
+    if (0 > var_set_oid_value(oid, name, len)) {
+        if (oid) {
+            free(oid);
+        }
+        oid = NULL;
     }
     return oid;
 }
@@ -196,12 +198,13 @@ netsnmp_oid var_create_oid_value( u_int *name, int len )
     *  The calling routine is responsible for freeing this memory
     *  when it is not longer required.
     */
-netsnmp_oid var_copy_oid( netsnmp_oid oid )
+netsnmp_oid*
+var_copy_oid(netsnmp_oid *oid)
 {
-    if ( oid == NULL ) {
-	return NULL;
+    if (NULL == oid) {
+        return NULL;
     }
-    return var_create_oid_value( oid->name, oid->len );
+    return var_create_oid_value(oid->name, oid->len);
 }
 
 
@@ -212,17 +215,18 @@ netsnmp_oid var_copy_oid( netsnmp_oid oid )
     *  The oid structure should not be regarded as valid
     *  once this routine has been called.
     */
-void var_free_oid( netsnmp_oid oid )
+void
+var_free_oid(netsnmp_oid *oid)
 {
-    if ( oid == NULL ) {
-	return;
+    if (NULL == oid) {
+        return;
     }
-    if ( oid->name && (oid->name != oid->namebuf )) {
-	free( oid->name );
-	oid->name = NULL;
+    if (oid->name && (oid->name != oid->namebuf)) {
+        free(oid->name);
+        oid->name = NULL;
     }
-    memset((void*)oid, 0, sizeof( struct netsnmp_oid_t ));
-    free( oid );
+    memset((void *) oid, 0, sizeof(netsnmp_oid));
+    free(oid);
     return;
 }
 
@@ -233,33 +237,33 @@ void var_free_oid( netsnmp_oid oid )
     *  Returns 0 if successful, -ve otherwise
     *
     */
-int var_bprint_oid( netsnmp_buf buf, netsnmp_oid oid )
+int
+var_bprint_oid(netsnmp_buf *buf, netsnmp_oid *oid)
 {
-    netsnmp_mib mib;
-    int ret = -1;
-    int  len2 = 0;
-    int  i;
-    char tmpbuf[ SPRINT_MAX_LEN ];
+    netsnmp_mib    *mib;
+    int             ret = -1;
+    int             len2 = 0;
+    int             i;
+    char            tmpbuf[SPRINT_MAX_LEN];
 
-    if (( oid == NULL ) ||
-        ( buf == NULL )) { 
-	return -1;
+    if ((NULL == oid) || (NULL == buf)) {
+        return -1;
     }
 
-    if (!(ds_get_boolean(DS_LIBRARY_ID,DS_LIB_PRINT_NUMERIC_OIDS))) {
-	mib = mib_find_by_oid( oid );
-	if ( mib != NULL ) {
-	    ret = mib_bprint( buf, mib );
-	}
-	if ( ret == 0 ) {
-	    len2 = mib->oidlen;	/* This much has been handled already */
-	}
+    if (!(ds_get_boolean(DS_LIBRARY_ID, DS_LIB_PRINT_NUMERIC_OIDS))) {
+        mib = mib_find_by_oid(oid);
+        if (NULL != mib) {
+            ret = mib_bprint(buf, mib);
+        }
+        if (0 == ret) {
+            len2 = mib->oidlen;   /* This much has been handled already */
+        }
     }
 
-	/* Append any remaining subidentifiers */
-    for ( i=len2; i<oid->len; i++ ) {
-	sprintf( tmpbuf, ".%d", oid->name[i] );
-	if (buffer_append_string( buf, tmpbuf ) < 0 ) { return -1; }
+        /* Append any remaining subidentifiers */
+    for (i = len2; i < oid->len; i++) {
+        sprintf(tmpbuf, ".%d", oid->name[i]);
+        __B(buffer_append_string(buf, tmpbuf))
     }
 
     return 0;
@@ -272,53 +276,69 @@ int var_bprint_oid( netsnmp_buf buf, netsnmp_oid oid )
     *  Returns a pointer to this name if successful, NULL otherwise.
     *
     */
-char *var_sprint_oid( char *str_buf, int len, netsnmp_oid oid )
+char           *
+var_sprint_oid(char *str_buf, int len, netsnmp_oid *oid)
 {
-    netsnmp_buf buf;
-    char *cp = NULL;
+    netsnmp_buf    *buf;
+    char           *cp = NULL;
 
-    buf = buffer_new( str_buf, len, NETSNMP_BUFFER_NOFREE );
-    if ( buf == NULL ) {
-	return NULL;
+    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOFREE);
+    if (NULL == buf) {
+        return NULL;
     }
-    if ( var_bprint_oid( buf, oid ) == 0 ) {
-	cp = buffer_string( buf );
+    if (0 == var_bprint_oid(buf, oid)) {
+        cp = buffer_string(buf);
     }
-    buffer_free( buf );
+    buffer_free(buf);
     return cp;
 }
+
+
    /**
     *
     *  Print the name of an OID to the specified file.
     *
     */
-void  var_fprint_oid( FILE *fp, netsnmp_oid oid )
+void
+var_fprint_oid(FILE *fp, netsnmp_oid *oid)
 {
-    char buf[ SPRINT_MAX_LEN ];
-    if ( var_sprint_oid( buf, SPRINT_MAX_LEN, oid ) != NULL ) {
-	fprintf( fp, "%s", buf );
+    netsnmp_buf    *buf;
+
+    if (NULL == oid) {
+        return;
     }
+    buf = buffer_new(NULL, 0, NETSNMP_BUFFER_RESIZE);
+    if (NULL == buf) {
+        return;
+    }
+    if (0 == var_bprint_oid(buf, oid)) {
+        fprintf(fp, "%s", buf->string);
+    }
+    buffer_free(buf);
 }
+
+
    /**
     *
     *  Print the name of an OID to standard output.
     *
     */
-void  var_print_oid( netsnmp_oid oid )
+void
+var_print_oid(netsnmp_oid *oid)
 {
-    var_fprint_oid( stdout, oid );
+    var_fprint_oid(stdout, oid);
 }
 
 
 
-		/**************************************
-		 *
-		 *	internal utility routines
-		 *
-		 **************************************/
-		/** @package varbind internals */
+                /**************************************
+                 *
+                 *      internal utility routines
+                 *
+                 **************************************/
+                /** @package varbind_internals */
 
-   /*
+   /* 
     *  The libSMI 'smiGetNode' routine discards any trailing
     *  subidentifiers, and returns the node for the longest prefix
     *  that it recognises.
@@ -337,45 +357,43 @@ void  var_print_oid( netsnmp_oid oid )
     *  until we develop something more flexible - either within
     *  the net-snmp library, or perhaps an extension to libSMI.
     */
-int _var_append_subids( netsnmp_oid oid, char *name, netsnmp_mib mib )
+int
+_var_append_subids(netsnmp_oid *oid, char *name, netsnmp_mib *mib)
 {
-    netsnmp_mib mib2;
-    char *copy;
-    char *cp;
-    int i, len;
+    netsnmp_mib    *mib2;
+    char           *copy;
+    char           *cp;
+    int             i, len;
 
-    if ( *name == '.' ) {
-	copy = strdup( name+1 );
+    if ('.' == *name) {
+        copy = strdup(name + 1);
+    } else {
+        copy = strdup(name);
     }
-    else {
-	copy = strdup( name );
-    }
-    if ( copy == NULL ) {
-	return -1;
-    }
-
-    for ( cp=strchr( copy, '.' ); cp!=NULL; cp=strchr( cp+1, '.' )) {
-	*cp = '\0';
-	mib2 = mib_find( copy );
-	*cp = '.';
-	if ( mib == mib2 ) {	/* Found where the 'mib' object OID ends */
-	    break;
-	}
+    if (NULL == copy) {
+        return -1;
     }
 
-    if ( cp ) {
-	len = oid->len;
-	for ( ; cp!=NULL; cp=strchr( cp+1, '.' )) {
+    for (cp = strchr(copy, '.'); NULL != cp; cp = strchr(cp + 1, '.')) {
+        *cp = '\0';
+        mib2 = mib_find(copy);
+        *cp = '.';
+        if (mib == mib2) {      /* Found where the 'mib' object OID ends */
+            break;
+        }
+    }
 
-	    i = atoi( cp+1 );
-	    if (( i==0 ) && (*(cp+1) != '0')) {
-		return -1;		/* atoi translation failed */
-	    }
-	    oid->name[len] = i;		/* XXX - could overrun alloced memory */
-	    len++;
-	}
-	oid->len = len;
+    if (cp) {
+        len = oid->len;
+        for (; NULL != cp; cp = strchr(cp + 1, '.')) {
+            i = atoi(cp + 1);
+            if ((0 == i) && ('0' != *(cp + 1))) {
+                return -1;      /* atoi translation failed */
+            }
+            oid->name[len] = i; /* XXX - could overrun alloced memory */
+            len++;
+        }
+        oid->len = len;
     }
     return 0;
 }
-
