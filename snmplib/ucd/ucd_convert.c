@@ -22,7 +22,7 @@
 #include <ctype.h>
 
 #include <net-snmp/var_api.h>
-#include <net-snmp/pdu_api.h>
+#include <net-snmp/protocol_api.h>
 #include <ucd/ucd_api.h>
 
 #include "tools.h"
