@@ -151,6 +151,11 @@ register_config_handler(type, token, parser, releaser, help)
     (*ltmp)->parse_line	 = 0;
     (*ltmp)->free_func	 = 0;
     (*ltmp)->config_token	 = strdup(token);
+    if (help != NULL)
+      (*ltmp)->help = strdup(help);
+    else
+      (*ltmp)->help = strdup("");
+
   }
 
   /* 
