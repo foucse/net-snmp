@@ -1764,15 +1764,15 @@ snmp_sess_read(void *sessp,
     if (pdu->command == SNMP_MSG_RESPONSE){
 	for(rp = isp->requests; rp; rp = rp->next_request){
 	    if (rp->request_id == pdu->reqid){
-			if (rp->callback) {
-				callback = rp->callback;
-				magic = rp->cb_data;
-			} else {
-				callback = sp->callback;
-				magic = sp->callback_magic;
-			}
-			if (callback == NULL || callback(RECEIVED_MESSAGE, sp, pdu->reqid,
-				 pdu, magic) == 1){
+		if (rp->callback) {
+			callback = rp->callback;
+			magic = rp->cb_data;
+		} else {
+			callback = sp->callback;
+			magic = sp->callback_magic;
+		}
+		if (callback == NULL || callback(RECEIVED_MESSAGE, sp, pdu->reqid,
+			 pdu, magic) == 1){
 		    /* successful, so delete request */
 		    if (isp->requests == rp){
 			/* first in list */
