@@ -33,6 +33,7 @@ int register_old_api(const char *moduleName,
                      int flags);
 NodeHandler old_api_helper;
 
-
+/* really shouldn't be used */
+struct agent_snmp_session  *get_current_agent_session(void);
 
 #endif /* OLD_API_H */

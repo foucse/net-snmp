@@ -17,6 +17,17 @@
 
 #define MIB_CLIENTS_ARE_EVIL 1
 
+static struct agent_snmp_session *current_agent_session = NULL;
+struct agent_snmp_session  *
+get_current_agent_session() {
+    return current_agent_session;
+}
+
+void
+set_current_agent_session(struct agent_snmp_session  *asp) {
+    current_agent_session = asp;
+}
+
 mib_handler *
 get_old_api_handler(void) {
     return create_handler("old_api", old_api_helper);
@@ -103,6 +114,7 @@ old_api_helper(mib_handler               *handler,
     u_char *access = NULL;
     old_api_cache *cacheptr;
     AddVarMethod *add_method;
+    struct agent_snmp_session  *oldasp = NULL;
 
     vp = (struct variable *) handler->myvoid;
 
@@ -201,7 +213,8 @@ old_api_helper(mib_handler               *handler,
                                              SNMP_ERR_NOTWRITABLE);
                 }
 
-                /* WWW: set_current_agent_session(asp);  */
+                oldasp = get_current_agent_session();
+                set_current_agent_session(reqinfo->asp);
                 status =
                     (*(cacheptr->write_method))(reqinfo->mode,
                                                 requests->requestvb->val.string,
@@ -210,7 +223,7 @@ old_api_helper(mib_handler               *handler,
                                                 cacheptr->data,
                                                 requests->requestvb->name,
                                                 requests->requestvb->name_length);
-                /* WWW: set_current_agent_session(oldval); */
+                set_current_agent_session(oldasp);
 
                 if (requests->status != SNMP_ERR_NOERROR)
                     set_request_error(reqinfo, requests, status);
