@@ -42,8 +42,8 @@
 #include <net-snmp/utils.h>
 #include <smi.h>
 
-
 static int _mib_load_dir( char *dir );
+
 
 		/**************************************
 		 *
@@ -77,7 +77,7 @@ char *mib_list_modules()
     }
 
     while (( mod = smiGetNextModule( mod )) != NULL ) {
-	cp = util_add_token( list, mod->name, PATH_SEPARATOR );
+	cp = list_add_token( list, mod->name, PATH_SEPARATOR );
 	if ( cp == NULL ) {
 	    free( list );
 	    return NULL;
@@ -182,7 +182,7 @@ int   mib_unload_modules( char *list )
     if ( old_list == NULL ) {
 	return -1;
     }
-    new_list  = util_remove_list( old_list, list, PATH_SEPARATOR );
+    new_list  = list_remove_tokens( old_list, list, PATH_SEPARATOR );
     if ( new_list == NULL ) {
 	free( old_list );
 	return -1;

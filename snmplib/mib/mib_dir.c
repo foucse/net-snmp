@@ -20,11 +20,9 @@
 #endif
 
 #include <net-snmp/mib_api.h>
+#include <net-snmp/utils.h>
 #include <smi.h>
 
-
-extern char* util_remove_token( char *old_list, char *token,    char sep);
-extern char* util_remove_list(  char *old_list, char *rem_list, char sep);
 
 		/**************************************
 		 *
@@ -162,7 +160,7 @@ int   mib_remove_directories( char *dirs )
 	return -1;	/* Can't remove anything from an empty list */
     }
 
-    new_list = util_remove_list( old_list, dirs, PATH_SEPARATOR);
+    new_list = list_remove_tokens( old_list, dirs, PATH_SEPARATOR);
 
 		/* Apply the new list, and tidy up */
     ret = -1;
