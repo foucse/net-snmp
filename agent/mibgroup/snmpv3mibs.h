@@ -5,5 +5,6 @@
    snmpv3 mib(s) */
 
 config_require(snmpv3/snmpEngine)
+config_require(snmpv3/snmpMPDStats)
 
 #endif /* NSMPV3MIBS_H */
