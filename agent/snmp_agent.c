@@ -57,6 +57,7 @@ SOFTWARE.
 #include "mib.h"
 #include "snmp_vars.h"
 #include "snmp_client.h"
+#include "snmpv3.h"
 #if USING_MIBII_SNMP_MIB_MODULE
 #include "mibgroup/mibII/snmp_mib.h"
 #endif
@@ -120,6 +121,12 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     u_char          v3data[SNMP_MAX_LEN];
     u_char          *cp;
     long            version;
+    u_char          *engineID;
+    int             engineIDLen;
+
+    static oid      unknownEngineID[] = {1,3,6,1,6,3,12,1,1,1};
+    static long     ltmp;
+    struct variable_list *vp, *ovp;
     
     len = length;
     cp = asn_parse_header(data, &len, &type);
@@ -128,13 +135,34 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     if (type == (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
         asn_parse_int(cp, &len, &type, &version, sizeof(version));
         if (version == SNMP_VERSION_3) {
-          pdu = snmp_pdu_create(SNMP_MSG_GETNEXT);
+          pdu = snmp_pdu_create(SNMP_MSG_RESPONSE);
           snmpv3_parse(pdu, data, &length, &data);
           pi->version = pdu->version;
           pi->sec_level = pdu->securityLevel;
           pi->sec_model = pdu->securityModel;
           pi->securityName = pdu->securityName;
           pi->packet_end = data + length;
+          engineID = snmpv3_generate_engineID(&engineIDLen);
+          if (pdu->contextEngineIDLen != engineIDLen ||
+              memcmp(pdu->contextEngineID, engineID, engineIDLen)) {
+            /* unknown incoming security engineID, return ours and a varbind */
+            /* free the current varbind */
+            snmp_free_varbind(pdu->variables);
+            pdu->variables = NULL;
+            pdu->contextEngineID = engineID;
+            pdu->contextEngineIDLen = engineIDLen;
+            pdu->command = SNMP_MSG_REPORT;
+            /* increment the unknown engineID counter */
+            ltmp = snmp_increment_statistic(STAT_USMSTATSUNKNOWNENGINEIDS);
+            /* return  the unknown engineID counter */
+            snmp_pdu_add_variable(pdu, unknownEngineID,
+                                  sizeof(unknownEngineID)/sizeof(oid),
+                                  ASN_INTEGER, (u_char *) &ltmp, sizeof(ltmp));
+            snmpv3_packet_build(pdu, out_data, out_length, NULL, 0);
+            snmp_free_pdu(pdu);
+            return 1;
+          }
+          free(engineID);
         } else {
           /* authenticates message and returns length if valid */
           pi->community_len = COMMUNITY_MAX_LEN;
@@ -532,6 +560,17 @@ reterr:
 	default:
 	    return 0;
     }
+    /* sigh...  currently this is a snmp_internal_varlist, which has to
+       have its variables freed without freeing the name pointer, so we have
+       to free the variables by hand. This is a memory leak!!! */
+    vp = (struct variable_list *)pdu->variables;
+    while(vp){
+      ovp = vp;
+      vp = (struct variable_list *)vp->next_variable;
+      free(ovp);
+    }
+    pdu->variables = NULL;
+
     if (version == SNMP_VERSION_3)
       snmp_free_pdu(pdu);
     *out_length = pi->packet_end - out_auth;
