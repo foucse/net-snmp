@@ -136,7 +136,7 @@ snmpv3_get_engineID(char *buf) {
 }
 
 /* snmpv3_generate_engineID(): generates a malloced copy of our engineID. */
-char *
+u_char *
 snmpv3_generate_engineID(int *length) {
   char *newID;
   newID = (char *) malloc(engineIDLength);
