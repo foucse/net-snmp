@@ -170,7 +170,7 @@ struct trap_sink {
 };
 
 struct trap_sink *sinks	  = NULL;
-struct trap_sink *v2sinks = NULL;	/* XXX  Used? */
+struct trap_sink *v2sinks = NULL;
 
 
 #define SNMP_AUTHENTICATED_TRAPS_ENABLED	1
@@ -274,11 +274,6 @@ free_v1_trap_session (sp)
     free (sp);
 }
 
-
-
-/*
- * XXX  Used?
- */
 static int
 create_v2_trap_session (sink, com)
     char *sink, *com;
@@ -457,12 +452,6 @@ send_v2_trap (ss, trap, specific, type)
 
 }  /* end send_v2_trap() */
 
-
-
-
-/*
- * XXX  Used?
- */
 void
 send_trap_pdu(pdu)
     struct snmp_pdu *pdu;
@@ -484,8 +473,6 @@ send_trap_pdu(pdu)
     }
   }
 }  /* end send_trap_pdu() */
-
-
 
 /*
  * FIX  Need case for v3? 
@@ -518,12 +505,6 @@ send_easy_trap (trap, specific)
     }
 }  /* end send_easy_trap() */
  
-
-
-/*
- * XXX  Use inet_*() instead?
- * XXX  Buffer overrun potential...
- */
 char *
 reverse_bytes(buf,num)
   char *buf;
@@ -531,12 +512,14 @@ reverse_bytes(buf,num)
 {
   static char outbuf[100];
   int i;
+
+  if (num > 100)
+    return NULL;
   
   for(i=num-1;i>=0;i--)
     outbuf[i] = *buf++;
   return(outbuf);
 }  /* end reverse_bytes() */
-
 
 
 static void
@@ -571,7 +554,6 @@ char *prog;
 }
 
 
-
 RETSIGTYPE
 SnmpdShutDown(a)
   int a;
@@ -596,7 +578,6 @@ SnmpdShutDown(a)
 }  /* end SnmpdShutDown() */
 
 
-
 static RETSIGTYPE
 SnmpTrapNodeDown(a)
   int a;
@@ -604,8 +585,6 @@ SnmpTrapNodeDown(a)
     send_easy_trap (SNMP_TRAP_ENTERPRISESPECIFIC, 2);
     /* XXX  2 - Node Down #define it as NODE_DOWN_TRAP */
 }
-
-
 
 
 /*******************************************************************-o-******
@@ -874,9 +853,6 @@ main(argc, argv)
 }  /* end main() -- snmpd */
 
 
-
-
-
 /*******************************************************************-o-******
  * open_port
  *
@@ -1081,7 +1057,6 @@ receive(sdlist, sdlen)
  * Handler for all incoming messages (a.k.a. packets) for the agent.  Pass
  * them on to snmp_agent_parse().  Write to the log file.
  *
- * XXX  Does network address caching serve a specific function besides logging?
  */
 int
 snmp_read_packet(sd)
@@ -1275,9 +1250,6 @@ snmpd_parse_config_trapsink(word, cptr)
 }
 
 
-/*
- * XXX  Used?
- */
 void
 snmpd_parse_config_trap2sink(word, cptr)
     char *word;
