@@ -248,6 +248,8 @@ process_get_requests(handler_registration  *reginfo,
     int rc = SNMP_ERR_NOERROR;
     request_info * current;
     oid_array_header *row = NULL;
+    table_request_info *tblreq_info;
+    struct variable_list * var;
 
     /*
      * Loop through each of the requests, and
@@ -255,16 +257,7 @@ process_get_requests(handler_registration  *reginfo,
      */
     for( current = requests; current; current = current->next) {
 
-        /* 
-         * Get pointer to the table information for this request. This
-         * information was saved by table_helper_handler. When
-         * debugging, we double check a few assumptions. For example,
-         * the table_helper_handler should enforce column boundaries.
-         */
-        table_request_info *tblreq_info = extract_table_info(current);
-        struct variable_list * var = current->requestvb;
-        assert(tblreq_info->colnum <= tad->tblreg_info->max_column);
-        
+        var = current->requestvb;
         DEBUGMSGTL(("helper:table_array:get", "  process_get_request oid:"));
         DEBUGMSGOID(("helper:table_array:get", var->name, var->name_length));
         DEBUGMSG(("helper:table_array:get", "\n"));
@@ -277,6 +270,15 @@ process_get_requests(handler_registration  *reginfo,
             continue;
         }
 
+        /* 
+         * Get pointer to the table information for this request. This
+         * information was saved by table_helper_handler. When
+         * debugging, we double check a few assumptions. For example,
+         * the table_helper_handler should enforce column boundaries.
+         */
+        tblreq_info = extract_table_info(current);
+        assert(tblreq_info->colnum <= tad->tblreg_info->max_column);
+        
         if((agtreq_info->mode == MODE_GETNEXT) ||
            (agtreq_info->mode == MODE_GETBULK)) {
             /*
@@ -350,22 +352,13 @@ group_requests( agent_request_info *agtreq_info, request_info * requests,
 
     for( current = requests; current; current = current->next) {
             
-        /* 3.2.1 Setup and paranoia
-         *
-         * Get pointer to the table information for this request. This
-         * information was saved by table_helper_handler. When
-         * debugging, we double check a few assumptions. For example,
-         * the table_helper_handler should enforce column boundaries.
-         */
-        row = NULL;
         var = current->requestvb;
-        tblreq_info = extract_table_info(current);
-        assert(tblreq_info->colnum <= tad->tblreg_info->max_column);
-        
+        /* don't log OID, helper:table already did it */
+#if 0
         DEBUGMSGTL(("helper:table_array:group", "  oid:"));
         DEBUGMSGOID(("helper:table_array:group", var->name, var->name_length));
         DEBUGMSG(("helper:table_array:group", "\n"));
-
+#endif
         /*
          * skip anything that doesn't need processing.
          */
@@ -374,17 +367,27 @@ group_requests( agent_request_info *agtreq_info, request_info * requests,
             continue;
         }
 
+        /* 3.2.1 Setup and paranoia
+         *
+         * Get pointer to the table information for this request. This
+         * information was saved by table_helper_handler. When
+         * debugging, we double check a few assumptions. For example,
+         * the table_helper_handler should enforce column boundaries.
+         */
+        row = NULL;
+        tblreq_info = extract_table_info(current);
+        assert(tblreq_info->colnum <= tad->tblreg_info->max_column);
+        
         /*
          * search for index
          */
         index.idx = tblreq_info->index_oid;
         index.idx_len = tblreq_info->index_oid_len;
-        DEBUGMSGTL(("helper:table_array:group", "    index "));
-        DEBUGMSGOID(("helper:table_array:group", index.idx,index.idx_len));
-        DEBUGMSG(("helper:table_array:group", "\n"));
         tmp = Get_oid_data( array_group_tbl, &index, 1);
         if(tmp) {
-            DEBUGMSGTL(("helper:table_array:group", "    existing group\n"));
+            DEBUGMSGTL(("helper:table_array:group", "    existing group:"));
+            DEBUGMSGOID(("helper:table_array:group", index.idx,index.idx_len));
+            DEBUGMSG(("helper:table_array:group", "\n"));
             g = (array_group*)tmp;
             i = SNMP_MALLOC_TYPEDEF(array_group_item);
             i->ri = current;
@@ -394,7 +397,9 @@ group_requests( agent_request_info *agtreq_info, request_info * requests,
             continue;
         }
 
-        DEBUGMSGTL(("helper:table_array:group", "    new group\n"));
+        DEBUGMSGTL(("helper:table_array:group", "    new group"));
+        DEBUGMSGOID(("helper:table_array:group", index.idx,index.idx_len));
+        DEBUGMSG(("helper:table_array:group", "\n"));
         g = SNMP_MALLOC_TYPEDEF(array_group);
         i = SNMP_MALLOC_TYPEDEF(array_group_item);
         g->list = i;
