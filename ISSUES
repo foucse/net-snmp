@@ -112,4 +112,4 @@
 
 - dreeder/Oct 12 1998
 	Add time stamps to log files.
-
+	(This will require creation of a logging API, FYI -- Wes)
