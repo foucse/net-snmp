@@ -177,3 +177,6 @@
 	engineID probes (opps).
 
 
+* hardaker/Jan 06 1998
+	The use of the known integer, instead of a random value, for
+	the salt initialization is a bad thing.
