@@ -119,7 +119,7 @@ write_engineBoots(action, var_val, var_val_type, var_val_len, statP, name, name_
       DEBUGP("write to engineBoots: bad length\n");
       return SNMP_ERR_WRONGLENGTH;
   }
-  long_ret = *((long) var_val);
+  long_ret = *((long *) var_val);
   if (action == COMMIT) {
     engineIDBufLen = snmpv3_get_engineID(engineIDBuf, SNMP_MAXBUF_MEDIUM);
     /* set our local engineTime in the LCD timing cache */
@@ -164,7 +164,7 @@ write_engineTime(action, var_val, var_val_type, var_val_len, statP, name, name_l
       DEBUGP("write to engineTime: bad length\n");
       return SNMP_ERR_WRONGLENGTH;
   }
-  long_ret = *((long) var_val);
+  long_ret = *((long *) var_val);
   if (action == COMMIT) {
     engineIDBufLen = snmpv3_get_engineID(engineIDBuf, SNMP_MAXBUF_MEDIUM);
     /* set our local engineTime in the LCD timing cache */
