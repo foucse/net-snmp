@@ -16,7 +16,8 @@
 
 #define NETSNMP_BUFFER_RESIZE            0x1
 #define NETSNMP_BUFFER_NOFREE            0x2
-#define NETSNMP_BUFFER_NULLTERM          0x3
+#define NETSNMP_BUFFER_NULLTERM          0x4
+#define NETSNMP_BUFFER_REVERSE           0x8
 
 typedef struct netsnmp_buf_s {
     char *string;

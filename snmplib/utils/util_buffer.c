@@ -114,6 +114,7 @@ int
 buffer_append(netsnmp_buf *buf, char *string, int len)
 {
     int             len_left;
+    char           *cp;
 
     if (NULL == buf) {
         return -1;
@@ -132,7 +133,17 @@ buffer_append(netsnmp_buf *buf, char *string, int len)
             return -1;
         }
     }
-    memcpy(buf->string + buf->cur_len, string, len);
+    if ( buf->flags & NETSNMP_BUFFER_REVERSE ) {
+	    /*
+	     * If building backwards, find where the buffer
+	     * current ends, and count back 'len' bytes.
+	     */
+        cp  = buf->string + (buf->max_len-buf->cur_len);
+	cp -= len;
+        memcpy(cp, string, len);
+    } else {
+        memcpy(buf->string + buf->cur_len, string, len);
+    }
     buf->cur_len += len;
     return 0;
 }
@@ -183,11 +194,19 @@ buffer_append_char(netsnmp_buf *buf, char ch)
 char*
 buffer_string(netsnmp_buf *buf)
 {
+    int offset;
+
     if (NULL == buf) {
         return NULL;
     }
     buf->flags |= NETSNMP_BUFFER_NOFREE;
-    return buf->string;
+
+    if (buf->flags & NETSNMP_BUFFER_REVERSE) {
+	offset = buf->max_len - buf->cur_len;
+	return (buf->string + offset);
+    } else {
+        return buf->string;
+    }
 }
 
 
@@ -222,6 +241,8 @@ _buffer_extend(netsnmp_buf *buf, int increase)
 {
     char           *new_buf;
     int             new_buf_len;
+    char           *current_start;
+    char           *new_start;
 
         /*
          * Check the parameters
@@ -256,9 +277,10 @@ _buffer_extend(netsnmp_buf *buf, int increase)
     }
 
         /*
-         * Allocate (or reallocate) new memory accordingly.
+	 * If building forwards, we can 'realloc' an existing buffer.
+	 * Otherwise, allocate the new memory normally.
          */
-    if (buf->string) {
+    if (!(buf->flags & NETSNMP_BUFFER_REVERSE) && (0 != buf->cur_len)) {
         new_buf = (char *)realloc(buf->string, new_buf_len);
     } else {
         new_buf = (char *)calloc(new_buf_len, 1);
@@ -266,7 +288,17 @@ _buffer_extend(netsnmp_buf *buf, int increase)
     if (NULL == new_buf) {
         return -1;
     }
-    buf->string = new_buf;
+
+        /*
+	 * If building backwards, copy the existing contents of the buffer
+         *   across to the end of the new memory.
+         */
+    if ((buf->flags & NETSNMP_BUFFER_REVERSE) && (0 != buf->cur_len)) {
+	current_start = buf->string + (buf->max_len - buf->cur_len);
+	new_start     = new_buf + (new_buf_len - buf->cur_len);
+	memcpy(new_start, current_start, buf->cur_len);
+    }
+    buf->string  = new_buf;
     buf->max_len = new_buf_len;
     return 0;
 }
