@@ -176,6 +176,7 @@ SOFTWARE.
 #define SNMP_ROW_DESTROY		6
 
 /* row storage values */
+#define SNMP_STORAGE_NONE  0
 #define SNMP_STORAGE_OTHER		1
 #define SNMP_STORAGE_VOLATILE		2
 #define SNMP_STORAGE_NONVOLATILE	3
