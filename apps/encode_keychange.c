@@ -201,11 +201,12 @@ EM(-1);	/* */
 
 	} 
 
+#ifdef SNMP_TESTING_CODE
 	if (verbose) {
 		fprintf(VERBOSE_FILE, "EngineID:\t%s\n",
 			/* XXX = */ dump_snmpEngineID(engineid, &engineid_len));
 	}
-
+#endif
 
 
 	/*
