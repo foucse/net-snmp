@@ -59,5 +59,6 @@ void            usm_save_users_from_list(struct usmUser *user, char *token,
                                         char *type);
 void            usm_save_user(struct usmUser *user, char *token, char *type);
 struct usmUser *usm_read_user(char *line);
+void            usm_parse_config_usmUser(char *token, char *line);
 
 #endif /* SNMPUSM_H */

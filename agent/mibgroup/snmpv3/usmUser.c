@@ -36,13 +36,6 @@ void init_usmUser(void) {
                                 usm_parse_config_usmUser, NULL);
 }
 
-void usm_parse_config_usmUser(char *token, char *line) {
-  struct usmUser *uptr;
-
-  uptr = usm_read_user(line);
-  usm_add_user(uptr);
-}
-
 void shutdown_usmUser(void) {
   /* save the user base */
   usm_save_users("usmUser", "snmpd");

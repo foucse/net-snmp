@@ -666,3 +666,11 @@ struct usmUser *usm_read_user(char *line) {
                                        &len);
   return user;
 }
+
+/* snmpd.conf parsing routines */
+void usm_parse_config_usmUser(char *token, char *line) {
+  struct usmUser *uptr;
+
+  uptr = usm_read_user(line);
+  usm_add_user(uptr);
+}
