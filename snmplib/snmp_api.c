@@ -151,6 +151,7 @@ struct snmp_internal_session {
 struct request_list {
     struct request_list *next_request;
     long  request_id;	/* request id */
+    long  message_id;	/* message id */
     snmp_callback callback; /* user callback per request (NULL if unused) */
     void   *cb_data;   /* user callback data per request (NULL if unused) */
     int	    retries;	/* Number of retries */
@@ -246,6 +247,7 @@ static int dodebug = DODEBUG;
 /*MTCRITICAL_RESOURCE*/
 struct session_list	*Sessions	 = NULL;
 long			 Reqid		 = 0;
+long			 Msgid		 = 0;
 /*END MTCRITICAL_RESOURCE*/
 
 /*struct timeval Now;*/
@@ -263,6 +265,7 @@ static int snmp_dump_packet		 = 0;
 static void free_request_list __P((struct request_list *));
 void shift_array __P((u_char *, int, int));
 static void snmpv3_calc_msg_flags __P((int, int, u_char *));
+static int snmpv3_verify_msg __P((struct request_list *, struct snmp_pdu *));
 static int snmpv3_build_probe_pdu __P((struct snmp_pdu **));
 static int snmpv3_build __P((struct snmp_session *, struct snmp_pdu *, 
 			     u_char *, int *));
@@ -418,9 +421,11 @@ init_snmp_session __P((void))
 #ifdef SVR4
     srand48(tv.tv_sec ^ tv.tv_usec);
     Reqid = lrand48();
+    Msgid = lrand48();
 #else
     srandom(tv.tv_sec ^ tv.tv_usec);
     Reqid = random();
+    Msgid = random();
 #endif
 }
 
@@ -1198,6 +1203,35 @@ snmpv3_calc_msg_flags (sec_level, msg_command, flags)
   return;
 }
 
+static int
+snmpv3_verify_msg(rp, pdu)
+     struct request_list *rp;
+     struct snmp_pdu     *pdu;
+{
+  struct snmp_pdu     *rpdu;
+  
+  if (!rp || !rp->pdu || !pdu) return 0;
+  /* Reports don't have to match anything */
+  if (pdu->command == SNMP_MSG_REPORT) return 1;
+  rpdu = rp->pdu;
+  if (rp->request_id != pdu->reqid || rpdu->reqid != pdu->reqid) return 0;
+  if (rpdu->version != pdu->version) return 0;
+  if (rpdu->contextEngineIDLen != pdu->contextEngineIDLen || 
+      memcmp(rpdu->contextEngineID, pdu->contextEngineID, 
+	     pdu->contextEngineIDLen))
+    return 0;
+  if (rpdu->contextNameLen != pdu->contextNameLen || 
+      memcmp(rpdu->contextName, pdu->contextName, pdu->contextNameLen)) 
+    return 0;
+  if (rpdu->securityNameLen != pdu->securityNameLen || 
+      memcmp(rpdu->securityName, pdu->securityName, pdu->securityNameLen)) 
+    return 0;
+  if (rpdu->securityModel != pdu->securityModel) return 0;
+  if (rpdu->securityLevel != pdu->securityLevel) return 0;
+  return 1;
+}
+
+
 /* SNMPv3
  * Takes a session and a pdu and serializes the ASN PDU into the area
  * pointed to by packet.  out_length is the size of the data area available.
@@ -1265,11 +1299,10 @@ EM(-1);
     global_hdr_e = cp;
 
 
-    /* request id being used as msgID in this case
-     */
+    /* msgID */
     cp = asn_build_int(cp, out_length,
 		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		       &pdu->reqid, sizeof(pdu->reqid));
+		       &pdu->msgid, sizeof(pdu->msgid));
     if (cp == NULL) return NULL;
 
     							/* msgMaxSize */
@@ -1761,9 +1794,8 @@ EM(-1);
   }
   *length -= data - cp;  /* subtract off the length of the header */
 
-  /* msgID - storing in reqid for now - may need seperate storage
-   */
-  data = asn_parse_int(data, length, &type, &pdu->reqid, sizeof(pdu->reqid));
+  /* msgID */
+  data = asn_parse_int(data, length, &type, &pdu->msgid, sizeof(pdu->msgid));
   if (data == NULL) {
     ERROR_MSG("error parsing msgID");
     return -1;
@@ -2586,6 +2618,9 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
         break;
 #endif /* USE_V2PARTY_PROTOCOL */
     case SNMP_VERSION_3:
+      if (pdu->msgid == SNMP_DEFAULT_MSGID) { /*MTCRITICAL_RESOURCE*/
+	pdu->msgid = ++Msgid;
+      }
       if (pdu->contextEngineIDLen == 0) {
 	if (session->contextEngineIDLen != 0){
 	  pdu->contextEngineID =
@@ -2616,7 +2651,7 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	}
 	pdu->contextNameLen = session->contextNameLen;
       }
-
+      pdu->securityModel = SNMP_SEC_MODEL_USM;
       if (pdu->securityNameLen < 0) {
 	if (session->securityNameLen == 0){
 	  snmp_errno = SNMPERR_BAD_SEC_NAME;
@@ -2695,6 +2730,7 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	}
 	rp->pdu = pdu;
 	rp->request_id = pdu->reqid;
+	rp->message_id = pdu->msgid;
         rp->callback = callback;
         rp->cb_data = cb_data;
 	rp->retries = 0;
@@ -2839,53 +2875,59 @@ snmp_sess_read(sessp)
 	  usm_free_usmStateReference(pdu->securityStateRef);
 	  pdu->securityStateRef = NULL;
 	}
-	for(rp = isp->requests; rp; rp = rp->next_request){
-	    if (rp->request_id == pdu->reqid){
-		callback = sp->callback;
-		magic = sp->callback_magic;
-		if (rp->callback) callback = rp->callback;
-		if (rp->cb_data) magic = rp->cb_data;
-	        if (callback == NULL || 
-		    callback(RECEIVED_MESSAGE,sp,pdu->reqid,pdu,magic) == 1){
-		  if (pdu->command == SNMP_MSG_REPORT) {
-		    if (sp->s_snmp_errno == SNMPERR_NOT_IN_TIME_WINDOW) {
-		      /* trigger immediate retry on recoverable Reports 
-		       * (notInTimeWindow), incr_retries == TRUE to prevent
-		       * inifinite resend 		       */
-		      if (rp->retries <= sp->retries) {
-			snmp_resend_request(slp, rp, TRUE);
-		        break;
-		      }
-		    } else {
-		      if (SNMPV3_IGNORE_UNAUTH_REPORTS) break;
-		    }
-		    /* handle engineID discovery - */
-		    if (!sp->contextEngineIDLen && pdu->contextEngineIDLen) {
-		      sp->contextEngineID = malloc(pdu->contextEngineIDLen);
-		      memcpy(sp->contextEngineID, pdu->contextEngineID,
-			     pdu->contextEngineIDLen);
-		      sp->contextEngineIDLen = pdu->contextEngineIDLen;
-		    }
-		  }
-		  /* successful, so delete request */
-		  if (isp->requests == rp){
-		    /* first in list */
-		    isp->requests = rp->next_request;
-		    if (isp->requestsEnd == rp)
-		      isp->requestsEnd = NULL;
-		  } else {
-		    orp->next_request = rp->next_request;
-		    if (isp->requestsEnd == rp)
-		      isp->requestsEnd = orp;
-		  }
-		  snmp_free_pdu(rp->pdu);
-		  free((char *)rp);
-		  /* there shouldn't be any more requests with the
-		       same reqid */
+	for(rp = isp->requests; rp; orp = rp, rp = rp->next_request) {
+	  if (pdu->version == SNMP_VERSION_3) {
+	    /* msgId must match for V3 messages */
+	    if (rp->message_id != pdu->msgid) continue;
+            /* check that message fields match original,
+             * if not, no further processing */
+	    if (!snmpv3_verify_msg(rp,pdu)) break;
+	  } else {
+	    if (rp->request_id != pdu->reqid) continue;
+	  }
+	  callback = sp->callback;
+	  magic = sp->callback_magic;
+	  if (rp->callback) callback = rp->callback;
+	  if (rp->cb_data) magic = rp->cb_data;
+	  if (callback == NULL || 
+	      callback(RECEIVED_MESSAGE,sp,pdu->reqid,pdu,magic) == 1){
+	    if (pdu->command == SNMP_MSG_REPORT) {
+	      if (sp->s_snmp_errno == SNMPERR_NOT_IN_TIME_WINDOW) {
+		/* trigger immediate retry on recoverable Reports 
+		 * (notInTimeWindow), incr_retries == TRUE to prevent
+		 * inifinite resend 		       */
+		if (rp->retries <= sp->retries) {
+		  snmp_resend_request(slp, rp, TRUE);
 		  break;
 		}
+	      } else {
+		if (SNMPV3_IGNORE_UNAUTH_REPORTS) break;
+	      }
+	      /* handle engineID discovery - */
+	      if (!sp->contextEngineIDLen && pdu->contextEngineIDLen) {
+		sp->contextEngineID = malloc(pdu->contextEngineIDLen);
+		memcpy(sp->contextEngineID, pdu->contextEngineID,
+		       pdu->contextEngineIDLen);
+		sp->contextEngineIDLen = pdu->contextEngineIDLen;
+	      }
 	    }
-	    orp = rp;
+	    /* successful, so delete request */
+	    if (isp->requests == rp){
+	      /* first in list */
+	      isp->requests = rp->next_request;
+	      if (isp->requestsEnd == rp)
+		isp->requestsEnd = NULL;
+	    } else {
+	      orp->next_request = rp->next_request;
+	      if (isp->requestsEnd == rp)
+		isp->requestsEnd = orp;
+	    }
+	    snmp_free_pdu(rp->pdu);
+	    free((char *)rp);
+	    /* there shouldn't be any more requests with the
+	       same reqid */
+	    break;
+	  }
 	}
     } else if (pdu->command == SNMP_MSG_GET
 	       || pdu->command == SNMP_MSG_GETNEXT
@@ -3057,7 +3099,9 @@ snmp_resend_request(struct session_list *slp, struct request_list *rp,
   sp = slp->session; isp = slp->internal;
 
   if (incr_retries) rp->retries++;
-
+  if (rp->message_id) {
+    rp->pdu->msgid = rp->message_id = ++Msgid; /* MTCRITICAL_RESOURCE */
+  }
   /* retransmit this pdu */
   if (snmp_build(sp, rp->pdu, packet, &length) < 0){
     /* this should never happen */

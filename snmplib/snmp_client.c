@@ -174,7 +174,7 @@ snmp_synch_input(op, session, reqid, pdu, magic)
     struct synch_state *state = (struct synch_state *)magic;
     int rpt_type;
 
-    if (reqid != state->reqid)
+    if (reqid != state->reqid && pdu->command != SNMP_MSG_REPORT)
 	return 0;
 
     state->waiting = 0;
