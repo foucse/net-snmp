@@ -10,6 +10,7 @@ OBJS =  multiplexer.o \
 	old_api.o \
 	serialize.o \
 	table_iterator.o \
+	table_data.o \
 	table.o
 
 LOBJS = multiplexer.lo \
@@ -19,6 +20,7 @@ LOBJS = multiplexer.lo \
 	old_api.lo \
 	serialize.lo \
 	table_iterator.lo \
+	table_data.lo \
 	table.lo
 
 SRCS =  multiplexer.c \
@@ -28,6 +30,7 @@ SRCS =  multiplexer.c \
 	old_api.c \
 	serialize.c \
 	table_iterator.c \
+	table_data.c \
 	table.c
 
 all: libhelpers.$(LIB_EXTENSION)$(LIB_VERSION)
