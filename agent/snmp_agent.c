@@ -118,14 +118,15 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     struct partyEntry *tmp;
     struct snmp_pdu *pdu;
     u_char          v3data[SNMP_MAX_LEN];
+    u_char          *cp;
     long            version;
     
     len = length;
-    v3data = asn_parse_header(data, &len, &type);
+    cp = asn_parse_header(data, &len, &type);
 
     pi->source.sin_addr.s_addr = sourceip;
     if (type == (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
-        asn_parse_int(v3data, &len, &type, &version, sizeof(version));
+        asn_parse_int(cp, &len, &type, &version, sizeof(version));
         if (version == SNMP_VERSION_3) {
           pdu = snmp_pdu_create(SNMP_MSG_GETNEXT);
           snmpv3_parse(pdu, data, &length, &data);
