@@ -65,6 +65,7 @@ SOFTWARE.
 #include "snmp_vars.h"
 #include "snmp_client.h"
 #include "snmpv3.h"
+#include "lcd_time.h"
 #include "snmpusm.h"
 #if USING_MIBII_SNMP_MIB_MODULE
 #include "mibgroup/mibII/snmp_mib.h"
@@ -108,38 +109,6 @@ static void dump_var (var_name, var_name_len, statType, statP, statLen)
     fprintf (stdout, "    >> %s\n", buf);
 }
 
-int
-snmp_agent_make_report(u_char *out_data, int *out_length,
-                       struct snmp_pdu *pdu,
-                       int error, oid *err_var, int err_var_len,
-                       u_char *engineID, int engineIDLen) {
-
-  static long ltmp;
-  char buf[SNMP_MAXBUF];
-  
-  /* unknown incoming security engineID, return ours and a varbind */
-  /* free the current varbind */
-  snmp_free_varbind(pdu->variables);
-  pdu->variables = NULL;
-  pdu->contextEngineID = engineID;
-  pdu->contextEngineIDLen = engineIDLen;
-  pdu->command = SNMP_MSG_REPORT;
-  pdu->errstat = 0;
-  pdu->errindex = 0;
-  pdu->contextName = strdup("");
-  pdu->contextNameLen = strlen(pdu->contextName);
-  /* find the unknown engineID counter */
-  ltmp = snmp_get_statistic(error);
-  /* return  the unknown engineID counter */
-  snmp_pdu_add_variable(pdu, err_var, err_var_len,
-                        ASN_COUNTER, (u_char *) &ltmp, sizeof(ltmp));
-  snmpv3_packet_build(pdu, out_data, out_length, NULL, 0);
-  sprint_objid(buf, err_var, err_var_len);
-  DEBUGP("sending report with:\n  %s = %d\n", buf, ltmp);
-  snmp_free_pdu(pdu);
-  return 1;
-}
-
 
 int
 snmp_agent_parse(data, length, out_data, out_length, sourceip)
@@ -173,7 +142,6 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     static oid      wrongDigest[]          = {1,3,6,1,6,3,12,1,1,5};
     static oid      decryptionError[]      = {1,3,6,1,6,3,12,1,1,6};
 #define ERROR_STAT_LENGTH 10
-    static long     ltmp;
     struct variable_list *vp, *ovp;
     int ret_err;
     
@@ -187,8 +155,6 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
         if (version == SNMP_VERSION_3) {
           pdu = snmp_pdu_create(SNMP_MSG_RESPONSE);
           engineID = snmpv3_generate_engineID(&engineIDLen); /* XXX If NULL? */
-          set_enginetime(engineID, engineIDLen, snmpv3_local_snmpEngineBoots(),
-                         snmpv3_local_snmpEngineTime());
           if (snmpv3_parse(pdu, data, &length, &data) == -1) {
             ret_err = snmp_get_errno();
             DEBUGP("parse failed with: %d: %s\n", ret_err,
@@ -208,37 +174,37 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
           if (ret_err) {
             switch(ret_err) {
               case SNMP_ERR_UNSUPPORTEDSECURITYLEVEL:
-                return snmp_agent_make_report(out_data, out_length, pdu,
+                return snmpv3_make_report(out_data, out_length, pdu,
                                               STAT_USMSTATSUNSUPPORTEDSECLEVELS,
                                               unknownSecurityLevel,
                                               ERROR_STAT_LENGTH,
                                               engineID, engineIDLen);
               case SNMP_ERR_UNKNOWNENGINEID:
-                return snmp_agent_make_report(out_data, out_length, pdu,
+                return snmpv3_make_report(out_data, out_length, pdu,
                                               STAT_USMSTATSUNKNOWNENGINEIDS,
                                               unknownEngineID,
                                               ERROR_STAT_LENGTH,
                                               engineID, engineIDLen);
               case SNMP_ERR_NOTINTIMEWINDOW:
-                return snmp_agent_make_report(out_data, out_length, pdu,
+                return snmpv3_make_report(out_data, out_length, pdu,
                                               STAT_USMSTATSNOTINTIMEWINDOWS,
                                               notInTimeWindow,
                                               ERROR_STAT_LENGTH,
                                               engineID, engineIDLen);
               case SNMP_ERR_UNKNOWNSECURITYNAME:
-                return snmp_agent_make_report(out_data, out_length, pdu,
+                return snmpv3_make_report(out_data, out_length, pdu,
                                               STAT_USMSTATSUNKNOWNUSERNAMES,
                                               unknownUserName,
                                               ERROR_STAT_LENGTH,
                                               engineID, engineIDLen);
               case SNMP_ERR_AUTHENTICATIONFAILURE:
-                return snmp_agent_make_report(out_data, out_length, pdu,
+                return snmpv3_make_report(out_data, out_length, pdu,
                                               STAT_USMSTATSWRONGDIGESTS,
                                               wrongDigest,
                                               ERROR_STAT_LENGTH,
                                               engineID, engineIDLen);
               case SNMP_ERR_DECRYPTIONERROR:
-                return snmp_agent_make_report(out_data, out_length, pdu,
+                return snmpv3_make_report(out_data, out_length, pdu,
                                               STAT_USMSTATSDECRYPTIONERRORS,
                                               decryptionError,
                                               ERROR_STAT_LENGTH,

@@ -531,7 +531,8 @@ main(argc, argv)
 	int             dont_fork = 0;
 	char            logfile[300], file[512];
 	char           *cptr, **argvptr;
-
+	u_char          *engineID;
+	int             engineIDLen;
         struct usmUser *user;
 
 	logfile[0]		= 0;
@@ -699,6 +700,12 @@ main(argc, argv)
 	sprintf(file, "%s/snmpd.persistent.conf", PERSISTENTDIR);
 	read_config_with_type(file, "snmpd");
 #endif
+
+	engineID = snmpv3_generate_engineID(&engineIDLen);
+	set_enginetime(engineID, engineIDLen, 
+		       snmpv3_local_snmpEngineBoots(), 
+		       snmpv3_local_snmpEngineTime(),
+		       TRUE);
 
 	/* Open ports.
 	 */
