@@ -5,10 +5,6 @@
 #ifndef _SCAPI_H
 #define _SCAPI_H
 
-#include "all_system.h"
-#include "all_general_local.h"
-
-
 /* 
  * Authentication transforms and bitlengths.
  */

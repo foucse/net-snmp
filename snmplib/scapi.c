@@ -2,6 +2,9 @@
  * scapi.c
  */
 
+#include "all_system.h"
+#include "all_general_local.h"
+
 #include "scapi.h"
 
 
