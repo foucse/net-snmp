@@ -106,3 +106,10 @@
         symbolic link to /etc/passwd...), and abort operations for files
         set with improper permission bits.
 
+- dreeder/Oct 12 1998
+	Check returns on malloc's/strdup's; zero freshly malloc'd bytes where
+	appropriate; be sure to zero out sensitive bytes before free'ing.
+
+- dreeder/Oct 12 1998
+	Add time stamps to log files.
+
