@@ -28,8 +28,9 @@
 #define SPRINT_MAX_LEN 512
 #endif
 
-typedef int oid;
-struct variable_list;
+#include <ucd/ucd_api.h>
+
+#include "default_store.h"
 
 	/*
 	 * Defined in 'mib_api(3)'
@@ -128,106 +129,15 @@ int get_module_node (char *name, char *module, oid *objid, int *objidlen)
 }
 
 
-struct enum_list;
-void sprint_by_type(char *buf,
-	       struct variable_list *var,
-	       struct enum_list *enums,
-	       const char *hint,
-	       const char *units);
-char *sprint_value (char *buf, oid *objid, int objidlen, struct variable_list *var)
-{
-    sprint_by_type(buf, var, NULL, NULL, NULL );
-    return buf;
-}
-void fprint_value (FILE *fp, oid *objid, int objidlen, struct variable_list *var)
-{
-    char buf[SPRINT_MAX_LEN];
-    memset( buf, 0, SPRINT_MAX_LEN );
-    sprint_value(buf, objid, objidlen, var);
-    fprintf(fp, "%s\n", buf);
-}
-void print_value (oid *objid, int objidlen, struct variable_list *var)
-{
-    fprint_value( stdout, objid, objidlen, var );
-}
 
-char *sprint_objid (char *buf, oid *objid, int objidlen)
-{
-    return var_sprint_oid( buf, SPRINT_MAX_LEN,
-			var_create_oid_value((u_long*)objid, objidlen));
-}
-int
-sprint_realloc_objid(u_char **buf, size_t *buf_len,
-		     size_t *out_len, int allow_realloc, 
-		     oid *objid, size_t objidlen)
-{
-    char *cp;
-
-    cp = var_sprint_oid( *buf, buf_len,
-			var_create_oid_value((u_long*)objid, objidlen));
-    if ( !cp ) {
-	return 0;
-    }
-}
-
-void fprint_objid (FILE *fp, oid *objid, int objidlen)
-{
-    char buf[SPRINT_MAX_LEN];
-    memset( buf, 0, SPRINT_MAX_LEN );
-    sprint_objid(buf, objid, objidlen);
-    fprintf(fp, "%s\n", buf);
-}
-void print_objid (oid *objid, int objidlen)
-{
-    fprint_objid( stdout, objid, objidlen);
-}
-
-char *sprint_variable (char *buf, oid *objid, int objidlen, struct variable_list *var)
-{
-    char val_buf[SPRINT_MAX_LEN];
-
-    sprint_objid( buf, objid, objidlen );
-    strcat( buf, " = " );
-    memset( val_buf, 0, SPRINT_MAX_LEN );
-    sprint_value( val_buf, objid, objidlen, var );
-    strcat( buf, val_buf );
-
-    return buf;
-}
-int
-sprint_realloc_variable(u_char **buf, size_t *buf_len,
-			size_t *out_len, int allow_realloc,
-			oid *objid, size_t objidlen,
-			struct variable_list *variable)
-{
-    char *cp;
-
-		/* Yes - I know - wimp-out! */
-    cp = sprint_variable( *buf, objid, objidlen, variable );
-    if ( !cp ) {
-	return 0;
-    }
-    return 1;
-}
-
-
-void fprint_variable (FILE *fp, oid *objid, int objidlen, struct variable_list *var)
-{
-    char buf[SPRINT_MAX_LEN];
-    memset( buf, 0, SPRINT_MAX_LEN );
-    sprint_variable(buf, objid, objidlen, var);
-    fprintf(fp, "%s\n", buf);
-}
-void print_variable (oid *objid, int objidlen, struct variable_list *var)
-{
-    fprint_variable( stdout, objid, objidlen, var );
-}
-
-netsnmp_mib mib_find_by_ucd_oid( u_long *name, int len );
+netsnmp_mib mib_find_by_oid( netsnmp_oid o );
 void fprint_description (FILE *fp, oid *objid, int objidlen)
 {
     SmiNode *node;
-    node = (SmiNode*)mib_find_by_ucd_oid( (u_long*)objid, objidlen );
+    netsnmp_oid o;
+
+    o = var_create_oid_ucd( objid, objidlen );
+    node = (SmiNode*)mib_find_by_oid( o );
 
     if (( node != NULL ) &&
         ( node->description != NULL ) &&
@@ -295,14 +205,60 @@ void snmp_set_save_descriptions (int i)
 	 *    but not defined in 'mib_api(3)'
 	 */
 
-char *snmp_mib_toggle_options(char *options)		{ return NULL; }
+char *
+snmp_out_toggle_options(char *options)
+{
+    while(*options) {
+        switch(*options++) {
+        case 'n':
+            ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_PRINT_NUMERIC_OIDS);
+            break;
+        case 'e':
+            ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_PRINT_NUMERIC_ENUM);
+            break;
+        case 'b':
+            ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_DONT_BREAKDOWN_OIDS);
+            break;
+	case 'E':
+	    ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_ESCAPE_QUOTES);
+	    break;
+	case 'X':
+	    ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_EXTENDED_INDEX);
+	    break;
+	case 'q':
+	    ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_QUICK_PRINT);
+	    break;
+        case 'f':
+            ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_PRINT_FULL_OID);
+	    break;
+	case 't':
+	    ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_NUMERIC_TIMETICKS);
+	    break;
+	case 'v':
+	    ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_PRINT_BARE_VALUE);
+	    break;
+        case 's':
+	    snmp_set_suffix_only(1);
+	    break;
+        case 'S':
+	    snmp_set_suffix_only(2);
+	    break;
+	case 'T':
+	     ds_toggle_boolean(DS_LIBRARY_ID, DS_LIB_PRINT_HEX_TEXT);
+	     break;
+        default:
+	    return options-1;
+	}
+    }
+    return NULL;
+}
 void snmp_mib_toggle_options_usage(const char *lead, FILE *outf) { }
 struct tree *get_tree (oid *o, int len, struct tree *t)	{ return NULL; }
 struct tree *get_tree_head (void)			{ return NULL; }
 
 
+char *snmp_mib_toggle_options(char *o)			{return NULL; }
 char *snmp_in_toggle_options( char *o)			{return NULL; }
-char *snmp_out_toggle_options(char *o)			{return NULL; }
 void  snmp_in_toggle_options_usage( char *o, FILE *fp)	{ }
 void  snmp_out_toggle_options_usage(char *o, FILE *fp)	{ }
 oid *snmp_parse_oid (const char *name, oid *o, size_t *len )

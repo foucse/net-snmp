@@ -10,12 +10,20 @@
 
 #include <config.h>
 
+#if HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
+#if HAVE_STRING_H
 #include <string.h>
+#else
+#include <strings.h>
+#endif
 
 #include <net-snmp/var_api.h>
 #include <net-snmp/mib_api.h>
 #include <net-snmp/utils.h>
+
+#include "default_store.h"
 
 int _var_append_subids( netsnmp_oid oid, char *name, netsnmp_mib mib );
 
@@ -79,7 +87,7 @@ int var_set_oid( netsnmp_oid oid, char *name )
     *  Returns 0 if successful, -ve otherwise.
     *
     */
-int var_set_oid_value( netsnmp_oid oid, u_long *name, int len )
+int var_set_oid_value( netsnmp_oid oid, u_int *name, int len )
 {
     int i;
 
@@ -163,7 +171,7 @@ netsnmp_oid var_create_oid_name( char *name )
     *  The calling routine is responsible for freeing this memory
     *  when it is not longer required.
     */
-netsnmp_oid var_create_oid_value( u_long *name, int len )
+netsnmp_oid var_create_oid_value( u_int *name, int len )
 {
     netsnmp_oid oid;
 
@@ -176,6 +184,23 @@ netsnmp_oid var_create_oid_value( u_long *name, int len )
 	oid = NULL;
     }
     return oid;
+}
+
+
+   /**
+    *
+    *  Create a copy of an OID structure
+    *  Returns a pointer to this if successful, NULL otherwise.
+    *
+    *  The calling routine is responsible for freeing this memory
+    *  when it is not longer required.
+    */
+netsnmp_oid var_copy_oid( netsnmp_oid oid )
+{
+    if ( oid == NULL ) {
+	return NULL;
+    }
+    return var_create_oid_value( oid->name, oid->len );
 }
 
 
@@ -220,12 +245,14 @@ int var_bprint_oid( netsnmp_buf buf, netsnmp_oid oid )
 	return -1;
     }
 
-    mib = mib_find_by_oid( oid );
-    if ( mib != NULL ) {
-	ret = mib_bprint( buf, mib );
-    }
-    if ( ret == 0 ) {
-	len2 = mib->oidlen;	/* This much has been handled already */
+    if (!(ds_get_boolean(DS_LIBRARY_ID,DS_LIB_PRINT_NUMERIC_OIDS))) {
+	mib = mib_find_by_oid( oid );
+	if ( mib != NULL ) {
+	    ret = mib_bprint( buf, mib );
+	}
+	if ( ret == 0 ) {
+	    len2 = mib->oidlen;	/* This much has been handled already */
+	}
     }
 
 	/* Append any remaining subidentifiers */
