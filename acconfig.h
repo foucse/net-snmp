@@ -28,7 +28,8 @@
 /* comment the next line if you do not want SNMPv2 party-based auth. */
 #define USE_V2PARTY_PROTOCOL 1
 
-/* define if you want to compile support for both authentication and privacy support. */
+/* define if you want to compile support for both authentication and
+   privacy support. */
 #undef SCAPI_AUTHPRIV
 
 /* define if you are using the v2party MD5 code */
