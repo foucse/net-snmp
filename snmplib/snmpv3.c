@@ -259,7 +259,7 @@ get_default_secLevel(void)
  *       tricks won't work). 
  */
 int
-setup_engineID(char **eidp, char *text)
+setup_engineID(u_char **eidp, char *text)
 {
   int		  enterpriseid	= htonl(ENTERPRISE_NUMBER),
 		  len,
@@ -580,4 +580,16 @@ snmpv3_local_snmpEngineTime(void)
 
   gettimeofday(&now, NULL);
   return calculate_time_diff(&now, &snmpv3starttime)/100;
+}
+
+/* snmpv3_set_engineBootsAndTime(): this function does not exist.  Go away. */
+/*   It certainly should never be used, unless in a testing scenero,
+     which is why it was created */
+int
+snmpv3_set_engineBootsAndTime(int boots, int ttime) {
+  static struct timeval	 oldsnmpv3starttime;
+ 
+  engineBoots = boots;
+  gettimeofday(&snmpv3starttime, NULL);
+  snmpv3starttime.tv_sec -= ttime;
 }

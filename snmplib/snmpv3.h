@@ -7,7 +7,7 @@
 
 #define MAX_ENGINEID_LENGTH 128
 
-int    setup_engineID(char **eidp, char *text);
+int     setup_engineID(u_char **eidp, char *text);
 void    engineID_conf(char *word, char *cptr);
 void    engineBoots_conf(char *, char *);
 void    snmpv3_authtype_conf(char *word, char *cptr);
@@ -25,5 +25,6 @@ oid    *get_default_authtype(int *);
 oid    *get_default_privtype(int *);
 char   *get_default_authpass(void);
 char   *get_default_privpass(void);
+int     snmpv3_set_engineBootsAndTime(int boots, int ttime);
 
 #endif /* SNMPV3_H */
