@@ -36,11 +36,35 @@ SRCS =  multiplexer.c \
 	table_dataset.c \
 	table.c
 
-all: libhelpers.$(LIB_EXTENSION)$(LIB_VERSION)
+INSTALLHEADERS=instance.h \
+        multiplexer.h \
+        null.h \
+        old_api.h \
+        read_only.h \
+        serialize.h \
+        set_helper.h \
+        table_data.h \
+        table_dataset.h \
+        table.h \
+        table_iterator.h
+
+LIBTARG=libhelpers.$(LIB_EXTENSION)$(LIB_VERSION)
+
+all: $(LIBTARG)
 
 libhelpers.$(LIB_EXTENSION)$(LIB_VERSION):    ${LOBJS}
 	$(LIB_LD_CMD) libhelpers.$(LIB_EXTENSION)$(LIB_VERSION) ${LOBJS}  $(LIB_LD_LIBS)
 	$(RANLIB) libhelpers.$(LIB_EXTENSION)$(LIB_VERSION)
+
+install: installdirs
+	@$(INSTALL) $(INSTALLHEADERS) $(includedir) 
+	@for i in $(INSTALLHEADERS) ; do echo "install:  installed $$i in $(includedir)" ; done
+	@$(INSTALL) $(LIBTARG) $(libdir)
+	@for i in $(LIBTARG) ; do $(RANLIB) $(libdir)/$$i ; echo "install:  installed $$i in $(libdir)" ; done
+	$(LIB_LDCONFIG_CMD)
+
+installdirs:
+	@$(SHELL) $(top_srcdir)/mkinstalldirs $(snmplibdir) $(includedir)
 
 clean:
 	rm -f ${LOBJS} ${OBJS}
@@ -55,6 +79,7 @@ nosysdepend:
 
 makefileindepend: nosysdepend
 	perl $(top_srcdir)/makefileindepend.pl
+
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
