@@ -448,7 +448,7 @@ void read_config_print_usage(char *lead) {
   struct config_line *ltmp;
 
   if (lead == NULL)
-    lead == nothing;
+    lead = nothing;
 
   for(ctmp = config_files; ctmp != NULL; ctmp = ctmp->next) {
     fprintf(stderr, "%sIn %s.conf and %s.local.conf:\n", lead, ctmp->fileHeader,
