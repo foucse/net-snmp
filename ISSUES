@@ -52,3 +52,7 @@
     When cloning, what do we do when a malloc fails in mid stream?  Do 
     we need to revert all the back to the pre-attempt version of the
     user?  Probably, and this needs to be fixed in snmpusm.c.
+
++ hardaker/Sep 23
+    usmUser.c: check all user->statusUserStorageType before modifying
+    a user that can't be saved later.
