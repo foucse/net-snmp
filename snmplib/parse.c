@@ -226,6 +226,10 @@ struct objgroup {
 #define LEFTSQBRACK	95
 #define RIGHTSQBRACK	96
 #define IMPLICIT    97
+#define APPSYNTAX	(98 | SYNTAX_MASK)
+#define OBJSYNTAX	(99 | SYNTAX_MASK)
+#define SIMPLESYNTAX	(100 | SYNTAX_MASK)
+/* Beware of reaching SYNTAX_MASK (0x80) */
 
 struct tok {
     const char *name;                 /* token name */
@@ -323,6 +327,9 @@ static struct tok tokens[] = {
     { "GROUP", sizeof("GROUP")-1, GROUP },
     { "CHOICE", sizeof("CHOICE")-1, CHOICE },
     { "IMPLICIT", sizeof("IMPLICIT")-1, IMPLICIT },
+    { "ObjectSyntax", sizeof("ObjectSyntax")-1, OBJSYNTAX },
+    { "SimpleSyntax", sizeof("SimpleSyntax")-1, SIMPLESYNTAX },
+    { "ApplicationSyntax", sizeof("ApplicationSyntax")-1, APPSYNTAX },
     { NULL }
 };
 
