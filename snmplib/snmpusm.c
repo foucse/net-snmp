@@ -21,19 +21,99 @@
 #include "snmp_api.h"
 #include "snmpv3.h"
 #include "snmp-tc.h"
-#include "snmpusm.h"
 #include "system.h"
 #include "read_config.h"
+#include "snmpusm.h"
 
 /* misc protocol oids */
 static oid usmNoAuthProtocol[]      = { 1,3,6,1,6,3,10,1,1,1 };
 static oid usmNoPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,1 };
 static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
 static oid usmDESPrivProtocol[]     = { 1,3,6,1,6,3,10,1,2,2 };
-  
+
+int
+generateRequestMsg (msgProcModel, globalData, maxMsgSize, secModel,
+		    secEngineID, secEngineIDLen, secName, secNameLen,
+		    secLevel, scopedPdu, scopedPduLen,
+		    secParams, secParamsLen, msg, msgLen)
+     int msgProcModel;               /* not used */
+     struct global_data *globalData; /* not used */
+     int maxMsgSize;                 /* not used */
+     int secModel;                   /* not used */
+     u_char *secEngineID;            /* IN - pointer snmpEngineID */
+     int secEngineIDLen;             /* IN - snmpEngineID length */
+     u_char *secName;                /* IN - pointer to securityName */
+     int secNameLen;                 /* IN - securityName length */
+     int secLevel;                   /* IN - authNoPriv, authPriv etc. */
+     u_char *scopedPdu;              /* IN - pointer to scopedPdu */
+     int scopedPduLen;               /* IN - scopedPdu length */
+     u_char *secParams;              /* OUT - BER encoded securityParameters */
+                                     /* NOTE: memory provided by caller */
+     int *secParamsLen;              /* IN/OUT - len available, len returned */
+     u_char *msg;                    /* OUT - auth/encrypted data */
+                                     /* NOTE: memory provided by caller */
+     int *msgLen;                    /* IN/OUT - len available, len returned */
+{
+  if (secParamsLen) *secParamsLen = 0;
+  if (msgLen) *msgLen = 0;
+  return 0;
+}
+
+int
+processIncomingMsg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
+		    msg, msgLen, secEngineID, secEngineIDLen, secName,
+		    secNameLen, scopedPdu, scopedPduLen, maxSizeResponse,
+		    secStateRef)
+     int msgProcModel;               /* not used */
+     int maxMsgSize;                 /* not used */
+     u_char *secParams;              /* IN - BER encoded securityParameters */
+     int secModel;                   /* not used */
+     int secLevel;                   /* IN - authNoPriv, authPriv etc. */
+     u_char *msg;                    /* IN - auth/encrypted data */
+     int msgLen;                     /* IN - msg length */
+     u_char *secEngineID;            /* OUT - pointer snmpEngineID */
+     int *secEngineIDLen;            /* IN/OUT - len available, len returned */
+                                     /* NOTE: memory provided by caller */
+     u_char *secName;                /* OUT - pointer to securityName */
+     int *secNameLen;                 /* IN/OUT - len available, len returned */
+     u_char *scopedPdu;              /* OUT - pointer to plaintext scopedPdu */
+     int *scopedPduLen;              /* IN/OUT - len available, len returned */
+     int *maxSizeResponse;           /* OUT - max size of Response PDU */
+     void **secStateRef;             /* OUT - ref to security state */
+{
+  return 0;
+}
+
+int
+generateResponseMsg (msgProcModel, globalData, maxMsgSize, secModel,
+		    secEngineID, secEngineIDLen, secName, secNameLen,
+		    secLevel, scopedPdu, scopedPduLen, secStateRef,
+		    secParams, secParamsLen, msg, msgLen)
+     int msgProcModel;               /* not used */
+     struct global_data *globalData; /* not used */
+     int maxMsgSize;                 /* not used */
+     int secModel;                   /* not used */
+     u_char *secEngineID;            /* IN - pointer snmpEngineID */
+     int secEngineIDLen;             /* IN - snmpEngineID length */
+     u_char *secName;                /* IN - pointer to securityName */
+     int secNameLen;                 /* IN - securityName length */
+     int secLevel;                   /* IN - authNoPriv, authPriv etc. */
+     u_char *scopedPdu;              /* IN - pointer to scopedPdu */
+     int scopedPduLen;               /* IN - scopedPdu length */
+     void *secStateRef;              /* IN - ref to security state */
+     u_char *secParams;              /* OUT - BER encoded securityParameters */
+                                     /* NOTE: memory provided by caller */
+     int *secParamsLen;              /* IN/OUT - len available, len returned */
+     u_char *msg;                    /* OUT - auth/encrypted data */
+                                     /* NOTE: memory provided by caller */
+     int *msgLen;                    /* IN/OUT - len available, len returned */
+{
+  return 0;
+}
+
 /* usm_get_user(): Returns a user from userList based on the engineID,
    engineIDLen and name of the requested user. */
-   
+
 struct usmUser *usm_get_user(char *engineID, int engineIDLen, char *name,
                          struct usmUser *userList) {
   struct usmUser *ptr;
@@ -70,7 +150,7 @@ struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList) {
     if (nptr->engineIDLen == user->engineIDLen &&
         memcmp(nptr->engineID, user->engineID, user->engineIDLen) > 0)
       break;
-    
+
     if (nptr->engineIDLen == user->engineIDLen &&
         memcmp(nptr->engineID, user->engineID, user->engineIDLen) == 0 &&
         strlen(nptr->name) > strlen(user->name))
@@ -97,7 +177,7 @@ struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList) {
   /* change the prev's next pointer */
   if (user->prev)
     user->prev->next = user;
-  
+
   /* rewind to the head of the list and return it (since the new head
      could be us, we need to notify the above routine who the head now is. */
   for(pptr = user; pptr->prev != NULL; pptr = pptr->prev);
@@ -160,7 +240,7 @@ struct usmUser *usm_free_user(struct usmUser *user) {
   if (user->prev != NULL) { /* ack, this shouldn't happen */
     user->prev->next = user->next;
   }
-  if (user->next != NULL) { 
+  if (user->next != NULL) {
     user->next->prev = user->prev;
     if (user->prev != NULL) /* ack this is really bad, because it means
                               we'll loose the head of some structure tree */
@@ -180,12 +260,12 @@ struct usmUser *usm_cloneFrom_user(struct usmUser *from, struct usmUser *to) {
     to->authProtocolLen = from->authProtocolLen;
   else
     to->authProtocolLen = 0;
-  
+
 
   /* copy the authKey */
   if (to->authKey)
     free(to->authKey);
-  
+
   if (from->authKeyLen > 0 &&
       (to->authKey = (char *) malloc(sizeof(char) * from->authKeyLen))
       != NULL) {
@@ -195,8 +275,8 @@ struct usmUser *usm_cloneFrom_user(struct usmUser *from, struct usmUser *to) {
     to->authKey = NULL;
     to->authKeyLen = 0;
   }
-    
-  
+
+
   /* copy the privProtocol oid row pointer */
   if (to->privProtocol != NULL)
     free(to->privProtocol);
@@ -210,7 +290,7 @@ struct usmUser *usm_cloneFrom_user(struct usmUser *from, struct usmUser *to) {
   /* copy the privKey */
   if (to->privKey)
     free(to->privKey);
-  
+
   if (from->privKeyLen > 0 &&
       (to->privKey = (char *) malloc(sizeof(char) * from->privKeyLen))
       != NULL) {
@@ -232,7 +312,7 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
   if (newUser == NULL)
     return NULL;
   memset(newUser, 0, sizeof(struct usmUser));  /* initialize everything to 0 */
-  
+
 /* leave everything initialized to devault values if they didn't give
    us a user to clone from */
   if (from == NULL) {
@@ -251,7 +331,7 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
     newUser->userStorageType = ST_NONVOLATILE;
     return newUser;
   }
-  
+
   /* copy the engineID & it's length */
   if (from->engineIDLen > 0) {
     if ((newUser->engineID = (char *) malloc(from->engineIDLen*sizeof(char)))
@@ -260,7 +340,7 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
     newUser->engineIDLen = from->engineIDLen;
     memcpy(newUser->engineID, from->engineID, from->engineIDLen*sizeof(char));
   }
-  
+
   /* copy the name of the user */
   if (from->name != NULL)
     if ((newUser->name = strdup(from->name)) == NULL)
@@ -295,7 +375,7 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
         == NULL)
       return usm_free_user(newUser);
   }
-  
+
   /* copy the privProtocol oid row pointer */
   if (from->privProtocolLen > 0) {
     if ((newUser->privProtocol =
@@ -304,7 +384,7 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
     memcpy(newUser->privProtocol, from->privProtocol,
            sizeof(oid)*from->privProtocolLen);
   }
-  
+
   /* copy the privKey */
   if (from->privKeyLen > 0) {
     if ((newUser->privKey = (char *) malloc(sizeof(char) * from->privKeyLen))
@@ -361,10 +441,10 @@ struct usmUser *usm_create_initial_user(void) {
   newUser->authProtocolLen = sizeof(usmHMACMD5AuthProtocol)/sizeof(oid);
   memcpy(newUser->authProtocol, usmHMACMD5AuthProtocol,
          sizeof(usmHMACMD5AuthProtocol));
-  
+
   newUser->userStatus = RS_ACTIVE;
   newUser->userStorageType = ST_READONLY;
-  
+
   return newUser;
 }
 
@@ -384,7 +464,7 @@ void usm_save_user(struct usmUser *user, char *token, char *type) {
   int i, tmp;
 
   memset(line, 0, sizeof(line));
-  
+
   sprintf(line, "%s %d %d ", token, user->userStatus, user->userStorageType);
   cptr = &line[strlen(line)]; /* the NULL */
   cptr = read_config_save_octet_string(cptr, user->engineID, user->engineIDLen);

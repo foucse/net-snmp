@@ -27,6 +27,20 @@ struct usmUser {
    struct usmUser *prev;
 };
 
+struct global_data { /* place holder - not used by USM */
+  int msgID; 
+};
+
+int generateRequestMsg __P((int, struct global_data *, int, int, u_char *, int,
+			    u_char *, int, int, u_char *, int, u_char *, int *,
+			    u_char *, int *));
+int processIncomingMsg __P((int, int, u_char *, int, int, u_char *, int,
+			    u_char *, int *, u_char *, int *, u_char *, int *,
+			    int *, void **));
+int generateResponseMsg __P((int, struct global_data *, int, int, u_char *, int,
+			     u_char *, int, int, u_char *, int, void *,
+			     u_char *, int *, u_char *, int *));
+
 /* Note: Any changes made to this structure need to be reflected in
    the following functions: */
 

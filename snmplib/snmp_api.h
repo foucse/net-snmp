@@ -42,6 +42,14 @@ struct snmp_pdu {
     int	    version;
 
     snmp_ipaddr  address;	/* Address of peer */
+    u_char  *contextEngineID;	/* authoritative snmpEngineID */
+    int	    contextEngineIDLen;  /* Length of contextEngineID */
+    u_char  *contextName;	/* authoritative contextName */
+    int	    contextNameLen;  /* Length of contextName */
+    u_char  *securityName;	/* on behalf of this principal */
+    int	    securityNameLen;  /* Length of securityName. */
+    int	    securityModel; 
+    int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
     oid	    *srcParty;
     int	    srcPartyLen;
     oid	    *dstParty;
@@ -72,6 +80,14 @@ struct snmp_pdu {
 struct snmp_session {
     u_char  *community;	/* community for outgoing requests. */
     int	    community_len;  /* Length of community name. */
+    u_char  *contextEngineID;	/* authoritative snmpEngineID */
+    int	    contextEngineIDLen;  /* Length of contextEngineID */
+    u_char  *contextName;	/* authoritative contextName */
+    int	    contextNameLen;  /* Length of contextName */
+    u_char  *securityName;	/* on behalf of this principal */
+    int	    securityNameLen;  /* Length of securityName. */
+    int	    securityModel; 
+    int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
     int	    retries;	/* Number of retries before timeout. */
     long    timeout;    /* Number of uS until first timeout, then exponential backoff */
     char    *peername;	/* Domain name or dotted IP address of default peer */
@@ -112,7 +128,8 @@ typedef int (*snmp_callback) __P((int, struct snmp_session *, int, struct snmp_p
 #define SNMP_DEFAULT_ENTERPRISE_LENGTH	0
 #define SNMP_DEFAULT_TIME	    0
 #define SNMP_DEFAULT_VERSION	    -1
-
+#define SNMP_MAX_MSG_SIZE           1200 /* this is provisional */
+#define SNMP_SEC_PARAM_BUF_SIZE     256
 extern char *snmp_api_errstring __P((int));
 extern void snmp_perror __P((char *));
 extern void snmp_set_detail __P((char *));
@@ -338,6 +355,7 @@ void snmp_set_do_debugging __P((int));
 int snmp_get_do_debugging __P((void));
 int compare __P((oid *, int, oid *, int));
 void init_snmp __P((char *));
+u_char * snmp_pdu_build __P((struct snmp_pdu *, u_char *, int *));
 void snmp_pdu_add_variable __P((struct snmp_pdu *, oid *, int, u_char, u_char *, int));
 int hex_to_binary __P((u_char *, u_char *));
 int ascii_to_binary __P((u_char *, u_char *));
