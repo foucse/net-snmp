@@ -540,9 +540,12 @@ usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int priv_key_length,
               u_char *salt, int *salt_length)
 {
 	int index;
-	int boots 		= snmpv3_local_snmpEngineBoots();
 	int propersize_salt     = BYTESIZE(USM_MAX_SALT_LENGTH);
 	int propersize_keyhash  = 2 * BYTESIZE(USM_MAX_SALT_LENGTH); /* FIX? */
+
+        /* the following two values should be encoded in network byte order */
+	int net_boots 		= htonl(snmpv3_local_snmpEngineBoots());
+        int net_salt_int	= htonl(salt_integer);
 
 EM(-1);
 
@@ -553,8 +556,8 @@ EM(-1);
              priv_key_length < propersize_keyhash || priv_key == NULL)
           return -1;
 
-	memcpy (iv, &boots, sizeof(int));
-	memcpy (&iv[sizeof(int)], &salt_integer, sizeof(int));
+	memcpy (iv, &net_boots, sizeof(int));
+	memcpy (&iv[sizeof(int)], &net_salt_int, sizeof(int));
         memcpy (salt, iv, propersize_salt);
 	salt_integer++;
 
