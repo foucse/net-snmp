@@ -34,8 +34,9 @@
 #endif
 
 #include "system.h"
-#include "snmpv3.h"
 #include "asn1.h"
+#include "snmpv3.h"
+#include "snmpusm.h"
 #include "snmp.h"
 
 static int engineBoots=0;
@@ -186,31 +187,25 @@ engineID_conf(char *word, char *cptr)
  * Initialize SNMP Crypto API (SCAPI).
  */
 void
-init_snmpv3(char *type)
-{
-	gettimeofday(&snmpv3starttime, NULL);
-	setup_engineID(NULL);
-
-
-	register_config_handler(
-		type,	"engineBoots",		engineBoots_conf,	NULL);
-	register_config_handler(
-		type,	"engineID",		engineID_conf,		NULL);
-	register_config_handler(
-		"snmp",	"defSecurityName",	snmpv3_secName_conf,	NULL);
-	register_config_handler(
-		"snmp",	"defContext",		snmpv3_context_conf,	NULL);
-	register_config_handler(
-		"snmp",	"defSecurityLevel",	snmpv3_secLevel_conf,	NULL);
-
-#if		!defined(USE_INTERNAL_MD5)
+init_snmpv3(char *type) {
+  gettimeofday(&snmpv3starttime, NULL);
+  setup_engineID(NULL);
+  register_config_handler(type,"engineBoots", engineBoots_conf, NULL);
+  register_config_handler(type,"engineID", engineID_conf, NULL);
+  register_config_handler("snmp","defSecurityName", snmpv3_secName_conf, NULL);
+  register_config_handler("snmp","defContext", snmpv3_context_conf, NULL);
+  register_config_handler("snmp","defSecurityLevel", snmpv3_secLevel_conf,
+                          NULL);
+  register_config_handler(type,"userSetAuthPass", usm_set_password, NULL);
+  register_config_handler(type,"userSetPrivPass", usm_set_password, NULL);
+  register_config_handler(type,"userSetAuthKey", usm_set_password, NULL);
+  register_config_handler(type,"userSetPrivKey", usm_set_password, NULL);
+  register_config_handler(type,"userSetAuthLocalKey", usm_set_password, NULL);
+  register_config_handler(type,"userSetPrivLocalKey", usm_set_password, NULL);
+#if		!defined(USE_INTERNAL_MD5) && defined(HAVE_LIBKMT)
 	kmt_init();
-#endif		/* !USE_INTERNAL_MD5 */
-
-}  /* end init_snmpv3() */
-
-
-
+#endif		/* !USE_INTERNAL_MD5 && defined(HAVE_LIBKMT) */
+}
 
 /*******************************************************************-o-******
  * shutdown_snmpv3
@@ -226,9 +221,9 @@ shutdown_snmpv3(char *type)
 	sprintf(line, "engineBoots %d", engineBoots);
 	read_config_store(type, line);
 
-#if		!defined(USE_INTERNAL_MD5)
+#if		!defined(USE_INTERNAL_MD5) && defined(HAVE_LIBKMT)
 	kmt_close();
-#endif		/* !USE_INTERNAL_MD5 */
+#endif		/* !USE_INTERNAL_MD5 && defined(HAVE_LIBKMT) */
 
 }  /* shutdown_snmpv3() */
 
