@@ -99,3 +99,10 @@
 
 + hardaker/Oct 06
     fix all asn_parse/build_int() to use longs. 
+
+- dreeder/Oct  7 1998
+        Check that all exec'ed or system'ed files or files opened for
+        reading/writing have file characteristics we expect (eg, not a
+        symbolic link to /etc/passwd...), and abort operations for files
+        set with improper permission bits.
+
