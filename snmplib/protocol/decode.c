@@ -263,24 +263,22 @@ decode_basic_pdu(netsnmp_buf *buf, netsnmp_pdu *p)
         return NULL;
     }
 
-/*
-    if ((NULL == decode_integer(seq, &(pdu->request)))   ||
-        (NULL == decode_integer(seq, &(pdu->errstatus))) ||
-        (NULL == decode_integer(seq, &(pdu->errindex)))) {
-        buffer_free(seq);
-        if (NULL == p) {
-            pdu_free(pdu);
-        }
-        return NULL;
-    }
- */
-
     if (NULL != pdu->varbind_list) {
         vblist_free(pdu->varbind_list);
     }
-    pdu->varbind_list = decode_vblist(seq);
-    if ((NULL == pdu->varbind_list) ||
-        (0 != seq->cur_len)) {
+
+    if (0 != seq->cur_len) {
+        pdu->varbind_list = decode_vblist(seq);
+        if (NULL == pdu->varbind_list) {
+            buffer_free(seq);
+            if (NULL == p) {
+                pdu_free(pdu);
+            }
+            return NULL;
+        }
+    }
+
+    if (0 != seq->cur_len) {
         buffer_free(seq);
         if (NULL == p) {
             pdu_free(pdu);

@@ -30,6 +30,7 @@
 #include "transport/snmp_transport.h"
 #include "session/session.h"
 #include "ucd/ucd_convert.h"
+#include "snmpv3/snmpv3.h"
 
 #include "snmpv3.h"
 #include "tools.h"
@@ -41,6 +42,7 @@ snmp_sess_select_info(void *void_sess,
 		 fd_set *fdset,
 		 struct timeval *timeout,
 		 int *block);
+
 
        /***************
         *
@@ -166,28 +168,59 @@ ucd_net_session_remove_link(struct _ucd_session_list *sess)
 }
 
 
-
        /***************
         *
         *  UCD-SNMP single-session API compatability routines
         *
         ***************/
 
-void *
-snmp_sess_open(struct snmp_session *ucd_sess)
-{
-    netsnmp_transport   *transport;
-    netsnmp_session     *net_sess;
 
-    if (NULL == ucd_sess) {
+struct _ucd_callback {
+   snmp_callback ucd_handler;
+   void         *ucd_magic;
+};
+
+int
+UcdCallbackConverter(int operation, netsnmp_session *session, int reqid, void *pdu_ptr, void *magic)
+{
+    netsnmp_pdu     *net_pdu = (netsnmp_pdu *)pdu_ptr;
+    struct _ucd_callback *cb = (struct _ucd_callback *)magic;
+    struct snmp_pdu *ucd_pdu;
+    struct snmp_session *ucd_sess;
+    int ret;
+
+    if ((NULL == cb) ||
+        (NULL == cb->ucd_handler)) {
+        return -1;	/* Don't know which UCD-style callback to call */
+    }
+
+    ucd_pdu  = ucd_revert_pdu(net_pdu);
+    ucd_sess = net_to_ucd_session(session);
+
+    ret = cb->ucd_handler(operation, ucd_sess, reqid, ucd_pdu, cb->ucd_magic);
+    free( ucd_pdu );		/* XXX ??? */
+}
+
+
+void *
+snmp_sess_add(struct snmp_session   *ucd_sess,
+                     snmp_transport *transport,
+    int (*fpre_parse) (struct snmp_session *, snmp_transport *, void *, int),
+    int (*fpost_parse) (struct snmp_session *, struct snmp_pdu *, int))
+{
+    netsnmp_session  *net_sess;
+    struct _ucd_callback *cb;
+
+    NetSnmpCallback *callback = NULL;
+    void            *cb_magic = NULL;
+
+    if ((NULL == ucd_sess) ||
+        (NULL == transport)) {
         return NULL;
     }
 
-    transport = snmp_tdomain_transport(ucd_sess->peername, ucd_sess->local_port, "udp");
     net_sess = session_new(ucd_sess->version, transport);
-
     if (NULL == net_sess) {
-        snmp_transport_free(transport);
         return NULL;
     }
 
@@ -199,8 +232,47 @@ snmp_sess_open(struct snmp_session *ucd_sess)
                                                    ucd_sess->community_len);
     }
     net_sess->v3info   = ucd_session_v3info(  ucd_sess, net_sess->v3info);
-    net_sess->userinfo = ucd_session_userinfo(ucd_sess, net_sess->v3info,
-                                                        net_sess->userinfo);
+    net_sess->sm_info  = (void*)ucd_session_userinfo(ucd_sess, net_sess->v3info,
+                                                        net_sess->sm_info);
+
+	/* XXX - need to handle {fpre,fpost}_parse hooks */
+    /*
+     *  ... and set up a callback to invoke the original UCD-style callback routine
+     */
+    if (NULL != ucd_sess->callback) {
+        cb = (struct _ucd_callback *)calloc(1, sizeof(struct _ucd_callback *));
+        if (NULL == cb) {
+            return NULL;
+        }
+        cb->ucd_handler = ucd_sess->callback;
+        cb->ucd_magic   = ucd_sess->callback_magic;
+        callback = UcdCallbackConverter;
+        cb_magic = (void *)cb;
+    }
+
+    net_sess->hooks = hooks_new(NULL, NULL, NULL, NULL, NULL, callback, cb_magic);
+    return (void*)net_sess;
+}
+
+
+void *
+snmp_sess_open(struct snmp_session *ucd_sess)
+{
+    snmp_transport   *transport;
+    netsnmp_session  *net_sess;
+
+    if (NULL == ucd_sess) {
+        return NULL;
+    }
+
+    transport = snmp_tdomain_transport(ucd_sess->peername, ucd_sess->local_port, "udp");
+    net_sess = (netsnmp_session*)snmp_sess_add(ucd_sess, transport, NULL, NULL);
+
+    if (NULL == net_sess) {
+        snmp_transport_free(transport);
+        return NULL;
+    }
+
     return (void*)net_sess;
 }
 
@@ -308,7 +380,7 @@ snmp_sess_select_info(void *void_sess,
 		 int *block)
 {
     netsnmp_session *net_sess = (netsnmp_session *)void_sess;
-    session_select(net_sess, numfds, fdset, timeout, block);
+    session_list_select(net_sess, numfds, fdset, timeout, block);
     return 1;		/* XXX - needs to return # active */
 }
 
@@ -328,16 +400,21 @@ snmp_sess_select_info(void *void_sess,
         *
         ***************/
 
+
 netsnmp_session *Sessions_head = NULL;
 netsnmp_session *Sessions_tail = NULL;
 
+
 struct snmp_session *
-snmp_open(struct snmp_session *session)
+snmp_add(struct snmp_session   *session,
+                snmp_transport *transport,
+    int (*fpre_parse) (struct snmp_session *, snmp_transport *, void *, int),
+    int (*fpost_parse) (struct snmp_session *, struct snmp_pdu *, int))
 {
     netsnmp_session     *net_sess;
     struct snmp_session *ucd_sess;
 
-    net_sess = (netsnmp_session*)snmp_sess_open(session);
+    net_sess = (netsnmp_session*)snmp_sess_add(session, transport, fpre_parse, fpost_parse);
     if (NULL == net_sess) {
         return NULL;
     }
@@ -363,6 +440,42 @@ snmp_open(struct snmp_session *session)
         Sessions_tail = net_sess;
     }
     return ucd_sess;
+}
+
+
+struct snmp_session *snmp_add_full(struct snmp_session *in_session,
+                                   struct _snmp_transport *transport,
+          int (*fpre_parse) (struct snmp_session *, struct _snmp_transport *, void *, int),
+          int (*fparse) (struct snmp_session *, struct snmp_pdu *, u_char *, size_t),
+          int (*fpost_parse) (struct snmp_session *, struct snmp_pdu *, int),
+          int (*fbuild) (struct snmp_session *, struct snmp_pdu *, u_char *, size_t *),
+          int (*frbuild)(struct snmp_session *, struct snmp_pdu *, u_char **, size_t *, size_t *),
+          int (*fcheck) (u_char *, size_t),
+          struct snmp_pdu * (*fcreate_pdu) (struct _snmp_transport *, void *, size_t))
+{
+    return snmp_add(in_session, transport, fpre_parse, fpost_parse);
+}
+
+
+struct snmp_session *
+snmp_open(struct snmp_session *session)
+{
+    struct snmp_session     *new_sess;
+           snmp_transport   *transport;
+
+    if (NULL == session) {
+        return NULL;
+    }
+
+    transport = snmp_tdomain_transport(session->peername, session->local_port, "udp");
+    new_sess  = snmp_add(session, transport, NULL, NULL);
+
+    if (NULL == new_sess) {
+        snmp_transport_free(transport);
+        return NULL;
+    }
+
+    return new_sess;
 }
 
 

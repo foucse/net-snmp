@@ -216,7 +216,7 @@ ucd_convert_v3info( struct snmp_pdu *p )
 
     info->msgID      = p->msgid;
 /*  info->msg_max_size = p->sndMsgMaxSize;  */
-/*  info->v3_flags   = p->XXX;       */
+/*  info->flags      = p->XXX;       */
     info->sec_level  = p->securityLevel;
     info->sec_model  = p->securityModel;
     info->sec_name   = ((0 < p->securityNameLen) ?
@@ -257,7 +257,7 @@ ucd_session_v3info(struct snmp_session *sess, netsnmp_v3info *v3info )
     }
 
 /*  info->msg_max_size = sess->sndMsgMaxSize;  */
-/*  info->v3_flags   = sess->XXX;       */
+/*  info->flags      = sess->XXX;       */
     info->sec_level  = sess->securityLevel;
     info->sec_model  = sess->securityModel;
 
@@ -414,6 +414,10 @@ ucd_convert_pdu( struct snmp_pdu *p )
 	}
     }
 
+    if (p->transport_data) {
+        pdu->transport_data        = p->transport_data;
+        pdu->transport_data_length = p->transport_data_length;
+    }
 
     if (p->variables) {
 	pdu->varbind_list = ucd_convert_vblist(p->variables);
@@ -615,7 +619,7 @@ ucd_revert_v3info(struct snmp_pdu *pdu, netsnmp_v3info *info)
 
     pdu->msgid           = info->msgID;
 /*  pdu->rcvMsgMaxSize   = info->msg_max_size;  */
-/*  pdu->XXX             = info->v3_flags;       */
+/*  pdu->XXX             = info->flags;       */
     pdu->securityLevel   = info->sec_level;
     pdu->securityModel   = info->sec_model;
     if ( info->sec_name ) {
@@ -688,6 +692,10 @@ ucd_revert_pdu(netsnmp_pdu *p)
     }
     if (p->sm_info) {
         ucd_revert_userinfo(pdu, (netsnmp_user*)p->sm_info);
+    }
+    if (p->transport_data) {
+        pdu->transport_data        = p->transport_data;
+        pdu->transport_data_length = p->transport_data_length;
     }
 
     if (p->varbind_list) {

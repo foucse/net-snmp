@@ -40,10 +40,12 @@ CSRCS=	snmp_client.c               snmp_api.c snmp.c 		\
 	snmp_debug.c tools.c  snmp_logging.c			\
 	snmpv3.c lcd_time.c keytools.c		                \
 	scapi.c callback.c default_store.c snmp_alarm.c		\
-	mt_support.c snmp_enum.c				\
+	mt_support.c snmp_enum.c 				\
+	data_list.c oid_array.c oid_stash.c			\
 	snprintf.c strtol.c strtoul.c				\
 	transport/snmp_transport.c @transport_src_list@         \
 	snmp_secmod.c @security_src_list@			\
+	sec_model/secmod.c sec_model/user.c			\
 	mib/mib_api.c mib/mib_conf.c				\
 	mib/mib_dir.c mib/mib_module.c mib/mib_object.c		\
 	varbind/oid.c varbind/value.c varbind/value_output.c	\
@@ -53,7 +55,7 @@ CSRCS=	snmp_client.c               snmp_api.c snmp.c 		\
 	ucd/ucd_session.c					\
 	protocol/pdu.c protocol/encode.c protocol/decode.c	\
 	snmpv3/pdu.c snmpv3/engine.c snmpv3/v3info.c		\
-	snmpv3/auth.c snmpv3/priv.c snmpv3/user.c 		\
+	snmpv3/auth.c snmpv3/priv.c 		 		\
         community/pdu.c community/cinfo.c			\
 	session/input.c session/output.c session/request.c	\
 	session/session.c session/hooks.c session/synch.c
@@ -64,10 +66,12 @@ OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	snmp_debug.o tools.o  snmp_logging.o	   	  	\
 	snmpv3.o lcd_time.o keytools.o	  	                \
 	scapi.o callback.o default_store.o snmp_alarm.o	  	\
-	mt_support.o snmp_enum.o				\
+	mt_support.o snmp_enum.o 				\
+	data_list.o oid_array.o oid_stash.o			\
 	snprintf.o strtol.o strtoul.o				\
 	transport/snmp_transport.o @transport_obj_list@         \
 	snmp_secmod.o @security_obj_list@			\
+	sec_model/secmod.o sec_model/user.o			\
 	mib/mib_api.o mib/mib_conf.o				\
 	mib/mib_dir.o mib/mib_module.o mib/mib_object.o		\
 	varbind/oid.o varbind/value.o varbind/value_output.o	\
@@ -77,7 +81,7 @@ OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	ucd/ucd_session.o					\
 	protocol/pdu.o protocol/encode.o protocol/decode.o	\
 	snmpv3/pdu.o snmpv3/engine.o snmpv3/v3info.o		\
-	snmpv3/auth.o snmpv3/priv.o snmpv3/user.o 		\
+	snmpv3/auth.o snmpv3/priv.o 				\
         community/pdu.o community/cinfo.o			\
 	session/input.o session/output.o session/request.o	\
 	session/session.o session/hooks.o session/synch.o
@@ -89,9 +93,11 @@ LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	snmpv3.lo lcd_time.lo keytools.lo	  	        \
 	scapi.lo callback.lo default_store.lo snmp_alarm.lo	\
 	mt_support.lo snmp_enum.lo				\
+	data_list.lo oid_array.lo oid_stash.lo			\
 	snprintf.lo strtol.lo strtoul.lo			\
 	transport/snmp_transport.lo @transport_lobj_list@       \
         snmp_secmod.lo @security_lobj_list@			\
+	sec_model/secmod.lo sec_model/user.lo			\
 	mib/mib_api.lo mib/mib_conf.lo				\
 	mib/mib_dir.lo mib/mib_module.lo mib/mib_object.lo	\
 	varbind/oid.lo varbind/value.lo varbind/value_output.lo	\
@@ -101,7 +107,7 @@ LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	ucd/ucd_session.lo					\
 	protocol/pdu.lo protocol/encode.lo protocol/decode.lo	\
 	snmpv3/pdu.lo snmpv3/engine.lo snmpv3/v3info.lo		\
-	snmpv3/auth.lo snmpv3/priv.lo snmpv3/user.lo 		\
+	snmpv3/auth.lo snmpv3/priv.lo 				\
         community/pdu.lo community/cinfo.lo			\
 	session/input.lo session/output.lo session/request.lo	\
 	session/session.lo session/hooks.lo session/synch.lo

@@ -33,6 +33,7 @@
 #include "snmp_debug.h"
 #include "snmp_impl.h"
 #include "snmp_logging.h"
+#include "tools.h"
 
 static int   dodebug = SNMP_ALWAYS_DEBUG;
 static int   debug_num_tokens=0;
@@ -43,6 +44,10 @@ static int   debug_print_everything=0;
 static int debugindent=0;
 #define INDENTMAX 80
 static char debugindentchars[] = "                                                                                ";
+
+/* Prototype definitions */
+void debug_config_register_tokens(const char *configtoken, char *tokens);
+void debug_config_turn_on_debugging(const char *configtoken, char *line);
 
 char *
 debug_indent(void) {
@@ -188,11 +193,58 @@ debugmsg(va_alist)
 }
 
 void
-debugmsg_oid(const char *token, oid *theoid, size_t len) {
-  char c_oid[SPRINT_MAX_LEN];
+debugmsg_oid(const char *token, oid *theoid, size_t len)
+{
+  u_char *buf = NULL;
+  size_t buf_len = 0, out_len = 0;
+
+  if (sprint_realloc_objid(&buf, &buf_len, &out_len, 1, theoid, len)) {
+    if (buf != NULL) {
+      debugmsg(token, "%s", buf);
+    }
+  } else {
+    if (buf != NULL) {	
+      debugmsg(token, "%s [TRUNCATED]", buf);
+    }
+  }
+
+  if (buf != NULL) {
+    free(buf);
+  }
+}
+
+void
+debugmsg_oidrange(const char *token, oid *theoid, size_t len,
+		  size_t var_subid, oid range_ubound)
+{
+  u_char *buf = NULL;
+  size_t buf_len = 0, out_len = 0, i = 0;
+  int rc = 0;
   
-  sprint_objid(c_oid, theoid, len);
-  debugmsg(token, c_oid);
+  if (var_subid == 0) {
+    rc = sprint_realloc_objid(&buf, &buf_len, &out_len, 1, theoid, len);
+  } else {
+    char tmpbuf[128];
+    rc = sprint_realloc_objid(&buf, &buf_len, &out_len, 1, theoid, var_subid);
+    if (rc) {
+      sprintf(tmpbuf, ".%lu--%lu", theoid[var_subid-1], range_ubound);
+      rc = snmp_strcat(&buf, &buf_len, &out_len, 1, tmpbuf);
+      if (rc) {
+	for (i = var_subid; i < len; i++) {
+	  sprintf(tmpbuf, ".%lu", theoid[i]);
+	  if (!snmp_strcat(&buf, &buf_len, &out_len, 1, tmpbuf)) {
+	    break;
+	  }
+	}
+      }
+    }
+  }
+
+  
+  if (buf != NULL) {
+    debugmsg(token, "%s%s", buf, rc?"":" [TRUNCATED]");
+    free(buf);
+  }
 }
 
 void

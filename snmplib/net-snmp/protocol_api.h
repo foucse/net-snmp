@@ -21,9 +21,9 @@
 
 	/* basic PDU-handling routines */
 
+netsnmp_pdu* pdu_parse(netsnmp_session *sess, netsnmp_buf *buf);
 netsnmp_pdu* pdu_create(int version, int command);
 netsnmp_pdu* pdu_copy(       netsnmp_pdu *pdu);
-netsnmp_pdu* pdu_parse(      netsnmp_buf *buf);
 void         pdu_free(       netsnmp_pdu *pdu);
 int          pdu_add_varbind(netsnmp_pdu *pdu, netsnmp_varbind *varbind);
 netsnmp_varbind* pdu_return_varbind(  netsnmp_pdu *pdu, int idx);

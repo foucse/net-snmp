@@ -1825,3 +1825,33 @@ snmp_get_random_access(void) {
     return ds_get_boolean(DS_LIBRARY_ID, DS_LIB_RANDOM_ACCESS);
 }
 
+/*  snmp_sess_transport: takes an opaque pointer (as returned by
+    snmp_sess_open or snmp_sess_pointer) and returns the corresponding
+    snmp_transport pointer (or NULL if the opaque pointer does not correspond
+    to an active internal session).  */
+
+snmp_transport *
+snmp_sess_transport	(void *sessp)
+{
+  struct netsnmp_session *slp = (struct netsnmp_session *)sessp;
+  if (slp == NULL) {
+    return NULL;
+  } else {
+    return slp->transport;
+  }
+}
+
+
+
+/*  snmp_sess_transport_set: set the transport pointer for the opaque
+    session pointer sp.  */
+
+void
+snmp_sess_transport_set	(void *sp, snmp_transport *t)
+{
+  struct netsnmp_session *slp = (struct netsnmp_session *)sp;
+  if (slp != NULL) {
+    slp->transport = t;
+  }
+}
+

@@ -390,7 +390,7 @@ snmp_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
     *  blah, blah, returns pointer, blah, release memory, blah blah
     */
 netsnmp_pdu*
-pdu_parse(netsnmp_buf *buf)
+pdu_parse(netsnmp_session *sess, netsnmp_buf *buf)
 {
     netsnmp_buf *seq  = NULL;
     netsnmp_pdu *pdu  = NULL;
@@ -416,10 +416,10 @@ pdu_parse(netsnmp_buf *buf)
     switch( version ) {
     case SNMP_VERSION_1:
     case SNMP_VERSION_2c:
-        pdu = community_decode_pdu(seq);
+        pdu = community_decode_pdu(sess, seq);
         break;
     case SNMP_VERSION_3:
-        pdu = snmpv3_decode_pdu(seq, wholeMsg);
+        pdu = snmpv3_decode_pdu(sess, seq, wholeMsg);
         break;
     default:
         /* UNKNOWN VERSION */
@@ -457,7 +457,7 @@ _snmp_parse(void *sess, struct snmp_session *session, struct snmp_pdu *pdu, u_ch
     buf = buffer_new(data, length, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     buf->cur_len = buf->max_len;
 
-    p = pdu_parse(buf);
+    p = pdu_parse(sess, buf);
     if (NULL == p) {
         buffer_free(buf);
         return-1;	/* XXX ??? */

@@ -258,7 +258,7 @@ community_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
     *  blah, blah, returns pointer, blah, release memory, blah blah
     */
 netsnmp_pdu*
-community_decode_pdu(netsnmp_buf *buf)
+community_decode_pdu(netsnmp_session *sess, netsnmp_buf *buf)
 {
     netsnmp_pdu *pdu = NULL;
     netsnmp_comminfo *comminfo = NULL;
@@ -289,7 +289,7 @@ community_decode_pdu(netsnmp_buf *buf)
     *  blah, blah, returns pointer, blah, release memory, blah blah
     */
 netsnmp_pdu*
-community_parse_pdu(netsnmp_buf *buf)
+community_parse_pdu(netsnmp_session *sess, netsnmp_buf *buf)
 {
     netsnmp_buf *seq  = NULL;
     netsnmp_pdu *pdu = NULL;
@@ -317,7 +317,7 @@ community_parse_pdu(netsnmp_buf *buf)
 		 *   ?? or push this into 'community_decode_pdu'
 		 *	and check for version mismatch later?
 		 */
-    pdu = community_decode_pdu(seq);
+    pdu = community_decode_pdu(sess, seq);
     if (NULL == pdu) {
         buffer_free(seq);
         return NULL;

@@ -208,8 +208,10 @@ session_select(netsnmp_session *sess,
 
     if (NULL == timeout) {
         tv = alarm_get_next_delay();	/* XXX - Or pass the structure in ??? */
+/*
     } else {
         tv = timeout;
+ */
     }
 
     /*
@@ -300,6 +302,9 @@ session_list_select(netsnmp_session *sess,
         timeout->tv_usec = tv->tv_usec;
         timeout->tv_sec  = tv->tv_sec;
     }
+if (NULL == tv) {
+*block = 1;
+}
     free(tv);
 
     return 1;	/* XXX - number of active sessions */

@@ -57,9 +57,11 @@ engine_new(char *id, int len)
 {
     netsnmp_engine *engine;
 
+/*
     if ((NULL == id) || (0 == len)) {
         return NULL;
     }
+ */
 
     /*
      * If we already know about this engineID,
@@ -291,7 +293,7 @@ engine_encode(netsnmp_buf *buf, netsnmp_engine *engine)
     *  when it is no longer required.
     */
 netsnmp_engine*
-engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e)
+engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e, int create)
 {
     netsnmp_engine *engine;
     netsnmp_buf    *id;
@@ -306,7 +308,11 @@ engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e)
     if (NULL == id) {
         return NULL;
     }
-    engine = engine_new(id->string, id->cur_len);
+    if (create) {
+        engine = engine_new(id->string, id->cur_len);
+    } else {
+        engine = engine_find(id->string, id->cur_len);
+    }
 
     return engine;
 }
@@ -321,7 +327,7 @@ engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e)
     *  when it is no longer required.
     */
 netsnmp_engine*
-engine_decode(netsnmp_buf *buf, netsnmp_engine *e)
+engine_decode(netsnmp_buf *buf, netsnmp_engine *e, int create)
 {
     netsnmp_engine *engine;
 
@@ -331,9 +337,11 @@ engine_decode(netsnmp_buf *buf, netsnmp_engine *e)
         return NULL;
     }
 
-    engine = engine_decode_ID(buf, e);
-    (void) decode_integer(buf, &(engine->boots));
-    (void) decode_integer(buf, &(engine->time));
+    engine = engine_decode_ID(buf, e, create);
+    if (engine) {
+        (void) decode_integer(buf, &(engine->boots));
+        (void) decode_integer(buf, &(engine->time));
+    }
     return engine;
 }
 

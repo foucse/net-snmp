@@ -576,6 +576,17 @@ snmp_set_var_typed_value(struct variable_list *newvar, u_char type,
     return snmp_set_var_value(newvar, val_str, val_len);
 }
 
+int
+count_varbinds( struct variable_list *var_ptr )
+{
+  int count = 0;
+
+  for (  ; var_ptr != NULL ; var_ptr = var_ptr->next_variable )
+	count++;
+
+  return count;
+}
+
 /*
  * Add some value to SNMP variable.
  * If the value is large, additional memory is allocated.

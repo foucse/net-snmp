@@ -409,11 +409,18 @@ session_process_packet(netsnmp_session   *sess,
     if (sess->hooks && sess->hooks->hook_parse) {
         pdu = sess->hooks->hook_parse(rxbuf);
     } else {
-        pdu = pdu_parse(rxbuf);
+        pdu = pdu_parse(sess, rxbuf);
     }
     if (NULL == pdu) {
         DEBUGMSGTL(("sess_process_packet", "parse fail\n"));
         return -1;
+    }
+    /*
+     * We've now got a PDU structure to save the opaque transport-data in
+     */
+    if (NULL != opaque) {
+        pdu->transport_data        = opaque;
+        pdu->transport_data_length = olength;
     }
 
     if (sess->hooks && sess->hooks->hook_post) {

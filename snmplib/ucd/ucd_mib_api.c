@@ -290,6 +290,66 @@ struct tree *find_tree_node (const char *name, int modid)
 }
 
 
+char *
+uptimeString(u_long timeticks,
+	     char *buf)
+{
+    int	centisecs, seconds, minutes, hours, days;
+
+    if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_NUMERIC_TIMETICKS)) {
+	sprintf(buf,"%lu",timeticks);
+	return buf;
+    }
+
+
+    centisecs = timeticks % 100;
+    timeticks /= 100;
+    days = timeticks / (60 * 60 * 24);
+    timeticks %= (60 * 60 * 24);
+
+    hours = timeticks / (60 * 60);
+    timeticks %= (60 * 60);
+
+    minutes = timeticks / 60;
+    seconds = timeticks % 60;
+
+    if (ds_get_boolean(DS_LIBRARY_ID, DS_LIB_QUICK_PRINT))
+	sprintf(buf, "%d:%d:%02d:%02d.%02d",
+		days, hours, minutes, seconds, centisecs);
+    else {
+	if (days == 0){
+	    sprintf(buf, "%d:%02d:%02d.%02d",
+		hours, minutes, seconds, centisecs);
+	} else if (days == 1) {
+	    sprintf(buf, "%d day, %d:%02d:%02d.%02d",
+		days, hours, minutes, seconds, centisecs);
+	} else {
+	    sprintf(buf, "%d days, %d:%02d:%02d.%02d",
+		days, hours, minutes, seconds, centisecs);
+	}
+    }
+    return buf;
+}
+/*
+ * Convert timeticks to hours, minutes, seconds string.
+ * CMU compatible does not show centiseconds.
+ */
+char *uptime_string(u_long timeticks, char *buf)
+{
+    char tbuf[64];
+    char * cp;
+    uptimeString(timeticks, tbuf);
+    cp = strrchr(tbuf, '.');
+#ifdef CMU_COMPATIBLE
+	if (cp) *cp = '\0';
+#endif
+    strcpy(buf, tbuf);
+    return buf;
+}
+
+
+
+
 #ifdef NOT_IMPLEMENTED
 	/*
 	 * Declared in 'mib.h' or 'parse.h'

@@ -96,7 +96,7 @@ typedef struct netsnmp_v3info_s {
 	/* Header Data */
     long                 msgID;
     long                 msg_max_size;
-    u_char               v3_flags;
+    u_char               flags;
     long                 sec_level;
     long                 sec_model;
     netsnmp_buf         *sec_name;

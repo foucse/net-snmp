@@ -64,6 +64,7 @@ void  var_print_varbind(                          netsnmp_varbind *varbind );
 int              vblist_add_varbind(     netsnmp_varbind *vblist, netsnmp_varbind *varbind );
 netsnmp_varbind* vblist_return_varbind(  netsnmp_varbind *vblist, int idx                  );
 netsnmp_varbind* vblist_extract_varbind( netsnmp_varbind *vblist, int idx                  );
+int              vblist_count(           netsnmp_varbind *vblist                           );
 void             vblist_free(            netsnmp_varbind *vblist                           );
 
 int   vblist_bprint( netsnmp_buf *buf,       netsnmp_varbind *vblist );

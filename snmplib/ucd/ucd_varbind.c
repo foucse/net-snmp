@@ -55,6 +55,20 @@ char *sprint_value (char *buf, oid *objid, int objidlen, struct variable_list *v
     var_free_value( val );
     return cp;
 }
+void sprint_by_type (char *buf, struct variable_list *var,
+                     struct enum_list *enums, const char *hint, const char *units)
+{
+    netsnmp_value *val;
+
+	/* XXX - enums/hint/units unused */
+    val = ucd_convert_value( var );
+    if ( val == NULL ) {
+	return;
+    }
+    (void)var_sprint_value( buf, SPRINT_MAX_LEN, val, NULL );
+    var_free_value( val );
+    return;
+}
 void fprint_value (FILE *fp, oid *objid, int objidlen, struct variable_list *var)
 {
     char buf[SPRINT_MAX_LEN];

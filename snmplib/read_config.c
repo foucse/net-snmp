@@ -612,7 +612,80 @@ read_premib_configs (void)
                       NULL);
 }
 
+/*******************************************************************-o-******
+ * set_configuration_directory
+ *
+ * Parameters:
+ *      char *dir - value of the directory
+ * Sets the configuration directory. Multiple directories can be
+ * specified, but need to be seperated by 'ENV_SEPARATOR_CHAR'.
+ */
+void set_configuration_directory(const char *dir)
+{
+    ds_set_string(DS_LIBRARY_ID, DS_LIB_CONFIGURATION_DIR, dir);
+}
 
+/*******************************************************************-o-******
+ * get_configuration_directory
+ *
+ * Parameters: -
+ * Retrieve the configuration directory or directories.
+ * (For backwards compatibility that is:
+ *       SNMPCONFPATH, SNMPSHAREPATH, SNMPLIBPATH, HOME/.snmp
+ * First check whether the value is set.
+ * If not set give it the default value.
+ * Return the value.
+ * We always retrieve it new, since we have to do it anyway if it is just set.
+ */
+const char *get_configuration_directory()
+{
+char defaultPath[SPRINT_MAX_LEN];
+char *homepath;
+
+    if (NULL == ds_get_string(DS_LIBRARY_ID, DS_LIB_CONFIGURATION_DIR)) {
+        homepath=getenv("HOME");
+        sprintf(defaultPath,"%s%c%s%c%s%s%s%s",
+              SNMPCONFPATH, ENV_SEPARATOR_CHAR,
+              SNMPSHAREPATH, ENV_SEPARATOR_CHAR, SNMPLIBPATH,
+              ((homepath == NULL) ? "" : ENV_SEPARATOR),
+              ((homepath == NULL) ? "" : homepath),
+              ((homepath == NULL) ? "" : "/.snmp"));
+        set_configuration_directory(defaultPath);
+    }
+    return(ds_get_string(DS_LIBRARY_ID, DS_LIB_CONFIGURATION_DIR));
+}
+
+/*******************************************************************-o-******
+ * set_persistent_directory
+ *
+ * Parameters:
+ *      char *dir - value of the directory
+ * Sets the configuration directory. 
+ * No multiple directories may be specified.
+ * (However, this is not checked)
+ */
+void set_persistent_directory(const char *dir)
+{
+    ds_set_string(DS_LIBRARY_ID, DS_LIB_PERSISTENT_DIR, dir);
+}
+
+/*******************************************************************-o-******
+ * get_persistent_directory
+ *
+ * Parameters: -
+ * Function will retrieve the persisten directory value.
+ * First check whether the value is set.
+ * If not set give it the default value.
+ * Return the value. 
+ * We always retrieve it new, since we have to do it anyway if it is just set.
+ */
+const char *get_persistent_directory()
+{
+    if (NULL == ds_get_string(DS_LIBRARY_ID, DS_LIB_PERSISTENT_DIR)) {
+        set_persistent_directory(PERSISTENT_DIRECTORY);
+    }
+    return(ds_get_string(DS_LIBRARY_ID, DS_LIB_PERSISTENT_DIR));
+}
 
 
 /*******************************************************************-o-******
@@ -649,7 +722,8 @@ read_config_files (int when)
 {
   int i, j;
   char configfile[300];
-  char *envconfpath, *homepath;
+  char *envconfpath;
+  const char *confpath, *perspath;
   char *cptr1, *cptr2;
   char defaultPath[SPRINT_MAX_LEN];
 
@@ -662,6 +736,9 @@ read_config_files (int when)
   if (when == PREMIB_CONFIG)
     free_config();
 
+  confpath = get_configuration_directory();
+  perspath = get_persistent_directory();
+
   /* read all config file types */
   for(;ctmp != NULL; ctmp = ctmp->next) {
 
@@ -669,14 +746,10 @@ read_config_files (int when)
 
     /* read the config files */
     if ((envconfpath = getenv("SNMPCONFPATH")) == NULL) {
-      homepath=getenv("HOME");
-      sprintf(defaultPath,"%s%c%s%c%s%s%s%s%c%s",
-	      SNMPCONFPATH, ENV_SEPARATOR_CHAR,
-              SNMPSHAREPATH, ENV_SEPARATOR_CHAR, SNMPLIBPATH,
-              ((homepath == NULL) ? "" : ENV_SEPARATOR),
-              ((homepath == NULL) ? "" : homepath),
-              ((homepath == NULL) ? "" : "/.snmp"),
-              ENV_SEPARATOR_CHAR, PERSISTENT_DIRECTORY);
+      sprintf(defaultPath,"%s%s%s",
+              ((confpath == NULL) ? "" : confpath),
+              ((perspath == NULL) ? "" : ENV_SEPARATOR),
+              ((perspath == NULL) ? "" : perspath));
       envconfpath = defaultPath;
     }
     envconfpath = strdup(envconfpath);  /* prevent actually writing in env */
@@ -697,8 +770,8 @@ read_config_files (int when)
        * then we read all the configuration files we can, starting with
        * the oldest first.
        */
-      if (strncmp(cptr2, PERSISTENT_DIRECTORY,
-                  strlen(PERSISTENT_DIRECTORY)) == 0 ||
+      if (strncmp(cptr2, perspath,
+                  strlen(perspath)) == 0 ||
           (getenv("SNMP_PERSISTENT_FILE") != NULL &&
            strncmp(cptr2, getenv("SNMP_PERSISTENT_FILE"),
                    strlen(getenv("SNMP_PERSISTENT_FILE"))) == 0)) {
@@ -792,7 +865,7 @@ read_config_store(const char *type, const char *line)
      2. configured <PERSISTENT_DIRECTORY>/<type>.conf
   */
   if ((filep = getenv("SNMP_PERSISTENT_FILE")) == NULL) {
-    sprintf(file,"%s/%s.conf",PERSISTENT_DIRECTORY,type);
+    sprintf(file,"%s/%s.conf",get_persistent_directory(),type);
     filep = file;
   }
   
@@ -855,10 +928,10 @@ snmp_save_persistent(const char *type)
   int j;
 
   DEBUGMSGTL(("snmp_save_persistent","saving %s files...\n", type));
-  sprintf(file,"%s/%s.conf", PERSISTENT_DIRECTORY, type);
+  sprintf(file,"%s/%s.conf", get_persistent_directory(), type);
   if (stat(file, &statbuf) == 0) {
     for(j=0; j <= MAX_PERSISTENT_BACKUPS; j++) {
-      sprintf(fileold,"%s/%s.%d.conf", PERSISTENT_DIRECTORY, type, j);
+      sprintf(fileold,"%s/%s.%d.conf", get_persistent_directory(), type, j);
       if (stat(fileold, &statbuf) != 0) {
         DEBUGMSGTL(("snmp_save_persistent"," saving old config file: %s -> %s.\n", file, fileold));
         if (rename(file, fileold)) {
@@ -900,10 +973,10 @@ snmp_clean_persistent(const char *type)
   int j;
 
   DEBUGMSGTL(("snmp_clean_persistent","cleaning %s files...\n", type));
-  sprintf(file,"%s/%s.conf",PERSISTENT_DIRECTORY,type);
+  sprintf(file,"%s/%s.conf",get_persistent_directory(),type);
   if (stat(file, &statbuf) == 0) {
     for(j=0; j <= MAX_PERSISTENT_BACKUPS; j++) {
-      sprintf(file,"%s/%s.%d.conf", PERSISTENT_DIRECTORY, type, j);
+      sprintf(file,"%s/%s.%d.conf", get_persistent_directory(), type, j);
       if (stat(file, &statbuf) == 0) {
         DEBUGMSGTL(("snmp_clean_persistent"," removing old config file: %s\n", file));
         unlink(file);
@@ -1136,6 +1209,7 @@ char *read_config_read_octet_string(char *readfrom, u_char **str, size_t *len) {
       }
     } else {
       readfrom = copy_nword(readfrom, (char *)*str, *len);
+      *len = strlen(*str);
     }
   }
 
@@ -1199,6 +1273,9 @@ char *read_config_read_objid(char *readfrom, oid **objid, size_t *len) {
    Returns: character pointer to the next token in the configuration line.
             NULL if none left.
             NULL if an unknown type.
+
+            dataptr is expected to match a pointer type being read
+            (int *, u_int *, char **, oid **)
 */
 char *read_config_read_data(int type, char *readfrom, void *dataptr, size_t *len) {
   int *intp;
@@ -1236,8 +1313,59 @@ char *read_config_read_data(int type, char *readfrom, void *dataptr, size_t *len
   return NULL;
 }
 
-/* read_config_read_data():
-   reads data of a given type from a token(s) on a configuration line.
+/* read_config_read_memory():
+
+   similar to read_config_read_data, but expects a generic memory
+   pointer rather than a specific type of pointer.  Len is expected to
+   be the amount of available memory.
+*/
+char *read_config_read_memory(int type, char *readfrom,
+                              char *dataptr, size_t *len) {
+  int *intp;
+  unsigned int *uintp;
+
+  if (!dataptr || !readfrom)
+      return NULL;
+  
+  switch(type) {
+    case ASN_INTEGER:
+      if (*len < sizeof(int))
+          return NULL;
+      intp = (int *) dataptr;
+      *intp = atoi(readfrom);
+      *len = sizeof(int);
+      readfrom = skip_token(readfrom);
+      return readfrom;
+      
+    case ASN_UNSIGNED:
+      if (*len < sizeof(unsigned int))
+          return NULL;
+      uintp = (unsigned int *) dataptr;
+      *uintp = strtoul(readfrom, NULL, 0);
+      *len = sizeof(unsigned int);
+      readfrom = skip_token(readfrom);
+      return readfrom;
+
+    case ASN_OCTET_STR:
+    case ASN_BIT_STR:
+    case ASN_PRIV_IMPLIED_OCTET_STR:
+      return read_config_read_octet_string(readfrom, (u_char **) &dataptr, len);
+
+    case ASN_PRIV_IMPLIED_OBJECT_ID:
+    case ASN_OBJECT_ID:
+        readfrom = read_config_read_objid(readfrom, (oid **) &dataptr, len);
+        *len *= sizeof(oid);
+        return readfrom;
+
+    default:
+      DEBUGMSGTL(("read_config_read_memory","Fail: Unknown type: %d", type));
+      return NULL;
+  }
+  return NULL;
+}
+
+/* read_config_store_data():
+   stores data of a given type to a configuration line.
 
    Returns: character pointer to the next token in the configuration line.
             NULL if none left.

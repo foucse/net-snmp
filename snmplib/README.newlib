@@ -1,0 +1,54 @@
+This directory (and in particular the subdirectories) contain the
+latest version of my attempt at re-writing the Net-SNMP library.
+
+With some minor modifications to agent and applications (mostly
+tweaking configure and Makefiles to reflect changes in the library,
+or suppressing code that use library features that haven't yet been
+handled here), the agent and all the applications (bar snmptranslate)
+now compile, and run.
+   The agent works correctly for SNMPv1 and SNMPv2c requests. It
+does *not* work for SNMPv3, due to problems with engine discovery.
+
+
+There are two major areas of functionality that are still missing.
+These are callback handling, and the new agent table helper functions.
+
+A start has been made on the callback handling - using a "conversion"
+callback to act as a link between the old and new callbacks.
+This currently only handles the basic 'snmp_callback' hook.
+  (See ucd/ucd_session.c:UcdCallbackConverter)
+A similar approach could be used for the other types of callbacks.
+
+The table helper relies on a set of new functions (build_oid, etc).
+These would need to be added to the new library MIB sub-module,
+including conversion of the results back to the UCD OID data structure
+(unless the new table handlers were converted to use the new-style instead).
+
+
+
+Given the amount of work still remaining to make this library fully
+functional, and the pressure to release the new agent code fairly soon,
+I've regretfully decided to cease work on it.
+
+  The traditional library has continued to evolve at such a rate that
+the original codebase used for this re-write is now significantly out
+of date.  There is no realistic prospect of me being able to complete
+this library within the timeframe of the v5 release, and hence include
+it as part of that distribution (which was the original goal behind
+tackling the library in the first place).
+
+  Some of the general design ideas tried here, may well be applicable
+to the existing library code.  And if anyone else feels like picking
+up where I've left off, and completing this library re-write, I'd
+be happy to assist.  But as things stand at the moment, I feel that
+any further work on developing this code would be a waste of resources
+that could be more usefully directed elsewhere.
+
+  I regret not pushing for this to be included in the main tree at an
+earlier stage, as I feel that we've missed the best chance for a clean
+re-definition of the Net-SNMP API at the most natural point.  But the
+reality of the situation (as I see it) is that any such significant
+change to the library will now have to be held over to a v6 release.
+
+Dave Shield
+January 2002

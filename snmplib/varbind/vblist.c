@@ -127,6 +127,23 @@ vblist_extract_varbind(netsnmp_varbind *vblist, int idx)
 
    /**
     *
+    *  Count how many variables are in the given varbind list.
+    */
+int
+vblist_count(netsnmp_varbind *vblist)
+{
+  int count = 0;
+  netsnmp_varbind *vb;
+
+  for (vb = vblist ; vb != NULL ; vb = vb->next)
+	count++;
+
+  return count;
+}
+
+
+   /**
+    *
     *  Free a varbind list
     *
     *  The list should not be regarded as valid

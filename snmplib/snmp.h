@@ -107,15 +107,25 @@ SOFTWARE.
 #define SNMP_MSG_SET	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x3)
 
 /* PDU types in SNMPv1 and SNMPsec */
-#define SNMP_MSG_TRAP	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x4)
+#define SNMP_MSG_TRAP	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x4) /* c4 = 196 */
 
 /* PDU types in SNMPv2p, SNMPv2c, SNMPv2u, SNMPv2*, and SNMPv3 */
-#define SNMP_MSG_GETBULK    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x5)
-#define SNMP_MSG_INFORM	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x6)
-#define SNMP_MSG_TRAP2	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x7)
+#define SNMP_MSG_GETBULK    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x5) /* c5 = 197 */
+#define SNMP_MSG_INFORM	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x6) /* c6 = 198 */
+#define SNMP_MSG_TRAP2	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x7) /* c7 = 199 */
 
 /* PDU types in SNMPv2u, SNMPv2*, and SNMPv3 */
-#define SNMP_MSG_REPORT	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x8)
+#define SNMP_MSG_REPORT	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x8) /* c8 = 200 */
+
+/* internal modes that should never be used by the protocol for the
+   pdu type. */
+#define SNMP_MSG_INTERNAL_SET_BEGIN        -1
+#define SNMP_MSG_INTERNAL_SET_RESERVE1     0 /* these should match snmp.h */
+#define SNMP_MSG_INTERNAL_SET_RESERVE2     1
+#define SNMP_MSG_INTERNAL_SET_ACTION       2
+#define SNMP_MSG_INTERNAL_SET_COMMIT       3
+#define SNMP_MSG_INTERNAL_SET_FREE         4
+#define SNMP_MSG_INTERNAL_SET_UNDO         5
 
 /* test for member of Confirmed Class i.e., reportable */
 #define SNMP_CMD_CONFIRMED(c) (c == SNMP_MSG_INFORM || c == SNMP_MSG_GETBULK ||\
@@ -123,9 +133,9 @@ SOFTWARE.
                                c == SNMP_MSG_SET)
 
 /* Exception values for SNMPv2p, SNMPv2c, SNMPv2u, SNMPv2*, and SNMPv3 */
-#define SNMP_NOSUCHOBJECT    (ASN_CONTEXT | ASN_PRIMITIVE | 0x0)
-#define SNMP_NOSUCHINSTANCE  (ASN_CONTEXT | ASN_PRIMITIVE | 0x1)
-#define SNMP_ENDOFMIBVIEW    (ASN_CONTEXT | ASN_PRIMITIVE | 0x2)
+#define SNMP_NOSUCHOBJECT    (ASN_CONTEXT | ASN_PRIMITIVE | 0x0) /* 80 = 128 */
+#define SNMP_NOSUCHINSTANCE  (ASN_CONTEXT | ASN_PRIMITIVE | 0x1) /* 81 = 129 */
+#define SNMP_ENDOFMIBVIEW    (ASN_CONTEXT | ASN_PRIMITIVE | 0x2) /* 82 = 130 */
 
 /* Error codes (the value of the field error-status in PDUs) */
 
@@ -176,6 +186,7 @@ SOFTWARE.
 #define SNMP_ROW_DESTROY		6
 
 /* row storage values */
+#define SNMP_STORAGE_NONE  0
 #define SNMP_STORAGE_OTHER		1
 #define SNMP_STORAGE_VOLATILE		2
 #define SNMP_STORAGE_NONVOLATILE	3
@@ -210,6 +221,7 @@ SOFTWARE.
 #define UCD_MSG_FLAG_FORCE_PDU_COPY          0x400
 #define UCD_MSG_FLAG_ALWAYS_IN_VIEW          0x800
 #define UCD_MSG_FLAG_PDU_TIMEOUT            0x1000
+#define UCD_MSG_FLAG_ONE_PASS_ONLY          0x2000
 
 /* view status */
 #define SNMP_VIEW_INCLUDED		1

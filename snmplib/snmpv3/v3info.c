@@ -269,6 +269,7 @@ int
 v3info_encode(netsnmp_buf *buf, netsnmp_v3info *info)
 {
     int start_len;
+    char flags;
 
     if ((NULL == buf) || (NULL == info)) {
         return -1;
@@ -279,8 +280,9 @@ v3info_encode(netsnmp_buf *buf, netsnmp_v3info *info)
 
     start_len= buf->cur_len;    /* Remember the length before we start */
 
+    flags = info->flags & 0xff;
     __B(encode_integer(buf, ASN_INTEGER,     info->sec_model))
-    __B(encode_string( buf, ASN_OCTET_STR, &(info->v3_flags), 1))
+    __B(encode_string( buf, ASN_OCTET_STR,  &flags, 1))
     __B(encode_integer(buf, ASN_INTEGER,     info->msg_max_size))
     __B(encode_integer(buf, ASN_INTEGER,     info->msgID))
     __B(encode_sequence(buf, (buf->cur_len - start_len)))
@@ -321,9 +323,9 @@ v3info_decode(netsnmp_buf *buf, netsnmp_v3info *info)
     if (NULL == decode_string( seq, &flags)) {
         goto fail;
     }
-    v3info->v3_flags = flags.string[0];
-    v3info->sec_level = ((AUTH_FLAG & v3info->v3_flags) ?
-                        ((PRIV_FLAG & v3info->v3_flags) ?
+    v3info->flags = flags.string[0];
+    v3info->sec_level = ((AUTH_FLAG & v3info->flags) ?
+                        ((PRIV_FLAG & v3info->flags) ?
                                                   NETSNMP_SEC_LEVEL_AUTHPRIV   :
                                                   NETSNMP_SEC_LEVEL_AUTHONLY ) :
                                                   NETSNMP_SEC_LEVEL_NOAUTH   );

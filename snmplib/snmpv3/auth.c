@@ -112,19 +112,15 @@ auth_oid( int protocol )
     */
 int
 auth_stamp_pre(netsnmp_buf     *buf,
-               netsnmp_v3info  *v3info,
                netsnmp_user *userinfo)
 {
     char authParams[USM_MAX_AUTHLEN];
   
-    if ((NULL == buf ) || (NULL == v3info) || (NULL == userinfo)) {
+    if ((NULL == buf ) || (NULL == userinfo)) {
         return -1;
     }
     if (!(buf->flags & NETSNMP_BUFFER_REVERSE)) {
         return -1;	/* XXX - or set the flag ? */
-    }
-    if (!(v3info->v3_flags & AUTH_FLAG)) {
-        return -1;
     }
     switch ( userinfo->auth_protocol ) {
         case NETSNMP_AUTH_PROTOCOL_NONE:
@@ -158,21 +154,16 @@ auth_stamp_pre(netsnmp_buf     *buf,
     */
 int
 auth_stamp_post(netsnmp_buf     *buf,
-                netsnmp_v3info  *v3info,
                 netsnmp_user *userinfo,
-                int              auth_len)
+                u_char          *auth_ptr)
 {
     netsnmp_buf *authParams;
-    char        *cp;
   
-    if ((NULL == buf ) || (NULL == v3info) || (NULL == userinfo)) {
+    if ((NULL == buf ) || (NULL == userinfo) || (NULL == auth_ptr)) {
         return -1;
     }
     if (!(buf->flags & NETSNMP_BUFFER_REVERSE)) {
         return -1;	/* XXX - or set the flag ? */
-    }
-    if (!(v3info->v3_flags & AUTH_FLAG)) {
-        return -1;
     }
     authParams = buffer_new(NULL, USM_MAX_AUTHLEN, 0);
     if (NULL == authParams) {
@@ -189,13 +180,15 @@ auth_stamp_post(netsnmp_buf     *buf,
             if (USM_MAX_AUTHLEN != authParams->cur_len) {
                 return -1;
             }
+
             /*
-             * The packet is being constructed in reverse,
-             *   so the encoded PDU is sitting at the end of the buffer.
-             *   Find the location of the authentication data within this.
+             * The packet is being constrindicated in reverse,
+             *   so the location indicated for the authentication parameters
+             *   actually points to the *end* of this block.
+             * Back up by the length of the signature data, and insert it.
              */
-            cp = buf->string + (buf->max_len - auth_len) - authParams->cur_len;
-            memcpy(cp, authParams->string, authParams->cur_len);
+            memcpy(auth_ptr - authParams->cur_len, authParams->string, authParams->cur_len);
+            userinfo->auth_params = authParams;
             return 0;
 
         default:

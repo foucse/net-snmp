@@ -36,6 +36,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 ******************************************************************/
 
+
 #ifndef EIGHTBIT_SUBIDS
 typedef u_long	oid;
 #define MAX_SUBID   0xFFFFFFFF
@@ -49,6 +50,9 @@ typedef u_char	oid;
 #ifndef MAX_NAME_LEN                      /* conflicts with some libraries */
 #define MAX_NAME_LEN	    MAX_OID_LEN   /* obsolete. use MAX_OID_LEN */
 #endif
+
+#define OID_LENGTH(x)  ((x)?(sizeof(x)/sizeof(oid)):0)
+
 
 #define ASN_BOOLEAN	    ((u_char)0x01)
 #define ASN_INTEGER	    ((u_char)0x02)
@@ -147,6 +151,7 @@ typedef struct counter64 unsigned64;
 #define ASN_PRIV_DELEGATED  (ASN_PRIVATE | 5)
 #define ASN_PRIV_IMPLIED_OCTET_STR  (ASN_PRIVATE | ASN_OCTET_STR)    /* 4 */
 #define ASN_PRIV_IMPLIED_OBJECT_ID  (ASN_PRIVATE | ASN_OBJECT_ID)    /* 6 */
+#define ASN_PRIV_RETRY      (ASN_PRIVATE | 7)
 #define IS_DELEGATED(x)   ((x) == ASN_PRIV_DELEGATED)
 
 
@@ -208,7 +213,7 @@ int asn_realloc				(u_char **, size_t *);
     NOTE WELL: after calling one of these functions with allow_realloc
                non-zero, buf might have moved, buf_len might have grown and
 	       offset will have increased by the size of the encoded data.
-	       You should **NEVER** do soemthing like this:
+	       You should **NEVER** do something like this:
 
     u_char *buf = (u_char *)malloc(100), *ptr;
     u_char type = (ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER);

@@ -29,6 +29,7 @@
 #include "protocol/decode.h"
 #include "ucd/ucd_convert.h"
 #include "snmpv3/snmpv3.h"
+#include "sec_model/secmod.h"
 
 #include "lcd_time.h"
 
@@ -89,9 +90,10 @@ snmpv3_create_pdu(int command)
     *  Returns 0 if successful, -ve otherwise
     */
 int
-snmpv3_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
+snmpv3_encode_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
 {
     int start_len;
+    netsnmp_secmod *secmod;
 
     if ((NULL == buf) ||
         (NULL == pdu)) {
@@ -124,7 +126,12 @@ snmpv3_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
 		 * XXX - use the security-model registry,
 		 *	 rather than hardwiring UserSM
 		 */
-    return user_encode_pdu(buf, pdu);
+    secmod = secmod_find(pdu->v3info->sec_model);
+    if ((NULL == secmod) ||
+        (NULL == secmod->encode_hook)) {
+        return -1;
+    }
+    return secmod->encode_hook(sess, pdu, buf);
 }
 
 
@@ -151,8 +158,8 @@ snmpv3_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
     if (NULL == pdu->v3info) {
         pdu->v3info = v3info_copy(sess->v3info);
     }
-    if (NULL == pdu->userinfo) {
-        pdu->userinfo = user_copy(sess->userinfo);
+    if (NULL == pdu->sm_info) {
+        pdu->sm_info = (void*)user_copy((netsnmp_user*)sess->sm_info);
     }
     if (NULL == pdu->v3info->sec_engine) {
         pdu->v3info->sec_engine = engine_copy(pdu->v3info->context_engine);
@@ -173,14 +180,14 @@ snmpv3_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
      * Set the SNMPv3 flags to match the desired security level
      */
     if (NETSNMP_SEC_LEVEL_AUTHONLY == pdu->v3info->sec_level) {
-        pdu->v3info->v3_flags |= AUTH_FLAG;
+        pdu->v3info->flags |= AUTH_FLAG;
     }
     if (NETSNMP_SEC_LEVEL_AUTHPRIV == pdu->v3info->sec_level) {
-        pdu->v3info->v3_flags |= AUTH_FLAG;
-        pdu->v3info->v3_flags |= PRIV_FLAG;
+        pdu->v3info->flags |= AUTH_FLAG;
+        pdu->v3info->flags |= PRIV_FLAG;
     }
 
-    return snmpv3_encode_pdu(buf, pdu);
+    return snmpv3_encode_pdu(sess, pdu, buf);
 }
 
 
@@ -223,12 +230,13 @@ snmpv3_check_pdu(netsnmp_pdu *pdu)
 }
 
 netsnmp_pdu*
-snmpv3_decode_pdu(netsnmp_buf *buf, netsnmp_buf *wholeMsg)
+snmpv3_decode_pdu(netsnmp_session *sess, netsnmp_buf *buf, netsnmp_buf *wholeMsg)
 {
     netsnmp_buf    *seq    = NULL;
     netsnmp_pdu    *pdu    = NULL;
     netsnmp_v3info *v3info = NULL;
     netsnmp_user   *user   = NULL;
+    netsnmp_secmod *secmod = NULL;
 
     if ((NULL == buf)          ||
         (NULL == buf->string)  ||
@@ -241,8 +249,12 @@ snmpv3_decode_pdu(netsnmp_buf *buf, netsnmp_buf *wholeMsg)
         return NULL;
     }
 
-	/* XXX - use the Security Model registry */
-    pdu   = user_decode_pdu(buf, v3info, wholeMsg);
+    secmod = secmod_find(v3info->sec_model);
+    if ((NULL == secmod) ||
+        (NULL == secmod->decode_hook)) {
+        return NULL;
+    }
+    pdu   = secmod->decode_hook(buf, v3info, wholeMsg);
     if (NULL == pdu) {
         v3info_free( v3info );
         return NULL;
@@ -303,7 +315,7 @@ snmpv3_verify_msg(netsnmp_request *rp, netsnmp_pdu *pdu)
     *  blah, blah, returns pointer, blah, release memory, blah blah
     */
 netsnmp_pdu*
-snmpv3_parse_pdu(netsnmp_buf *buf)
+snmpv3_parse_pdu(netsnmp_session *sess, netsnmp_buf *buf)
 {
     netsnmp_buf *seq  = NULL;
     netsnmp_pdu *pdu  = NULL;
@@ -334,7 +346,7 @@ snmpv3_parse_pdu(netsnmp_buf *buf)
 		/*
 		 * XXX - Check version
 		 */
-    pdu = snmpv3_decode_pdu(seq, wholeMsg);
+    pdu = snmpv3_decode_pdu(sess, seq, wholeMsg);
     if ((NULL == pdu) ||
         (NULL == pdu->v3info)) {
         buffer_free(seq);

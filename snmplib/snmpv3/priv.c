@@ -108,7 +108,6 @@ priv_oid( int protocol )
     */
 int
 priv_encrypt(netsnmp_buf     *buf,
-             netsnmp_v3info  *v3info,
              netsnmp_user *userinfo)
 {
     char salt[      BYTESIZE(USM_MAX_SALT_LENGTH)];
@@ -119,14 +118,13 @@ priv_encrypt(netsnmp_buf     *buf,
     int          offset;
     int          len;
   
-    if ((NULL == buf ) || (NULL == v3info) || (NULL == userinfo)) {
+    if ((NULL == buf ) || (NULL == userinfo)) {
         return -1;
     }
     if (!(buf->flags & NETSNMP_BUFFER_REVERSE)) {
         return -1;	/* XXX - or set the flag ? */
     }
-    if (!(v3info->v3_flags & PRIV_FLAG) ||
-        !(userinfo->priv_key)) {
+    if (!(userinfo->priv_key)) {
         return -1;
     }
     switch ( userinfo->auth_protocol ) {
@@ -207,7 +205,6 @@ priv_encrypt(netsnmp_buf     *buf,
     */
 int
 priv_decrypt(netsnmp_buf     *buf,
-             netsnmp_v3info  *v3info,
              netsnmp_user *userinfo)
 {
     netsnmp_buf *str;
@@ -217,8 +214,7 @@ priv_decrypt(netsnmp_buf     *buf,
     u_int   iv_length = BYTESIZE(USM_MAX_SALT_LENGTH);
     u_int   start, i;
 
-    if (!(v3info->v3_flags & PRIV_FLAG) ||
-        !(userinfo->priv_key)) {
+    if (!(userinfo->priv_key)) {
         return -1;
     }
     switch ( userinfo->auth_protocol ) {
