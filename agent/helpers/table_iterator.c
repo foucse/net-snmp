@@ -118,6 +118,9 @@ table_iterator_helper_handler(
         /* XXX: do "only got some indexes" */
         
         /* find the next legal result to return */
+        /* XXX: if loop through everything, these are never free'd
+           since iterator returns NULL and thus we forget about
+           these */
         index_search = snmp_clone_varbind(table_info->indexes);
         
         /* find the first node */
@@ -158,8 +161,20 @@ table_iterator_helper_handler(
                                                         &callback_data_context,
                                                         index_search);
 
-                    
+                    if (!index_search && !results &&
+                        tbl_info->max_column > table_info->colnum) {
+                        /* restart loop.  XXX: Should cache this better */
+                        table_info->colnum++;
+                        coloid[reginfo->rootoid_len+1] = table_info->colnum;
+                        /* XXX: free old contexts first? */
+                        index_search = snmp_clone_varbind(table_info->indexes);
+                        index_search =
+                            (tbl_info->get_first_data_point)(&callback_loop_context,
+                                                             &callback_data_context,
+                                                             index_search);
+                    }
                 }
+
                 break;
 
             default: /* GET, SET, all the same...  exact search */
