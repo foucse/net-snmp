@@ -246,6 +246,11 @@ sure to end it in -1.*/
 # define bcmp memcmp
 #endif
 
+#ifndef HAVE_SIGNAL
+#ifdef HAVE_SIGSET
+#define signal(a,b) sigset(a,b)
+#endif
+#endif
 
 #ifndef DONT_INC_STRUCTS
 #include "agent/extensible/struct.h"
