@@ -7,9 +7,9 @@
  * All functions usm_set_usmStateReference_*() return 0 on success, -1
  * otherwise.
  *
- * !! Tab stops set to 4 in this file. !!  (Designated on a per function.)
+ * !! Tab stops set to 4 in some parts of this file. !!
+ *    (Designated on a per function.)
  */
-
 
 #include "all_system.h"
 #include "all_general_local.h" /* */
@@ -17,8 +17,6 @@
 #include "transform_oids.h"
 
 static u_int    dummy_etime, dummy_eboot;	/* For ISENGINEKNOWN(). */
-
-
 
 /*
  * Globals.
@@ -32,7 +30,6 @@ int reportErrorOnUnknownID = 0;
 	 */
 
 static struct usmUser *initialUser = NULL;
-
 
 /* 
  * Set a given field of the secStateRef.
@@ -60,9 +57,6 @@ static struct usmUser *initialUser = NULL;
 									\
 	return 0;							\
 }
-
-
-
 
 
 void
@@ -2147,7 +2141,7 @@ usm_remove_user_from_list(struct usmUser *user,
    remove it from the list first, and set next and prev to NULL), but
    will try to reconnect the list pieces again if it is called this
    way.  If called on the head of the list, the entire list will be
-   lost.  XXX */
+   lost. */
 struct usmUser *
 usm_free_user(struct usmUser *user)
 {
@@ -2367,7 +2361,6 @@ usm_save_user(struct usmUser *user, char *token, char *type)
   cptr = &line[strlen(line)]; /* the NULL */
   cptr = read_config_save_octet_string(cptr, user->engineID, user->engineIDLen);
   *cptr++ = ' ';
-  /* XXX: makes the mistake of assuming the name doesn't contain a NULL */
   cptr = read_config_save_octet_string(cptr, user->name,
                                        (user->name == NULL) ? 0 :
                                        strlen(user->name)+1);
@@ -2562,9 +2555,6 @@ usm_set_password(char *token, char *line)
 
   } else if (type == 1) {
     cp = read_config_read_octet_string(cp, (u_char **) &userKey, &userKeyLen);
-    /* XXX	What is the syntax here?  "<len> <string>"?
-     *		Alternative syntax: "0[xX]<hex_bytes>"
-     */
     
     if (cp == NULL) {
       config_perror("invalid user key");
