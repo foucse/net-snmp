@@ -885,7 +885,7 @@ snmp_sess_open(in_session)
        created and inserted in the list so that the response can
        handled correctly */
     if (session->version == SNMP_VERSION_3) {
-      if (session->contextEngineIDLen == 0) {
+      if (session->securityEngineIDLen == 0) {
 	snmpv3_build_probe_pdu(&pdu);
 	DEBUGP("probing for engineID...\n");
 	status = snmp_sess_synch_response(slp, pdu, &response);
