@@ -55,8 +55,10 @@
 #	include <io.h>
 #endif
 
-#ifdef HAVE_LIBKMT 
+#ifdef HAVE_KMT_H
 #	include <kmt.h>
+#endif
+#ifdef HAVE_KMT_ALGS_H
 #	include <kmt_algs.h>
 #endif
 
@@ -64,7 +66,7 @@
 #	include <kstat.h>
 #endif
 
-#if HAVE_WINSOCK_H
+#if HAVE_WINSOCK_H   
 #	include <winsock.h>
 #else
 #	include <sys/socket.h>
