@@ -665,7 +665,8 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
   int                    size, bigsize = SNMP_MAXBUF_SMALL;
   struct usmUser        *uptr;
   unsigned char          buf[SNMP_MAXBUF_SMALL];
-
+  int                    buflen = SNMP_MAXBUF_SMALL;
+  
   DEBUGP("write_usmUserAuthKeyChange action=%d\n", action);
 
   if (var_val_type != ASN_OCTET_STR) {
@@ -694,9 +695,12 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
     if (decode_keychange(uptr->authProtocol, uptr->authProtocolLen,
                          uptr->authKey, uptr->authKeyLen,
                          string, size,
-                         uptr->authKey, &uptr->authKeyLen) != SNMPERR_SUCCESS) {
+                         buf, &buflen) != SNMPERR_SUCCESS) {
         return SNMP_ERR_GENERR;
     }
+    SNMP_FREE(uptr->authKey);
+    memdup(&uptr->authKey, buf, buflen);
+    uptr->authKeyLen = buflen;
   }
 
   return SNMP_ERR_NOERROR;
@@ -808,9 +812,11 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
    int      name_len;
 {
   /* variables we may use later */
-  static unsigned char string[SNMP_MAXBUF];
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
+  static unsigned char string[SNMP_MAXBUF_SMALL];
+  int size, bigsize=SNMP_MAXBUF_SMALL;
   struct usmUser *uptr;
+  unsigned char          buf[SNMP_MAXBUF_SMALL];
+  int                    buflen = SNMP_MAXBUF_SMALL;
 
   if (var_val_type != ASN_OCTET_STR){
       DEBUGP("write to usmUserPrivKeyChange not ASN_OCTET_STR\n");
@@ -831,13 +837,17 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
       }
 
       /* Change the key. */
-      if (decode_keychange(uptr->privProtocol, uptr->privProtocolLen,
+      DEBUGP("changing auth key for user %s\n", uptr->secName);
+
+      if (decode_keychange(uptr->authProtocol, uptr->authProtocolLen,
                            uptr->privKey, uptr->privKeyLen,
                            string, size,
-                           uptr->privKey, &uptr->privKeyLen)
-          != SNMPERR_SUCCESS) {
+                           buf, &buflen) != SNMPERR_SUCCESS) {
         return SNMP_ERR_GENERR;
       }
+      SNMP_FREE(uptr->privKey);
+      memdup(&uptr->privKey, buf, buflen);
+      uptr->privKeyLen = buflen;
   }
   return SNMP_ERR_NOERROR;
 }  /* end write_usmUserPrivKeyChange() */
