@@ -271,6 +271,12 @@ snmp_callback_hook_parse(struct snmp_session *sp,
                          u_char *packetptr,
                          size_t len) 
 {
+    if (SNMP_MSG_RESPONSE == pdu->command ||
+        SNMP_MSG_REPORT == pdu->command)
+        pdu->flags |= UCD_MSG_FLAG_RESPONSE_PDU;
+    else
+        pdu->flags &= (~UCD_MSG_FLAG_RESPONSE_PDU);
+        
     return SNMP_ERR_NOERROR;
 }
 
