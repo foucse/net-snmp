@@ -32,6 +32,7 @@
 
 #include "m2m.h"
 #include "mibincl.h"
+#include "snmpusm.h"
 
 #include "mibgroup/struct.h"
 #include "read_config.h"
