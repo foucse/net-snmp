@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# demo2 [-h][-acCnstT] [<host> | start | stop]
+# demo2 [-h][-acCnstTu] [<host> | start | stop]
 #
 #
 # REQUIRED FILES:	
@@ -21,7 +21,7 @@
 # FIX	Clear out MIB processing debug statements at the beginning.
 #
 
-USAGE="Usage: `basename $0` [-h][-acCnstT] [<host> | start | stop]"
+USAGE="Usage: `basename $0` [-h][-acCnstTu] [<host> | start | stop]"
 
 
 
@@ -75,7 +75,7 @@ stoponly=
 defpass="my_passphrase"
 
 host=localhost
-tmpfile=/tmp/snmp.demo.out
+TMPFILE=/tmp/snmp.demo.out
 
 testcounter=0
 succeeds=0
@@ -95,9 +95,10 @@ LOGGINGFLAG=-L
 PORTFLAG="-p 1600"
 
 APPDIR=../apps/	
+AGENTDIR=../agent/
 
 noAuthArgs="$PORTFLAG -n default -u initial -l noAuthNoPriv -v 3"
-  AuthArgs="$PORTFLAG -n default -u initial -a MD5 -A "$defpass" -l authNoPriv -v 3"
+  AuthArgs="$PORTFLAG -n default -u initial -a MD5 -A $defpass -l authNoPriv -v 3"
 
  snmpset="${APPDIR}snmpset  $DEBUGFLAG -s -R 	$AuthArgs   	$host"
 snmpwalk="${APPDIR}snmpwalk $DEBUGFLAG -s -R 	$noAuthArgs	$host"
@@ -303,7 +304,9 @@ YESNO Y "Do you wish to run individual xterms to trace the log files?"
 echo
 GETRETORSLEEP
 
-TITLE  "Beginning Demonstration"
+TITLE	"Beginning Demonstration"	\
+	""				\
+	"Using host: $host"
 
 STOPAGENT		# Be sure it is not running.
 STARTAGENT

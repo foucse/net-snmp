@@ -49,7 +49,7 @@ DOIT() {		# <command_and_args_to_run>
   if test $runcommands = 1
   then
     PRINTCOMMAND "$*"					>>$APPLOG
-    $* 2>&1 | sed 's/^/     /' | tee $tmpfile		>>$APPLOG
+    $* 2>&1 | sed 's/^/     /' | tee $TMPFILE		>>$APPLOG
   fi
 }
 
@@ -63,7 +63,7 @@ LOOKFOR() { 		# <pattern_to_match> [<pattern2_to_match> ...]
 
   DOIT $@
 
-  lookresults=`egrep "$lookfor" $tmpfile`
+  lookresults=`egrep "$lookfor" $TMPFILE`
 }
 
 
@@ -131,7 +131,7 @@ STARTAGENT() {
 
     echo ""
     echo "   Starting the agent..."
-    snmpd $PORTFLAG -f $LOGGINGFLAG -P /tmp/snmpd.pid 2>&1 |
+    ${AGENTDIR}snmpd $PORTFLAG -f $LOGGINGFLAG -P /tmp/snmpd.pid 2>&1 |
 			sed 's/^/       agent:/' >>$AGENTLOG  &
 
     sleep 3 			# give the agent time to start up
