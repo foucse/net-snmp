@@ -286,7 +286,6 @@ write_rte(action, var_val, var_val_type, var_val_len, statP, name, length)
     long val;
     u_long  dst;
     char    buf[8];
-    int     bufsz;
     u_short  flags;
     int      oldty;
 

@@ -252,7 +252,6 @@ writeVersion(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    oid      *name;
    int      name_len;
 {
-    int bigsize = 1000;
     u_char buf[sizeof(version_descr)], *cp;
     int count, size;
 
@@ -291,8 +290,7 @@ writeSystem(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    oid      *name;
    int      name_len;
 {
-    int bigsize = 1000;
-    u_char buf[sizeof(version_descr)], *cp;
+    u_char *cp;
     int count, size;
 
     if (var_val_type != ASN_OCTET_STR){

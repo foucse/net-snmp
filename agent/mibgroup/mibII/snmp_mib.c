@@ -77,7 +77,6 @@ write_snmp (action, var_val, var_val_type, var_val_len, statP, name, name_len)
    oid      *name;
    int      name_len;
 {
-    int bigsize = 4;
     long intval;
 
     if (var_val_type != ASN_INTEGER){
