@@ -350,6 +350,13 @@ void sprint_double (char *, struct variable_list *, struct enum_list *,
                     const char *, const char *);
 #endif
 
+int parse_one_oid_index(oid **oidStart, size_t *oidLen,
+						struct variable_list *data, int complete);
+int parse_oid_indexes(oid *oidIndex, size_t oidLen, struct variable_list *data);
+int build_oid(oid **out, size_t *out_len, oid *prefix, size_t prefix_len,
+              struct variable_list *indexes);
+int build_oid_segment(struct variable_list *var);
+    
 int sprint_realloc_hexstring	(u_char **buf, size_t *buf_len,
 				 size_t *out_len, int allow_realloc,
 				 const u_char *, size_t);
