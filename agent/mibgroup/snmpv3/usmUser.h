@@ -29,6 +29,11 @@ config_add_mib(SNMP-USER-BASED-SM-MIB)
 
 extern void   init_usmUser __P((void));
 extern unsigned char *var_usmUser __P((struct variable *, oid *, int *, int, int *, int (**write) __P((int, unsigned char *, unsigned char, int, unsigned char *, oid *, int)) ));
+oid *usm_generate_OID(oid *prefix, int prefixLen, struct usmUser *uptr,
+                  int *length);
+int usm_parse_oid(oid *oidIndex, int oidLen,
+              unsigned char **engineID, int *engineIDLen,
+              unsigned char **name, int *nameLen);
 int write_usmUserSpinLock __P((int, u_char *,u_char, int, u_char *,oid*, int));
 int write_usmUserCloneFrom __P((int, u_char *,u_char, int, u_char *,oid*, int));
 int write_usmUserAuthProtocol __P((int, u_char *,u_char, int, u_char *,oid*, int));
