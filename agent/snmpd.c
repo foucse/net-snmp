@@ -490,8 +490,7 @@ SnmpdShutDown(a)
 	 */
 	fprintf(stderr, "Received TERM or INT signal...  shutting down...\n");
 
-	snmp_clean_persistent("snmpd");
-	shutdown_snmpv3("snmpd");
+        snmp_shutdown("snmpd");
 
 #include "mib_module_shutdown.h"
 
@@ -684,12 +683,6 @@ main(argc, argv)
 	init_mib();		/* initialize the mib structures */
 	update_config(0);	/* read in config files and register HUP */
 
-	/* Read in the persistent information cache.
-	 */
-#ifdef PERSISTENTDIR
-	sprintf(file, "%s/snmpd.persistent.conf", PERSISTENTDIR);
-	read_config_with_type(file, "snmpd");
-#endif
         init_usm_post_config();
         init_snmpv3_post_config();
 

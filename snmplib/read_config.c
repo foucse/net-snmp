@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <ctype.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include <sys/time.h>
 #if HAVE_NETINET_IN_H
@@ -388,10 +389,11 @@ read_config_files(when)
     /* read the config files */
     if ((envconfpath = getenv("SNMPCONFPATH")) == NULL) {
       homepath=getenv("HOME");
-      sprintf(defaultPath,"%s:%s%s%s%s",SNMPSHAREPATH,SNMPLIBPATH,
+      sprintf(defaultPath,"%s:%s%s%s%s:%s",SNMPSHAREPATH,SNMPLIBPATH,
               ((homepath == NULL) ? "" : ":"),
               ((homepath == NULL) ? "" : homepath),
-              ((homepath == NULL) ? "" : "/.snmp"));
+              ((homepath == NULL) ? "" : "/.snmp"),
+              PERSISTENTDIR);
       envconfpath = defaultPath;
     }
     envconfpath = strdup(envconfpath);  /* prevent actually writing in env */
@@ -444,7 +446,7 @@ read_config_store(char *type, char *line)
 #ifdef PERSISTENTDIR
   char file[512];
   FILE *OUT;
-  sprintf(file,"%s/%s.persistent.conf",PERSISTENTDIR,type);
+  sprintf(file,"%s/%s.conf",PERSISTENTDIR,type);
   if ((OUT = fopen(file, "a")) != NULL) {
     fprintf(OUT,line);
     if (line[strlen(line)] != '\n')
@@ -468,7 +470,7 @@ read_config_store(char *type, char *line)
  *	*type
  *      
  *
- * Unlink a file called "<PERSISTENTDIR>/<type>.persistent.conf".
+ * Unlink a file called "<PERSISTENTDIR>/<type>.conf".
  *
  * Should be called just before all persistent information is supposed to be
  * written to clean out the existing persistent cache.
@@ -481,9 +483,16 @@ read_config_store(char *type, char *line)
 void
 snmp_clean_persistent(char *type)
 {
-  char file[512];
-  sprintf(file,"%s/%s.persistent.conf",PERSISTENTDIR,type);
-  unlink(file);  /* nuke it now that we've read it */
+  char file[512], fileold[512];
+  struct stat statbuf;
+
+  sprintf(file,"%s/%s.conf",PERSISTENTDIR,type);
+  if (stat(file, &statbuf) == 0) {
+    sprintf(fileold,"%s/%s.conf.old",PERSISTENTDIR,type);
+    if (rename(file, fileold)) {
+      unlink(file);/* failed, try nuking it */
+    }
+  }
 }
 
 

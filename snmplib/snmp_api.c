@@ -424,14 +424,27 @@ init_snmp(char *type)
 	init_mib();
 
 	read_configs();
-	sprintf(file, "%s/%s.persistent.conf", PERSISTENTDIR, type);
-	read_config_with_type(file, type);
 
         init_usm_post_config();
         init_snmpv3_post_config();
 	init_snmp_session();
 
 }  /* end init_snmp() */
+
+/* snmp_shutdown(char *type):
+
+   Parameters:
+        *type   Label for the config file "type" used by calling entity.
+
+   Does the appropriate shutdown calls for the library, saving
+   persistent data, clean up, etc...
+*/
+void
+snmp_shutdown(char *type) {
+  snmp_clean_persistent(type);
+  shutdown_snmpv3(type);
+}
+
 
 /*
  * Sets up the session with the snmp_session information provided
