@@ -94,7 +94,7 @@
     Advantages:  more code reuse from the library.
     Disadvantages:  possibly more overhead.
 
-- hardaker/Oct 05
+. hardaker/Oct 05 niels/long ago/long ago
     snmptrapd still doesn't handle informs...  it should...
 
 + hardaker/Oct 06
@@ -122,7 +122,58 @@
 	in variable_list, only string is ever malloced?
 	(snmp_free_var only frees a string, but everything is a pointer?)
 
-- dreeder/Oct 28 1998
+. dreeder/Oct 28 1998 hardaker/Dec 29 1998/Dec 29 1998/
 	Create snmp_hash() under which *all* hash implementations can live.
 	Notably, "internal" MD5 and KMT.
+        (-> sc_hash())
+
+* hardaker/Dec 29 1998
+	From email:
+		Can you tell me what went wrong with the messages
+		encrypted with IDEA (I received very long replies)?
+
+* hardaker/Dec 29 1998
+	snmpInASNParseErrs should be incremented all over the place.
+
+* hardaker/Dec 29 1998
+	From email:
+		* Minor: agent returns noError on gets with msgMaxSize
+		  above and below the valid range.  This appears to be
+		  fairly common.
+		  
+* hardaker/Dec 29 1998
+	From email:
+		msgFlags:
+		
+		[Note: I'm not sure what the current consensus is on
+		reportableFlag, etc.  I think it may have changed
+		since I wrote these tests].
+		
+		* The agent drops requests with msgFlags = 0x01
+		  (auth/nopriv/not reportable).
+		
+		* snmpInvalidMsgs is not being incremented for
+		  msgFlags = 0x02 (no auth/priv/not reportable).  Not
+		  sure if another counter is.
+		
+		* usmStatsUnsupportedSecLevels is incremented/reported
+		  for msgFlags = 0x06 (no auth/priv/not reportable).
+		  This may be ok. Presently the test expects
+		  snmpInvalidMsgs instead.
+		
+		* Agent returns noError with msgFlags encoded as an
+		  INTEGER with value 0x00 (instead of an octet
+		  string).
+		
+		* FYI: The agent drops packets with various
+		  combinations of msgSecurityParameters and
+		  msgSecurityModel other than USM.  The test currently
+		  expects snmpUnknownSecurityModels, but at the time
+		  of the writing the behavior was mostly undefined
+		  (ie., whether or no to send a report).
+
+* hardaker/Dec 29 1998
+	We should use "" instead of "initial" for sending/receiving
+	engineID probes (opps).
+
 

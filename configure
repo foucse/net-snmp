@@ -7610,9 +7610,110 @@ EOF
 
 fi
 
+echo $ac_n "checking for u_int8_t""... $ac_c" 1>&6
+echo "configure:7615: checking for u_int8_t" >&5
+if eval "test \"`echo '$''{'ac_cv_type_u_int8_t'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  cat > conftest.$ac_ext <<EOF
+#line 7620 "configure"
+#include "confdefs.h"
+#include <sys/types.h>
+#if STDC_HEADERS
+#include <stdlib.h>
+#include <stddef.h>
+#endif
+EOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "u_int8_t[^a-zA-Z_0-9]" >/dev/null 2>&1; then
+  rm -rf conftest*
+  ac_cv_type_u_int8_t=yes
+else
+  rm -rf conftest*
+  ac_cv_type_u_int8_t=no
+fi
+rm -f conftest*
+
+fi
+echo "$ac_t""$ac_cv_type_u_int8_t" 1>&6
+if test $ac_cv_type_u_int8_t = no; then
+  cat >> confdefs.h <<\EOF
+#define u_int8_t unsigned char
+EOF
+
+fi
+
+echo $ac_n "checking for u_int16_t""... $ac_c" 1>&6
+echo "configure:7648: checking for u_int16_t" >&5
+if eval "test \"`echo '$''{'ac_cv_type_u_int16_t'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  cat > conftest.$ac_ext <<EOF
+#line 7653 "configure"
+#include "confdefs.h"
+#include <sys/types.h>
+#if STDC_HEADERS
+#include <stdlib.h>
+#include <stddef.h>
+#endif
+EOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "u_int16_t[^a-zA-Z_0-9]" >/dev/null 2>&1; then
+  rm -rf conftest*
+  ac_cv_type_u_int16_t=yes
+else
+  rm -rf conftest*
+  ac_cv_type_u_int16_t=no
+fi
+rm -f conftest*
+
+fi
+echo "$ac_t""$ac_cv_type_u_int16_t" 1>&6
+if test $ac_cv_type_u_int16_t = no; then
+  cat >> confdefs.h <<\EOF
+#define u_int16_t unsigned short
+EOF
+
+fi
+
+echo $ac_n "checking for u_int32_t""... $ac_c" 1>&6
+echo "configure:7681: checking for u_int32_t" >&5
+if eval "test \"`echo '$''{'ac_cv_type_u_int32_t'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  cat > conftest.$ac_ext <<EOF
+#line 7686 "configure"
+#include "confdefs.h"
+#include <sys/types.h>
+#if STDC_HEADERS
+#include <stdlib.h>
+#include <stddef.h>
+#endif
+EOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "u_int32_t[^a-zA-Z_0-9]" >/dev/null 2>&1; then
+  rm -rf conftest*
+  ac_cv_type_u_int32_t=yes
+else
+  rm -rf conftest*
+  ac_cv_type_u_int32_t=no
+fi
+rm -f conftest*
+
+fi
+echo "$ac_t""$ac_cv_type_u_int32_t" 1>&6
+if test $ac_cv_type_u_int32_t = no; then
+  cat >> confdefs.h <<\EOF
+#define u_int32_t unsigned int
+EOF
+
+fi
+
+
+
 if test "x$ac_cv_user_prompt_LOGFILE" = "x" -o "x$ac_cv_user_prompt_SYS_LOC" = "x" -o "x$ac_cv_user_prompt_SYS_CONTACT" = "x"; then
 echo $ac_n "checking if you have run configure before""... $ac_c" 1>&6
-echo "configure:7616: checking if you have run configure before" >&5
+echo "configure:7717: checking if you have run configure before" >&5
 if eval "test \"`echo '$''{'ac_cv_have_warned'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7667,7 +7768,7 @@ Configuration Files.
 
 System Contact Information" | tail -1`
 echo $ac_n "checking $MSG_CHECK""... $ac_c" 1>&6
-echo "configure:7671: checking $MSG_CHECK" >&5
+echo "configure:7772: checking $MSG_CHECK" >&5
 if eval "test \"`echo '$''{'ac_cv_user_prompt_SYS_CONTACT'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7727,7 +7828,7 @@ available in the MIB-II tree.  This Can also be over-ridden using the
 
 System Location" | tail -1`
 echo $ac_n "checking $MSG_CHECK""... $ac_c" 1>&6
-echo "configure:7731: checking $MSG_CHECK" >&5
+echo "configure:7832: checking $MSG_CHECK" >&5
 if eval "test \"`echo '$''{'ac_cv_user_prompt_SYS_LOC'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7793,7 +7894,7 @@ at the prompt below) the agent will use stdout and stderr instead.
 
 Location to write logfile" | tail -1`
 echo $ac_n "checking $MSG_CHECK""... $ac_c" 1>&6
-echo "configure:7797: checking $MSG_CHECK" >&5
+echo "configure:7898: checking $MSG_CHECK" >&5
 if eval "test \"`echo '$''{'ac_cv_user_prompt_LOGFILE'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7858,7 +7959,7 @@ data in the form of a configuration file.
 
 Location to write persistent information" | tail -1`
 echo $ac_n "checking $MSG_CHECK""... $ac_c" 1>&6
-echo "configure:7862: checking $MSG_CHECK" >&5
+echo "configure:7963: checking $MSG_CHECK" >&5
 if eval "test \"`echo '$''{'ac_cv_user_prompt_PERSISTENTDIR'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
