@@ -23,6 +23,7 @@
 #include <net-snmp/var_api.h>
 #include <net-snmp/mib_api.h>
 #include <net-snmp/community_api.h>
+#include <net-snmp/protocol_api.h>
 #include <net-snmp/snmpv3.h>
 #include <net-snmp/utils.h>
 
@@ -60,7 +61,43 @@ pdu_create(int version, int command)
 	pdu->version = version;
 	pdu->command = command;
     }
+    pdu->request = snmp_get_next_reqid();
     return pdu;
+}
+
+
+netsnmp_pdu *
+pdu_copy(netsnmp_pdu *pdu)
+{
+    netsnmp_varbind *vb;
+    netsnmp_pdu     *copy;
+
+    if (NULL == pdu) {
+        return NULL;
+    }
+
+    copy = pdu_create(pdu->version, pdu->command);
+    if (NULL == copy) {
+        return NULL;
+    }
+
+    memcpy((void*)copy, (void*)pdu, sizeof(netsnmp_pdu));
+
+    if (pdu->community) {
+	copy->community = comminfo_copy(pdu->community);
+    }
+    if (pdu->v3info) {
+	copy->v3info = v3info_copy(pdu->v3info);
+    }
+    if (pdu->userinfo) {
+	copy->userinfo = user_copy(pdu->userinfo);
+    }
+
+    copy->varbind_list = NULL;
+    for (vb = pdu->varbind_list; NULL != vb; vb=vb->next) {
+        (void)pdu_add_varbind(copy, var_copy_varbind(vb));
+    }
+    return copy;
 }
 
 
@@ -110,6 +147,10 @@ pdu_add_varbind(netsnmp_pdu *pdu, netsnmp_varbind *varbind)
         return -1;
     }
 
+    if (NULL == pdu->varbind_list) {
+        pdu->varbind_list = varbind;
+        return 0;
+    }
     return vblist_add_varbind(pdu->varbind_list, varbind);
 }
 
@@ -299,6 +340,36 @@ pdu_print(netsnmp_pdu *pdu)
                  *
                  **************************************/
                 /** @package protocol_internals */
+
+
+#define _SWITCH_VERSION(v, x, y, z )	switch ((v)) { \
+				case SNMP_VERSION_1:	\
+				case SNMP_VERSION_2c:	\
+				case SNMP_VERSION_ANYC:	\
+				    return community_build_pdu(x, y, z); \
+				case SNMP_VERSION_3:	\
+				    return snmpv3_build_pdu(x, y, z); \
+				case SNMP_VERSION_ANY:	\
+				case SNMP_DEFAULT_VERSION: \
+				    break;		\
+				default:		\
+				    return -1;		\
+				}
+
+int
+snmp_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
+{
+    if ((NULL == sess) ||
+        (NULL == pdu)  ||
+        (NULL == buf)) {
+        return -1;
+    }
+
+    _SWITCH_VERSION( pdu->version, sess, pdu, buf);
+    _SWITCH_VERSION(sess->version, sess, pdu, buf);
+
+    return -1;
+}
 
 
    /**

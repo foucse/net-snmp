@@ -34,6 +34,20 @@
 
 int snmpv3_check_pdu(netsnmp_pdu *pdu);
 
+#define _CHECK_VERSION( v, x )	switch ((v)) { \
+				case SNMP_VERSION_3:	\
+				case SNMP_VERSION_ANY:	\
+				case SNMP_DEFAULT_VERSION: \
+				    break;		\
+				case SNMP_VERSION_1:	\
+				case SNMP_VERSION_2c:	\
+				case SNMP_VERSION_ANYC:	\
+				default:		\
+				    return (x);		\
+				}
+
+int snmpv3_ignore_unauth_reports = FALSE;
+
                 /**************************************
                  *
                  *      Public API
@@ -79,21 +93,11 @@ snmpv3_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
 {
     int start_len;
 
-    switch (pdu->version) {
-    case SNMP_VERSION_3:
-        break;			/* OK */
-    case SNMP_VERSION_1:
-    case SNMP_VERSION_2c:
-    case SNMP_VERSION_ANYC:
-    case SNMP_VERSION_ANY:
-    case SNMP_DEFAULT_VERSION:
-    default:
-        return -1;              /* Must have a real valid version to send */
-    }
-
-    if ((NULL == buf) || (NULL == pdu)) {
+    if ((NULL == buf) ||
+        (NULL == pdu)) {
         return -1;
     }
+
     if (!(buf->flags & NETSNMP_BUFFER_REVERSE)) {
         return -1;	/* XXX - or set the flag ? */
     }
@@ -141,6 +145,70 @@ snmpv3_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
     }
 
     return 0;
+}
+
+
+int
+snmpv3_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
+{
+    if ((NULL == sess) ||
+        (NULL == pdu)  ||
+        (NULL == buf)) {
+        return -1;
+    }
+
+    _CHECK_VERSION(sess->version, -1 )
+    _CHECK_VERSION( pdu->version, -1 )
+
+    /*
+     * If any of the PDU elements are missing,
+     * use the equivalent session defaults
+     */
+    if ((SNMP_VERSION_ANY     == pdu->version) ||
+        (SNMP_DEFAULT_VERSION == pdu->version)) {
+        pdu->version = sess->version;
+    }
+    if (NULL == pdu->v3info) {
+        pdu->v3info = v3info_copy(sess->v3info);
+    }
+    if (NULL == pdu->userinfo) {
+        pdu->userinfo = user_copy(sess->userinfo);
+    }
+    if (NULL == pdu->userinfo->sec_engine) {
+        pdu->userinfo->sec_engine = engine_copy(pdu->v3info->context_engine);
+    }
+
+    /*
+     * If any of the PDU elements have 'default' settings,
+     * use the appropriate basic value.
+     */
+    if (NETSNMP_SEC_MODEL_DEFAULT == pdu->v3info->sec_model) {
+        pdu->v3info->sec_model = NETSNMP_SEC_MODEL_USM;
+    }
+    if (NETSNMP_SEC_LEVEL_DEFAULT == pdu->v3info->sec_level) {
+        pdu->v3info->sec_level = NETSNMP_SEC_LEVEL_NOAUTH;
+    }
+    if (NETSNMP_SEC_MODEL_USM == pdu->v3info->sec_model) {
+        if (NETSNMP_AUTH_PROTOCOL_DEFAULT == pdu->userinfo->auth_protocol) {
+            pdu->userinfo->auth_protocol = NETSNMP_AUTH_PROTOCOL_MD5;
+        }
+        if (NETSNMP_PRIV_PROTOCOL_DEFAULT == pdu->userinfo->priv_protocol) {
+            pdu->userinfo->priv_protocol = NETSNMP_PRIV_PROTOCOL_DES;
+        }
+    }
+
+    /*
+     * Set the SNMPv3 flags to match the desired security level
+     */
+    if (NETSNMP_SEC_LEVEL_AUTHONLY == pdu->v3info->sec_level) {
+        pdu->v3info->v3_flags |= AUTH_FLAG;
+    }
+    if (NETSNMP_SEC_LEVEL_AUTHPRIV == pdu->v3info->sec_level) {
+        pdu->v3info->v3_flags |= AUTH_FLAG;
+        pdu->v3info->v3_flags |= PRIV_FLAG;
+    }
+
+    return snmpv3_encode_pdu(buf, pdu);
 }
 
 
@@ -229,6 +297,51 @@ snmpv3_decode_pdu(netsnmp_buf *buf)
 }
 
 
+int
+snmpv3_verify_msg(netsnmp_request *rp, netsnmp_pdu *pdu)
+{
+    netsnmp_pdu     *rpdu;
+  
+    if ((NULL == rp)              ||
+        (NULL == rp->pdu)         ||
+        (NULL == rp->pdu->v3info) ||
+        (NULL == pdu)             ||
+        (NULL == pdu->v3info)) {
+        return -1;
+    }
+
+    /*
+     * Reports don't have to match anything
+     */
+    if (SNMP_MSG_REPORT == pdu->command) {
+        return 0;
+    }
+
+    rpdu = rp->pdu;
+    if ((rp->request_id      != pdu->request)  ||
+        (rpdu->request       != pdu->request)  ||
+        (rpdu->version       != pdu->version)  ||
+        (rpdu->v3info->sec_model != pdu->v3info->sec_model) ||
+        (rpdu->v3info->sec_level != pdu->v3info->sec_level)) {
+        return -1;
+    }
+
+    if ((0 != engine_compare(rpdu->v3info->context_engine,
+                              pdu->v3info->context_engine)) ||
+        (0 != buffer_compare(rpdu->v3info->context_name,
+                              pdu->v3info->context_name))   ||
+        (0 != engine_compare(rpdu->userinfo->sec_engine,
+                              pdu->userinfo->sec_engine))   ||
+        (0 != buffer_compare(rpdu->userinfo->sec_name,
+                              pdu->userinfo->sec_name))) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
    /**
     *  Parse an SNMPv3 PDU from the given input buffer.
     *
@@ -294,67 +407,3 @@ snmpv3_parse_pdu(netsnmp_buf *buf)
 }
 
 
-                /**************************************
-                 *
-                 *      Temporary
-                 *
-                 **************************************/
-#include "ucd/ucd_api.h"
-extern void snmpv3_calc_msg_flags (int, int, u_char *);
-
-int
-snmpv3_build(u_char **pkt, size_t *pkt_len, size_t *offset,
-            struct snmp_session *session, struct snmp_pdu *pdu)
-{
-    netsnmp_pdu *p;
-    netsnmp_buf *buf;
-    netsnmp_engine *engine;
-    int boots;
-    int time;
-
-    ucd_session_defaults(session, pdu);
-
-    p = ucd_convert_pdu( pdu );
-    if ((NULL == p) ||
-        (NULL == p->v3info) ||
-        (NULL == p->userinfo)) {
-        return -1;       /* Error */
-    }
-
-printf("**** Using NEW version !!! *** \n");
-
-    /*
-     * Fill in missing PDU parameters from session defaults
-     */
-
-    user_session_defaults(session, p->userinfo);
-    v3info_session_defaults(session, p->v3info);
-
-    snmpv3_calc_msg_flags(p->v3info->sec_level, p->command, &(p->v3info->v3_flags));
-
-    engine = p->userinfo->sec_engine;
-    if (engine && engine->ID ) {
-        (void)get_enginetime(engine->ID->string, engine->ID->cur_len,
-                             &boots, &time, FALSE);
-        engine->boots = boots;
-        engine->time  = time;
-    }
-
-
-    memset( *pkt, 0, *pkt_len );        /* clear the buffer! */
-    buf = buffer_new( *pkt, *pkt_len,
-        NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_RESIZE|NETSNMP_BUFFER_REVERSE );
-    
-    if (0 > snmpv3_encode_pdu( buf, p )) {
-        return -1;
-    }
-
-    *pkt     = buf->string;
-    *pkt_len = buf->max_len;
-    *offset  = buf->cur_len;
-    buf->flags |= NETSNMP_BUFFER_NOFREE;
-
-    pdu_free( p );
-    buffer_free( buf );
-    return 0;
-}

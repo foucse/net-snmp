@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #endif
 
+/* ========================== */
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
@@ -39,7 +40,9 @@
 #if HAVE_NET_IF_DL_H
 #include <net/if_dl.h>
 #endif
+
 #include <errno.h>
+/* ========================== */
 
 #include "transport/snmp_transport.h"
 #include "transport/snmpUDPDomain.h"
@@ -57,6 +60,9 @@
 #endif
 #include "snmp_api.h"
 
+#include "snmp_debug.h"
+#include "snmp_logging.h"
+
 
 /*  The standard SNMP domains.  */
 
@@ -67,74 +73,92 @@ const oid snmpDDPDomain[]	= { 1, 3, 6, 1, 6, 1, 4 };
 const oid snmpIPXDomain[]	= { 1, 3, 6, 1, 6, 1, 5 };
 
 
-snmp_transport *
-snmp_transport_parse(char *peername, int local_port, struct snmp_session *session)
+
+
+snmp_transport	       *_snmp_transport_parse	(char* peername, int local_port, 
+                                                 struct snmp_session* session)
 {
-    if (session->peername && session->peername[0] == '/') {
+
+    if (peername && peername[0] == '/') {
 #ifdef SNMP_TRANSPORT_UNIX_DOMAIN
       struct sockaddr_un addr;
 
       addr.sun_family = AF_UNIX;
-      strcpy(addr.sun_path, session->peername);
-      return snmp_unix_transport(&addr, session->local_port);
+      strcpy(addr.sun_path, peername);
+      return snmp_unix_transport(&addr, local_port);
 #else
       snmp_log(LOG_ERR,
 	       "No support for requested Unix domain session (\"%s\")\n",
-	       session->peername);
+	       peername);
 #endif
-    } else if (session->peername && session->peername[0] == '#') {
+    } else if (peername && peername[0] == '#') {
 #ifdef SNMP_TRANSPORT_AAL5PVC_DOMAIN
       struct sockaddr_atmpvc addr;
 
       addr.sap_family = AF_ATMPVC;
       addr.sap_addr.itf = 0;
       addr.sap_addr.vpi = 0;
-      addr.sap_addr.vci = atoi(&(session->peername[1]));
-      return snmp_aal5pvc_transport(&addr, session->local_port);
+      addr.sap_addr.vci = atoi(&(peername[1]));
+      return snmp_aal5pvc_transport(&addr, local_port);
 #else
       snmp_log(LOG_ERR,
 	       "No support for requested AAL5 PVC domain session (\"%s\")\n",
-	       session->peername);
+	       peername);
 #endif
-    } else if (session->peername && session->peername[0] == '^') {
+    } else if (peername && peername[0] == '^') {
 #ifdef SNMP_TRANSPORT_IPX_DOMAIN
       struct sockaddr_ipx addr;
       
-      if (snmp_sockaddr_ipx(&addr, &(session->peername[1]))) {
-	return snmp_ipx_transport(&addr, session->local_port);
+      if (snmp_sockaddr_ipx(&addr, &(peername[1]))) {
+	return snmp_ipx_transport(&addr, local_port);
       }
 #else
       snmp_log(LOG_ERR,
 	       "No support for requested IPX domain session (\"%s\")\n",
-	       session->peername);
+	       peername);
 #endif
     } else {
       struct sockaddr_in addr;
+      int remote_port = 0;
 
-      if (snmp_sockaddr_in(&addr, session->peername, session->remote_port)) {
+      if (NULL != session) {
+         remote_port = session->remote_port;
+      }
+
+      if (snmp_sockaddr_in(&addr, peername, remote_port)) {
 	DEBUGMSGTL(("_sess_open", "interpreted peername okay\n"));
 	if (session->flags & SNMP_FLAGS_STREAM_SOCKET) {
 #ifdef SNMP_TRANSPORT_TCP_DOMAIN
-	  return snmp_tcp_transport(&addr, session->local_port);
+	  return snmp_tcp_transport(&addr, local_port);
 #else
 	  snmp_log(LOG_ERR,
 		   "No support for requested TCP domain session (\"%s\")\n",
-		   session->peername);
+		   peername);
 #endif
 	} else {
-	  return snmp_udp_transport(&addr, session->local_port);
+	  return snmp_udp_transport(&addr, local_port);
 	}
       } else {
 	DEBUGMSGTL(("_sess_open", "couldn't interpret peername\n"));
-	in_session->s_snmp_errno = SNMPERR_BAD_ADDRESS;
-	in_session->s_errno = errno;
-	snmp_set_detail(session->peername);
-	snmp_sess_close(slp);
+        if (NULL != session) {
+          session->s_snmp_errno = SNMPERR_BAD_ADDRESS;
+          session->s_errno = errno;
+          snmp_set_detail(session->peername);
+        }
 	return NULL;
       }
     }
     return NULL;
 }
+
+snmp_transport	       *snmp_transport_parse	(struct snmp_session* session)
+{
+    if (NULL == session) {
+        return NULL;
+    }
+    return _snmp_transport_parse(session->peername, session->local_port, session);
+}
+
 
 
 /*  Make a deep copy of an snmp_transport.  */

@@ -56,6 +56,8 @@ v3info_create( void )
     if (NULL == info) {
         return NULL;
     }
+    info->msgID     = snmp_get_next_msgid();
+    info->sec_model = NETSNMP_SEC_MODEL_USM;	/* XXX - or NETSNMP_SEC_MODEL_DEFAULT ? */
     return info;
 }
 

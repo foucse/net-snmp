@@ -13,6 +13,9 @@
 #include <net-snmp/utils.h>
 #include <net-snmp/types.h>
 
+extern int snmpv3_ignore_unauth_reports;
+
+netsnmp_pdu *snmpv3_create_pdu(int command);
 
 #define	NETSNMP_AUTH_PROTOCOL_DEFAULT	0
 #define	NETSNMP_AUTH_PROTOCOL_NONE	1

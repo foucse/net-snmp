@@ -89,6 +89,8 @@ typedef struct _snmp_transport {
 
 snmp_transport	       *snmp_transport_copy	(snmp_transport *t);
 
+struct snmp_session;
+snmp_transport	       *snmp_transport_parse	(struct snmp_session* session);
 
 /*  Free an snmp_transport.  */
 
@@ -107,8 +109,6 @@ int			snmp_transport_support	(const oid *in_oid,
 						 size_t *out_len);
 						 
 
-snmp_transport *
-snmp_transport_parse(char *peername, int local_port, struct snmp_session *session);
 
 #ifdef __cplusplus
 }

@@ -23,8 +23,10 @@
 
 #include <net-snmp/struct.h>
 #include <net-snmp/utils.h>
+#include <net-snmp/protocol_api.h>
 #include <net-snmp/snmpv3.h>
 
+#include "session/session.h"
 #include "protocol/encode.h"
 #include "protocol/decode.h"
 
@@ -97,34 +99,6 @@ engine_new(char *id, int len)
     }
     return engine;
 }
-
-
-#ifdef NOT_WANTED_ANY_MORE
-   /**
-    *  Set an engine ID
-    *  Returns 0 if successful, -v3 otherwise.
-    */
-engine_set_id(netsnmp_engine *engine, char *id, int len)
-{
-    if (NULL == engine) {
-        return -1;
-    }
-
-    if (NULL != engine->ID) {
-        buffer_free(engine->ID);
-        engine->ID = NULL;
-    }
-
-    if (NULL != id) {
-        engine->ID = buffer_new(id, len, 0);
-        if (NULL == engine->ID) {
-            free( engine );
-            return -1;
-        }
-    }
-    return 0;
-}
-#endif
 
 
    /**
@@ -287,11 +261,6 @@ engine_print(netsnmp_engine *engine)
 int
 engine_encode(netsnmp_buf *buf, netsnmp_engine *engine)
 {
-/*
-    if ((NULL == buf ) || (NULL == engine)) {
-        return -1;
-    }
- */
     if (NULL == buf ) {
         return -1;
     }
@@ -313,6 +282,14 @@ engine_encode(netsnmp_buf *buf, netsnmp_engine *engine)
 }
 
 
+   /**
+    *  Decode an engine ID.
+    *  Returns a pointer to the engine structure if successful,
+    *    NULL otherwise.
+    *
+    *  The calling routine is responsible for freeing this memory
+    *  when it is no longer required.
+    */
 netsnmp_engine*
 engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e)
 {
@@ -331,20 +308,18 @@ engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e)
     }
     engine = engine_new(id->string, id->cur_len);
 
-/*
-    if (NULL == e) {
-        engine = (netsnmp_engine *)calloc(1, sizeof(netsnmp_engine));
-    } else {
-        engine = e;
-    }
-
-    engine->ID = decode_string(buf, NULL);
- */
-
     return engine;
 }
 
 
+   /**
+    *  Decode an engine structure.
+    *  Returns a pointer to this if successful,
+    *    NULL otherwise.
+    *
+    *  The calling routine is responsible for freeing this memory
+    *  when it is no longer required.
+    */
 netsnmp_engine*
 engine_decode(netsnmp_buf *buf, netsnmp_engine *e)
 {
@@ -401,3 +376,64 @@ engine_compare(netsnmp_engine *one, netsnmp_engine *two)
 
     return buffer_compare(one->ID, two->ID);
 }
+
+
+netsnmp_pdu *
+engine_probe_build(void)
+{
+    netsnmp_pdu *pdu;
+
+    pdu = snmpv3_create_pdu(SNMP_MSG_GET);
+    if (NULL == pdu) {
+        return NULL;
+    }
+
+    pdu->v3info   = v3info_create();
+    pdu->userinfo = user_create("", 0, NULL);
+    return pdu;
+}
+
+int
+engine_probe(netsnmp_session *sess)
+{
+    netsnmp_pdu *probe, *response;
+
+    if (NULL == sess) {
+        return -1;
+    }
+
+    /*
+     * We're only interested in probing SNMPv3 sessions
+     */
+    if (SNMP_VERSION_3 != sess->version) {
+	/* XXX - what about VERSION_ANY ? */
+        return 0;
+    }
+    if (NULL != sess->v3info) {		/* XXX - ???? */
+        return 0;
+    }
+
+
+    /*
+     * Build and send a probe request,
+     *   and extract the remote engine ID from the response
+     */
+    probe = engine_probe_build();
+    if (NULL == probe) {
+        return -1;
+    }
+    response = synch_response(sess, probe);
+    if (NULL == response) {
+        pdu_free(probe);	/* XXX ??? */
+        return -1;
+    }
+
+	/* XXX - what else to check ?? */
+
+    sess->v3info = v3info_copy(response->v3info);
+
+ /* pdu_free(probe); 	XXX - this causes a core dump - why!?? */
+    pdu_free(response);
+    return 0;
+}
+

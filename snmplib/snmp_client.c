@@ -628,6 +628,8 @@ snmp_reset_var_types(struct variable_list *vbl, int new_type) {
     }
 }
 
+
+#ifdef NOT_NEEDED
 int
 snmp_synch_response_cb(struct snmp_session *ss,
 		    struct snmp_pdu *pdu,
@@ -774,6 +776,7 @@ snmp_sess_synch_response(void *sessp,
     ss->callback_magic = cbmagsav;
     return state->status;
 }
+#endif
 
 
 const char *error_string[19] = {

@@ -8,7 +8,10 @@ netsnmp_value*   ucd_convert_value(  struct variable_list *v        );
 netsnmp_varbind* ucd_convert_varbind(struct variable_list *v        );
 netsnmp_varbind* ucd_convert_vblist( struct variable_list *var_list );
 netsnmp_pdu*     ucd_convert_pdu(    struct snmp_pdu      *pdu      );
-void ucd_session_defaults(struct snmp_session *session, struct snmp_pdu *pdu);
+void            ucd_session_defaults( struct snmp_session *sess, struct snmp_pdu *pdu);
+netsnmp_v3info *ucd_session_v3info(   struct snmp_session *sess, netsnmp_v3info *v3info);
+netsnmp_user   *ucd_session_userinfo( struct snmp_session *sess, netsnmp_v3info *v3info,
+                                                                 netsnmp_user *uinfo);
 
 int                   ucd_revert_oid(    netsnmp_oid     *oid, u_long *name );
 struct variable_list* ucd_revert_value(  netsnmp_value   *val   );

@@ -50,10 +50,13 @@ CSRCS=	snmp_client.c               snmp_api.c snmp.c 		\
 	varbind/varbind.c varbind/vblist.c			\
 	utils/util_buffer.c utils/util_list.c			\
 	ucd/ucd_mib_api.c ucd/ucd_varbind.c ucd/ucd_convert.c	\
-	protocol/pdu.c protocol/encode.c			\
+	ucd/ucd_session.c					\
+	protocol/pdu.c protocol/encode.c protocol/decode.c	\
 	snmpv3/pdu.c snmpv3/engine.c snmpv3/v3info.c		\
 	snmpv3/auth.c snmpv3/priv.c snmpv3/user.c 		\
-        community/pdu.c community/cinfo.c
+        community/pdu.c community/cinfo.c			\
+	session/input.c session/output.c session/request.c	\
+	session/session.c session/hooks.c session/synch.c
 
 OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	snmp_auth.o asn1.o md5.o snmp_parse_args.o	  	\
@@ -71,10 +74,13 @@ OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	varbind/varbind.o varbind/vblist.o			\
 	utils/util_buffer.o utils/util_list.o			\
 	ucd/ucd_mib_api.o ucd/ucd_varbind.o ucd/ucd_convert.o	\
-	protocol/pdu.o protocol/encode.o			\
+	ucd/ucd_session.o					\
+	protocol/pdu.o protocol/encode.o protocol/decode.o	\
 	snmpv3/pdu.o snmpv3/engine.o snmpv3/v3info.o		\
 	snmpv3/auth.o snmpv3/priv.o snmpv3/user.o 		\
-        community/pdu.o community/cinfo.o
+        community/pdu.o community/cinfo.o			\
+	session/input.o session/output.o session/request.o	\
+	session/session.o session/hooks.o session/synch.o
 
 LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	snmp_auth.lo asn1.lo md5.lo snmp_parse_args.lo		\
@@ -92,10 +98,13 @@ LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	varbind/varbind.lo varbind/vblist.lo			\
 	utils/util_buffer.lo utils/util_list.lo			\
 	ucd/ucd_mib_api.lo ucd/ucd_varbind.lo ucd/ucd_convert.lo\
-	protocol/pdu.lo protocol/encode.lo			\
+	ucd/ucd_session.lo					\
+	protocol/pdu.lo protocol/encode.lo protocol/decode.lo	\
 	snmpv3/pdu.lo snmpv3/engine.lo snmpv3/v3info.lo		\
 	snmpv3/auth.lo snmpv3/priv.lo snmpv3/user.lo 		\
-        community/pdu.lo community/cinfo.lo
+        community/pdu.lo community/cinfo.lo			\
+	session/input.lo session/output.lo session/request.lo	\
+	session/session.lo session/hooks.lo session/synch.lo
 
 # just in case someone wants to remove libtool, change this to OBJS.
 TOBJS=$(LOBJS)

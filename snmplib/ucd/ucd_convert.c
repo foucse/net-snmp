@@ -33,6 +33,7 @@
 #include "snmpv3.h"
 #include "tools.h"
 #include "lcd_time.h"
+#include "keytools.h"
 
 
 
@@ -192,6 +193,17 @@ ucd_convert_vblist( struct variable_list *var_list )
 }
 
 
+    /**
+     *
+     * Extract the general SNMPv3-related information
+     *   from a UCD-style PDU structure.
+     * Returns a pointer to an appropriate v3info structure if successful,
+     *  NULL otherwise.
+     *
+     * The calling routine is responsible for freeing this memory
+     *  when it is not longer required.
+     *
+     */
 netsnmp_v3info*
 ucd_convert_v3info( struct snmp_pdu *p )
 {
@@ -216,6 +228,61 @@ ucd_convert_v3info( struct snmp_pdu *p )
 }
 
 
+    /**
+     *
+     * Extract the general SNMPv3-related information
+     *   from a UCD-style session structure.
+     * Returns a pointer to an appropriate v3info structure if successful,
+     *  NULL otherwise.
+     *
+     * The calling routine is responsible for freeing this memory
+     *  when it is not longer required.
+     *
+     */
+netsnmp_v3info*
+ucd_session_v3info(struct snmp_session *sess, netsnmp_v3info *v3info )
+{
+    netsnmp_v3info *info;
+
+    if (NULL == v3info) {
+        info = v3info_create();
+    } else {
+        info = v3info;
+    }
+
+    if (NULL == info) {
+        return NULL;
+    }
+
+/*  info->msg_max_size = sess->sndMsgMaxSize;  */
+/*  info->v3_flags   = sess->XXX;       */
+    info->sec_level  = sess->securityLevel;
+    info->sec_model  = sess->securityModel;
+
+    if ((NULL == info->context_engine) &&
+        (0 != sess->contextEngineIDLen)) {
+        info->context_engine = engine_new(sess->contextEngineID, sess->contextEngineIDLen);
+    }
+    if (NULL == info->context_name) {
+        info->context_name   = ((0 < sess->contextNameLen) ?
+                 buffer_new(sess->contextName, sess->contextNameLen, 0) : NULL);
+    }
+
+    return info;
+}
+
+
+    /**
+     *
+     * Extract the USM-specific information
+     *   from a UCD-style PDU structure.
+     * Returns a pointer to the appropriate userinfo structure if successful,
+     *  NULL otherwise.
+     *
+     * The calling routine is responsible for freeing this memory
+     *  when it is not longer required.
+     *
+     */
 netsnmp_user*
 ucd_convert_userinfo( struct snmp_pdu *p )
 {
@@ -227,6 +294,77 @@ ucd_convert_userinfo( struct snmp_pdu *p )
     engine_free(engine);
 
     return userinfo;
+}
+
+
+    /**
+     *
+     * Extract the USM-specific information
+     *   from a UCD-style session structure.
+     * Returns a pointer to the appropriate userinfo structure if successful,
+     *  NULL otherwise.
+     *
+     * The calling routine is responsible for freeing this memory
+     *  when it is not longer required.
+     *
+     */
+netsnmp_user*
+ucd_session_userinfo( struct snmp_session *sess, netsnmp_v3info *v3info, netsnmp_user *uinfo)
+{
+    netsnmp_user   *info = uinfo;
+    netsnmp_engine *engine;
+
+    if ((NULL == uinfo) &&
+        (0 != sess->securityNameLen)) {
+
+        engine = engine_new( sess->securityEngineID, sess->securityEngineIDLen);
+        info   = user_create(sess->securityName,     sess->securityNameLen, engine);
+        engine_free(engine);
+    }
+
+#define USM_LENGTH_KU_HASHBLOCK 64
+
+    if (NULL != info) {
+        if ((NULL == info->sec_engine) &&
+            (NULL != v3info)) {
+            info->sec_engine = engine_copy(v3info->context_engine);
+        }
+
+/******
+        if (0 != sess->securityAuthProtoLen) {
+            info->auth_proto = XXX;
+        }
+ ******/
+        if (0 != sess->securityAuthKeyLen) {
+
+            info->auth_key = buffer_new(NULL, USM_LENGTH_KU_HASHBLOCK, 0);
+            info->auth_key->cur_len = info->auth_key->max_len;
+            (void)generate_kul(sess->securityAuthProto, sess->securityAuthProtoLen,
+                               info->sec_engine->ID->string,
+                               info->sec_engine->ID->cur_len,
+                               sess->securityAuthKey, sess->securityAuthKeyLen,
+                               info->auth_key->string, &(info->auth_key->cur_len));
+        }
+
+/*****
+        if (0 != sess->securityPrivProtoLen) {
+            info->priv_proto = XXX;
+        }
+ *****/
+        if (0 != sess->securityPrivKeyLen) {
+
+            info->priv_key = buffer_new(NULL, USM_LENGTH_KU_HASHBLOCK, 0);
+            info->priv_key->cur_len = info->priv_key->max_len;
+			/* XXX - Why 'authproto' not 'privproto' ??? */
+            (void)generate_kul(sess->securityAuthProto, sess->securityAuthProtoLen,
+                               info->sec_engine->ID->string,
+                               info->sec_engine->ID->cur_len,
+                               sess->securityPrivKey, sess->securityPrivKeyLen,
+                               info->priv_key->string, &(info->priv_key->cur_len));
+        }
+    }
+
+    return info;
 }
 
 
@@ -283,77 +421,6 @@ ucd_convert_pdu( struct snmp_pdu *p )
 	}
     }
     return pdu;
-}
-
-
-void
-ucd_session_defaults(struct snmp_session *session, struct snmp_pdu *pdu)
-{
-
-    if ((NULL == pdu) || (NULL == session)) {
-        return;
-    }
-
-    if (pdu->securityEngineIDLen == 0) {
-	if (session->securityEngineIDLen) {
-	  snmpv3_clone_engineID(&pdu->securityEngineID, 
-				&pdu->securityEngineIDLen,
-				session->securityEngineID,
-				session->securityEngineIDLen);
-	}
-      }
-
-      if (pdu->contextEngineIDLen == 0) {
-	if (session->contextEngineIDLen) {
-	  snmpv3_clone_engineID(&pdu->contextEngineID, 
-				&pdu->contextEngineIDLen,
-				session->contextEngineID,
-				session->contextEngineIDLen);
-	} else if (pdu->securityEngineIDLen) {
-	  snmpv3_clone_engineID(&pdu->contextEngineID, 
-				&pdu->contextEngineIDLen,
-				pdu->securityEngineID,
-				pdu->securityEngineIDLen);
-	}
-      }
-
-      if (pdu->contextName == NULL) {
-	if (!session->contextName){
-	  session->s_snmp_errno = SNMPERR_BAD_CONTEXT;
-	  return /* -1 */;
-	}
-	pdu->contextName = strdup(session->contextName);
-	if (pdu->contextName == NULL) {
-	  session->s_snmp_errno = SNMPERR_GENERR;
-	  return /* -1 */;
-	}
-	pdu->contextNameLen = session->contextNameLen;
-      }
-      if (pdu->securityModel == NETSNMP_SEC_MODEL_DEFAULT) {
-          pdu->securityModel = session->securityModel;
-	  if (pdu->securityModel == NETSNMP_SEC_MODEL_DEFAULT) {
-	    pdu->securityModel = NETSNMP_SEC_MODEL_USM;
-	  }
-      }
-      if (pdu->securityNameLen == 0 && pdu->securityName == 0) {
-	if (session->securityNameLen == 0){
-	  session->s_snmp_errno = SNMPERR_BAD_SEC_NAME;
-	  return /* -1 */;
-	}
-	pdu->securityName = strdup(session->securityName);
-	if (pdu->securityName == NULL) {
-	  session->s_snmp_errno = SNMPERR_GENERR;
-	  return /* -1 */;
-	}
-	pdu->securityNameLen = session->securityNameLen;
-      }
-      if (pdu->securityLevel == 0) {
-	if (session->securityLevel == 0) {
-	    session->s_snmp_errno = SNMPERR_BAD_SEC_LEVEL;
-	    return /* -1 */;
-	}
-	pdu->securityLevel = session->securityLevel;
-      }
 }
 
 

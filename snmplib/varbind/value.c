@@ -95,7 +95,7 @@ var_set_value(netsnmp_value *value, char *val, int len)
     *  when it is not longer required.
     */
 netsnmp_value*
-var_create_value(int type)
+var_create_value(u_char type)
 {
     netsnmp_value   *value;
 
@@ -116,7 +116,7 @@ var_create_value(int type)
     *  when it is not longer required.
     */
 netsnmp_value*
-var_create_set_value(char *val, int len, int type)
+var_create_set_value(char *val, int len, u_char type)
 {
     netsnmp_value   *value;
 

@@ -19,7 +19,7 @@
 #define NETSNMP_BUFFER_NOCOPY            0x10
 
 typedef struct netsnmp_buf_s {
-    char *string;
+    u_char *string;
     int   cur_len;
     int   max_len;
     int   flags;

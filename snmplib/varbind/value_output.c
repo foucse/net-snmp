@@ -122,6 +122,16 @@ var_bprint_value(netsnmp_buf *buf, netsnmp_value *value, netsnmp_mib *mib)
         return val_print_float(buf, value, mib);
     case ASN_OPAQUE_DOUBLE:
         return val_print_double(buf, value, mib);
+    case SNMP_NOSUCHOBJECT:
+        (void) buffer_append_string(buf, "No Such Object");
+        return 0;
+    case SNMP_NOSUCHINSTANCE:
+        (void) buffer_append_string(buf, "No Such Instance");
+        return 0;
+    case SNMP_ENDOFMIBVIEW:
+        (void) buffer_append_string(buf, "End of MIB");
+        return 0;
+
     default:
         (void) buffer_append_string(buf, "Variable has bad type");
         return -1;

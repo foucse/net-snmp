@@ -20,6 +20,7 @@
 #define UCD_MSG_FLAG_ALWAYS_IN_VIEW          0x800
 #define UCD_MSG_FLAG_PDU_TIMEOUT            0x1000
 
+#define ASN1_H					/* XXX -  Liar! */
 typedef u_long oid;
 
 struct variable_list {

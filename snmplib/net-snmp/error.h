@@ -1,4 +1,6 @@
 
+#include <errno.h>
+
 #define SNMPERR_SUCCESS			(0)  /* XXX  Non-PDU "success" code. */
 #define SNMPERR_GENERR			(-1)
 #define SNMPERR_BAD_LOCPORT		(-2)

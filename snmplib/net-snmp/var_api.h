@@ -33,11 +33,11 @@ void  oid_print(                      netsnmp_oid *oid );
 
         /* Value-related routines */
 
-netsnmp_value* var_create_value(                                           int type );
-netsnmp_value* var_create_set_value(                   char *val, int len, int type );
-netsnmp_value* var_copy_value(   netsnmp_value *value                               );
-int            var_set_value(    netsnmp_value *value, char *val, int len           );
-void           var_free_value(   netsnmp_value *value                               );
+netsnmp_value* var_create_value(                                           u_char type );
+netsnmp_value* var_create_set_value(                   char *val, int len, u_char type );
+netsnmp_value* var_copy_value(   netsnmp_value *value                                  );
+int            var_set_value(    netsnmp_value *value, char *val, int len              );
+void           var_free_value(   netsnmp_value *value                                  );
 
 int   var_bprint_value( netsnmp_buf* buf,       netsnmp_value *value, netsnmp_mib *mib );
 char* var_sprint_value( char *str_buf, int len, netsnmp_value *value, netsnmp_mib *mib );

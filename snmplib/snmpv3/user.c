@@ -118,7 +118,7 @@ netsnmp_user *
 user_copy(netsnmp_user *info)
 {
 
-    if (NULL != info) {
+    if (NULL == info) {
         return NULL;
     }
     info->ref_count++;

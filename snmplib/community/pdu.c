@@ -182,6 +182,11 @@ community_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
 {
     int start_len;
 
+    if ((NULL == buf) ||
+        (NULL == pdu)) {
+	return -1;
+    }
+
     switch (pdu->version) {
     case SNMP_VERSION_1:
     case SNMP_VERSION_2c:
@@ -195,9 +200,6 @@ community_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
 	return -1;		/* Must have a real valid version to send */
     }
 
-    if ((NULL == buf) || (NULL == pdu )) {
-	return -1;
-    }
     if (!(buf->flags & NETSNMP_BUFFER_REVERSE)) {
 	return -1;	/* XXX - or set the flag ? */
     }
@@ -213,6 +215,36 @@ community_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
     __B(encode_integer(buf, ASN_INTEGER, pdu->version))
     __B(encode_sequence(buf, (buf->cur_len - start_len)))
     return 0;
+}
+
+
+int
+community_build_pdu(netsnmp_session *sess, netsnmp_pdu *pdu, netsnmp_buf *buf)
+{
+    if ((NULL == sess) ||
+        (NULL == pdu)  ||
+        (NULL == buf)) {
+        return -1;
+    }
+
+    _CHECK_VERSION(sess->version, -1 )
+    _CHECK_VERSION( pdu->version, -1 )
+
+    if ((SNMP_VERSION_ANYC    == pdu->version) ||
+        (SNMP_VERSION_ANY     == pdu->version) ||
+        (SNMP_DEFAULT_VERSION == pdu->version)) {
+        pdu->version = sess->version;
+    }
+
+    if (NULL == pdu->community) {
+        if ((SNMP_MSG_SET == pdu->command) &&
+            (NULL != sess->write_community)) {
+            pdu->community = comminfo_copy(sess->write_community);
+        } else {
+            pdu->community = comminfo_copy(sess->read_community);
+        }
+    }
+    return community_encode_pdu(buf, pdu);
 }
 
 
@@ -372,112 +404,3 @@ community_check_pdu(netsnmp_pdu *pdu)
 }
 
 
-		/**************************************
-		 *
-		 *	Temporary - hijacked from community/packet.c
-		 *
-		 **************************************/
-
-
-#include <ucd/ucd_api.h>
-#include <ucd/ucd_convert.h>
-
-#define SNMPERR_SUCCESS		(0)
-#define ERROR_MSG(string)   snmp_set_detail(string)
-#include "protocol/asn1_parse.h"
-#include "snmp_debug.h"
-
-
-int netsnmp_community_build(u_char **pkt, size_t *pkt_len, size_t *offset,
-            struct snmp_session *session, struct snmp_pdu *pdu)
-{
-    netsnmp_pdu *p;
-    netsnmp_buf *buf;
-
-    p = ucd_convert_pdu( pdu );
-    if (NULL == p) {
-	return -1;       /* Error */
-    }
-
-    if (NULL == p->community ) {
-	(void)community_set_cstring( p, session->community,
-					session->community_len );
-    }
-    memset( *pkt, 0, *pkt_len );        /* clear the buffer! */
-    buf = buffer_new( *pkt, *pkt_len,
-	NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_RESIZE|NETSNMP_BUFFER_REVERSE );
-
-    if (0 > community_encode_pdu( buf, p )) {
-	return -1;
-    }
-
-    *pkt     = buf->string;
-    *pkt_len = buf->max_len;
-    *offset  = buf->cur_len;
-    buf->flags |= NETSNMP_BUFFER_NOFREE;
-
-    pdu_free( p );
-    buffer_free( buf );
-    return 0;
-}
-
-
-/*******************************************************************-o-******
- * snmp_comstr_parse
- *
- * Parameters:
- *	*data		(I)   Message.
- *	*length		(I/O) Bytes left in message.
- *	*psid		(O)   Community string.
- *	*slen		(O)   Length of community string.
- *	*version	(O)   Message version.
- *      
- * Returns:
- *	Pointer to the remainder of data.
- *
- *
- * Parse the header of a community string-based message such as that found
- * in SNMPv1 and SNMPv2c.
- */
-u_char *
-community_parse(u_char *data,
-		  size_t *length,
-		  u_char *psid,
-		  size_t *slen,
-		  long *version)
-{
-    u_char   	type;
-    long	ver;
-
-
-    /* Message is an ASN.1 SEQUENCE.
-     */
-    data = asn_parse_sequence(data, length, &type,
-                        (ASN_SEQUENCE | ASN_CONSTRUCTOR), "auth message");
-    if (data == NULL){
-        return NULL;
-    }
-
-    /* First field is the version.
-     */
-    DEBUGDUMPHEADER("recv", "SNMP version");
-    data = asn_parse_int(data, length, &type, &ver, sizeof(ver));
-    DEBUGINDENTLESS();
-    *version = ver;
-    if (data == NULL){
-        ERROR_MSG("bad parse of version");
-        return NULL;
-    }
-
-    /* second field is the community string for SNMPv1 & SNMPv2c */
-    DEBUGDUMPHEADER("recv", "community string");
-    data = asn_parse_string(data, length, &type, psid, slen);
-    DEBUGINDENTLESS();
-    if (data == NULL){
-        ERROR_MSG("bad parse of community");
-        return NULL;
-    }
-    psid[*slen] = '\0';
-    return (u_char *)data;
-
-}  /* end snmp_comstr_parse() */
