@@ -9,4 +9,4 @@ msgUserName => initial;
 contextEngineID => 0x040C800007e574657374697400;
 contextName => "default";
 pduData => GETNEXT; 
-#varbind => 0x3000;
+varbind => 0x3000;
