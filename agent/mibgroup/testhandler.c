@@ -15,11 +15,13 @@
 #include "helpers/table.h"
 #include "helpers/instance.h"
 #include "helpers/table_data.h"
+#include "helpers/table_dataset.h"
 
 static oid my_test_oid[4] = {1,2,3,4};
 static oid my_table_oid[4] = {1,2,3,5};
 static oid my_instance_oid[5] = {1,2,3,6,1};
-static oid my_data_table_oid[5] = {1,2,3,7};
+static oid my_data_table_oid[4] = {1,2,3,7};
+static oid my_data_table_set_oid[4] = {1,2,3,8};
 
 void
 init_testhandler(void) {
@@ -28,6 +30,7 @@ init_testhandler(void) {
     table_registration_info *table_info;
     u_long ind1;
     table_data *table;
+    table_data_set *table_set;
     table_row *row;
     
     DEBUGMSGTL(("testhandler", "initializing\n"));
@@ -68,9 +71,9 @@ init_testhandler(void) {
      * data table helper test
      */
     /* we'll construct a simple table here with two indexes: an
-           integer and a string (why not).  It'll contain only one
-           column so the data pointer is merely the data in that
-           column. */
+       integer and a string (why not).  It'll contain only one
+       column so the data pointer is merely the data in that
+       column. */
         
     table = create_table_data("data_table_test");
 
@@ -111,6 +114,62 @@ init_testhandler(void) {
                                     4),
         table,
         table_info);
+
+    /*
+     * register a full featured, I don't care about the data afterwards table.
+     */
+    /* It's going to be the "working group chairs" table, since I'm
+       sitting at an IETF convention while I'm writing this.
+
+        column 1 = index = string = WG name
+        column 2 = string = chair #1
+        column 3 = string = chair #2  (most WGs have 2 chairs now)
+    */
+    table = create_table_data("data_table_test");
+
+    table_data_add_index(table, ASN_OCTET_STR); /* the WG name */
+
+    table_set = create_table_data_set(table);
+    
+    /* set up what a row "should" look like */
+    row = create_table_data_row();
+    table_set_add_default_row(table_set, 2, ASN_OCTET_STR, 1);
+    table_set_add_default_row(table_set, 3, ASN_OCTET_STR, 1);
+
+    /* about the table */
+    table_info = SNMP_MALLOC_TYPEDEF(table_registration_info);
+    table_info->min_column = 2;
+    table_info->max_column = 3;
+    table_helper_add_index(table_info, ASN_OCTET_STR);
+
+    /* register the table */
+    register_table_data_set(create_handler_registration("chairs",
+                                                        NULL,
+                                                        my_data_table_set_oid,
+                                                        4),
+                            table_set, table_info);
+
+    /* add the data */
+    row = create_table_data_row();
+    table_row_add_index(row, ASN_OCTET_STR, "snmpv3",\
+                        strlen("snmpv3"));
+    set_row_column(row, 2, ASN_OCTET_STR, "Russ Mundy", strlen("Russ Mundy"));
+    mark_row_column_writable(row, 2, 1); /* make writable */
+    set_row_column(row, 3, ASN_OCTET_STR, "David Harrington",
+                   strlen("David Harrington"));
+    mark_row_column_writable(row, 3, 1); /* make writable */
+    table_data_add_row(table, row);
+
+    row = create_table_data_row();
+    table_row_add_index(row, ASN_OCTET_STR, "snmpconf",\
+                        strlen("snmpconf"));
+    set_row_column(row, 2, ASN_OCTET_STR, "David Partain",
+                   strlen("David Partain"));
+    mark_row_column_writable(row, 2, 1); /* make writable */
+    set_row_column(row, 3, ASN_OCTET_STR, "Jon Saperia",
+                   strlen("Jon Saperia"));
+    mark_row_column_writable(row, 3, 1); /* make writable */
+    table_data_add_row(table, row);
 }
 
 int
