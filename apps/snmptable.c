@@ -278,7 +278,7 @@ void print_table (void)
   for (field = 0; field < fields; field++) {
     if (field_separator == NULL)
       sprintf(string_buf, "%%%ds", column[field].width+1);
-    else if (field == 0) sprintf(string_buf, "%%s");
+    else if (field == 0 && !show_index) sprintf(string_buf, "%%s");
     else sprintf(string_buf, "%s%%s", field_separator);
     column[field].fmt = strdup (string_buf);
   }
@@ -386,13 +386,14 @@ void get_field_names( char* tblname )
   if (brief && fields > 1) {
     char *f1, *f2;
     int common = strlen(column[0].label);
-    int field;
+    int field, len;
     for (field = 1; field < fields; field++) {
       f1 = column[field-1].label;
       f2 = column[field].label;
-      while (*f1++ == *f2++ && *f1) ;
-      if (f2 - column[field].label < common)
-	common = f2 - column[field].label - 1;
+      while (*f1 && *f1++ == *f2++) ;
+      len = f2 - column[field].label - 1;
+      if (len < common)
+	common = len;
     }
     if (common) {
       for (field = 0; field < fields; field++) {
@@ -511,15 +512,15 @@ void get_table_entries( struct snmp_session *ss )
 	  i = strlen(string_buf);
 	  if (i > column[col].width) column[col].width = i;
 	}
-	  if( end_of_table ) {
-		--entries;
-	    /* not part of this subtree */
-	    if (localdebug) {
-	      printf("End of table: %s\n", string_buf);
-	    }
-	    running = 0;
-	    continue;
+	if( end_of_table ) {
+	      --entries;
+	  /* not part of this subtree */
+	  if (localdebug) {
+	    printf("End of table: %s\n", string_buf);
 	  }
+	  running = 0;
+	  continue;
+	}
       } else {
 	/* error in response, print it */
 	running = 0;
