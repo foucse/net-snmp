@@ -65,8 +65,12 @@ free_list_data(data_list *node)
 inline void
 free_all_list_data(data_list *head) 
 {
-    for(; head; head = head->next) {
+    data_list *tmpptr;
+    for(; head; ) {
         free_list_data(head);
+        tmpptr = head;
+        head = head->next;
+        SNMP_FREE(TMPPTR);
     }
 }
 
