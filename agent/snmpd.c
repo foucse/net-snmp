@@ -683,8 +683,6 @@ main(argc, argv)
           usm_free_user(user);
 	init_mib();		/* initialize the mib structures */
 	update_config(0);	/* read in config files and register HUP */
-        init_usm_post_config();
-        init_snmpv3_post_config();
 
 	/* Read in the persistent information cache.
 	 */
@@ -692,6 +690,8 @@ main(argc, argv)
 	sprintf(file, "%s/snmpd.persistent.conf", PERSISTENTDIR);
 	read_config_with_type(file, "snmpd");
 #endif
+        init_usm_post_config();
+        init_snmpv3_post_config();
 
 	/* Open ports.
 	 */
