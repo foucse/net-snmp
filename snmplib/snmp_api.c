@@ -5103,6 +5103,12 @@ snmp_sess_timeout(void *sessp)
     }
 }
 
+int
+snmp_oid_ncompare(const oid *in_name1, const oid*in_name2, int len)
+{
+    return snmp_oid_compare(in_name1, len, in_name2, len);
+}
+
 /* lexicographical compare two object identifiers.
  * Returns -1 if name1 < name2,
  *          0 if name1 = name2,
