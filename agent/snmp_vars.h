@@ -43,6 +43,9 @@ u_char	*getStatPtr();
 extern long long_return;
 extern u_char return_buf[];
 
+extern oid nullOid[];
+extern int nullOidLen;
+
 #define INST	0xFFFFFFFF	/* used to fill out the instance field of the variables table */
 
 /*
@@ -79,6 +82,7 @@ extern u_char return_buf[];
 #define IFOUTDISCARDS	19
 #define IFOUTERRORS	20
 #define IFOUTQLEN	21
+#define IFSPECIFIC	22
 
 #define ATIFINDEX	0
 #define ATPHYSADDRESS	1
@@ -103,11 +107,13 @@ extern u_char return_buf[];
 #define IPFRAGOKS	16
 #define IPFRAGFAILS	17
 #define IPFRAGCREATES	18
+#define IPROUTEDISCARDS	19
 
 #define IPADADDR	1
 #define IPADIFINDEX	2
 #define IPADNETMASK	3
 #define IPADBCASTADDR	4
+#define IPADREASMMAX	5
 
 #define IPROUTEDEST	0
 #define IPROUTEIFINDEX	1
@@ -119,6 +125,14 @@ extern u_char return_buf[];
 #define IPROUTETYPE	7
 #define IPROUTEPROTO	8
 #define IPROUTEAGE	9
+#define IPROUTEMASK	10
+#define IPROUTEMETRIC5	11
+#define IPROUTEINFO	12
+
+#define IPMEDIAIFINDEX		0
+#define IPMEDIAPHYSADDRESS	1
+#define IPMEDIANETADDRESS	2
+#define IPMEDIATYPE		3
 
 #define ICMPINMSGS	     0
 #define ICMPINERRORS	     1
@@ -171,6 +185,8 @@ extern u_char return_buf[];
 #define UDPNOPORTS	    1
 #define UDPINERRORS	    2
 #define UDPOUTDATAGRAMS     3
+#define UDPLOCALADDRESS     4
+#define UDPLOCALPORT	    5
 
 struct variable {
     u_char	    magic;	    /* passed to function as a hint */

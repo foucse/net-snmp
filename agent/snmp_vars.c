@@ -211,6 +211,8 @@ void Interface_Scan_Init();
 static int TCP_Count_Connections();
 static void TCP_Scan_Init();
 static int TCP_Scan_Next();
+static void UDP_Scan_Init();
+static int UDP_Scan_Next();
 static void ARP_Scan_Init();
 static int ARP_Scan_Next();
 static int Interface_Scan_Get_Count();
@@ -229,17 +231,18 @@ static int Interface_Get_Ether_By_Index();
 #define N_IFNET		6
 #define N_TCPSTAT	7
 #define N_TCB		8
-#define N_ARPTAB_SIZE	9
-#define N_ARPTAB        10
-#define N_IN_IFADDR     11
-#define N_BOOTTIME	12
-#define N_PROC		13
-#define N_NPROC		14
-#define N_DMMIN		15
-#define N_DMMAX		16
-#define N_NSWAP		17
-#define N_USRPTMAP	18
-#define N_USRPT		19
+#define N_UDB		9
+#define N_ARPTAB_SIZE	10
+#define N_ARPTAB        11
+#define N_IN_IFADDR     12
+#define N_BOOTTIME	13
+#define N_PROC		14
+#define N_NPROC		15
+#define N_DMMIN		16
+#define N_DMMAX		17
+#define N_NSWAP		18
+#define N_USRPTMAP	19
+#define N_USRPT		20
 
 static struct nlist nl[] = {
 #if !defined(hpux) && !defined(solaris2)
@@ -260,6 +263,7 @@ static struct nlist nl[] = {
 #else
 	{ "_tcb" },
 #endif
+	{ "_udb" },
 	{ "_arptab_size" }, 
 	{ "_arptab" },      
 	{ "_in_ifaddr" },
@@ -285,6 +289,7 @@ static struct nlist nl[] = {
 	{ "ifnet" },
 	{ "tcpstat" },
 	{ "tcb" },
+	{ "udb" },
 	{ "arptab_nb" }, 
 	{ "arphd" },      
 	{ "in_ifaddr" },
@@ -464,6 +469,8 @@ Export int alarmFallingThreshOidLen = sizeof(alarmFallingThreshOid)/sizeof(oid);
 Export oid alarmRisingThreshOid[] = {SNMPV2ALARMENTRY, ALARMTABRISINGTHRESH};
 Export int alarmRisingThreshOidLen = sizeof(alarmRisingThreshOid)/sizeof(oid);
 
+Export oid nullOid[] = {0,0};
+Export int nullOidLen = sizeof(nullOid)/sizeof(oid);
 Export oid sysUpTimeOid[] = {1,3,6,1,2,1,1,3,0};
 Export int sysUpTimeOidLen = sizeof(sysUpTimeOid)/sizeof(oid);
 Export oid eventIdOid[] = {SNMPV2EVENTENTRY, EVENTTABID};
@@ -526,7 +533,8 @@ struct variable4 interface_variables[] = {
     {IFOUTNUCASTPKTS, COUNTER, RONLY, var_ifEntry, 3, {2, 1, 18}},
     {IFOUTDISCARDS, COUNTER, RONLY, var_ifEntry, 3, {2, 1, 19}},
     {IFOUTERRORS, COUNTER, RONLY, var_ifEntry, 3, {2, 1, 20}},
-    {IFOUTQLEN, GAUGE, RONLY, var_ifEntry, 3, {2, 1, 21}}
+    {IFOUTQLEN, GAUGE, RONLY, var_ifEntry, 3, {2, 1, 21}},
+    {IFSPECIFIC, OBJID, RONLY, var_ifEntry, 3, {2, 1, 22}}
 };
 
 struct variable2 system_variables[] = {
@@ -539,7 +547,8 @@ struct variable2 system_variables[] = {
     {SYSSERVICES, INTEGER, RONLY, var_system, 1, {7}}
 };
 
-struct variable2 at_variables[] = {
+  /* variable4 because var_atEntry is also used by ipNetToMediaTable */
+struct variable4 at_variables[] = {
     {ATIFINDEX, INTEGER, RONLY, var_atEntry, 1, {1}},
     {ATPHYSADDRESS, STRING, RONLY, var_atEntry, 1, {2}},
     {ATNETADDRESS, IPADDRESS, RONLY, var_atEntry, 1, {3}}
@@ -579,6 +588,7 @@ struct variable4 ip_variables[] = {
     {IPADNETMASK, IPADDRESS, RONLY, var_ipAddrEntry, 3, {20, 1, 3}},
 #endif
     {IPADBCASTADDR, INTEGER, RONLY, var_ipAddrEntry, 3, {20, 1, 4}},
+    {IPADREASMMAX, INTEGER, RONLY, var_ipAddrEntry, 3, {20, 1, 5}},
     {IPROUTEDEST, IPADDRESS, RONLY, var_ipRouteEntry, 3, {21, 1, 1}},
     {IPROUTEIFINDEX, INTEGER, RONLY, var_ipRouteEntry, 3, {21, 1, 2}},
     {IPROUTEMETRIC1, INTEGER, RONLY, var_ipRouteEntry, 3, {21, 1, 3}},
@@ -588,7 +598,15 @@ struct variable4 ip_variables[] = {
     {IPROUTENEXTHOP, IPADDRESS, RONLY, var_ipRouteEntry, 3, {21, 1, 7}},
     {IPROUTETYPE, INTEGER, RONLY, var_ipRouteEntry, 3, {21, 1, 8}},
     {IPROUTEPROTO, INTEGER, RONLY, var_ipRouteEntry, 3, {21, 1, 9}},
-    {IPROUTEAGE, INTEGER, RONLY, var_ipRouteEntry, 3, {21, 1, 10}}
+    {IPROUTEAGE, INTEGER, RONLY, var_ipRouteEntry, 3, {21, 1, 10}},
+    {IPROUTEMASK, IPADDRESS, RONLY, var_ipRouteEntry, 3, {21, 1, 11}},
+    {IPROUTEMETRIC5, INTEGER, RONLY, var_ipRouteEntry, 3, {21, 1, 12}},
+    {IPROUTEINFO, OBJID, RONLY, var_ipRouteEntry, 3, {21, 1, 13}},
+    {IPMEDIAIFINDEX, INTEGER, RONLY, var_atEntry, 3, {22, 1, 1}},
+    {IPMEDIAPHYSADDRESS, STRING, RONLY, var_atEntry, 3, {22, 1, 2}},
+    {IPMEDIANETADDRESS, IPADDRESS, RONLY, var_atEntry, 3, {22, 1, 3}},
+    {IPMEDIATYPE, INTEGER, RONLY, var_atEntry, 3, {22, 1, 4}},
+    {IPROUTEDISCARDS, COUNTER, RONLY, var_ip, 1, {23 }}
 };
 
 struct variable2 icmp_variables[] = {
@@ -648,11 +666,13 @@ struct variable13 tcp_variables[] = {
     {TCPOUTRSTS, COUNTER, RONLY, var_tcp, 1, {15}}
 };
 
-struct variable2 udp_variables[] = {
+struct variable8 udp_variables[] = {
     {UDPINDATAGRAMS, COUNTER, RONLY, var_udp, 1, {1}},
     {UDPNOPORTS, COUNTER, RONLY, var_udp, 1, {2}},
     {UDPINERRORS, COUNTER, RONLY, var_udp, 1, {3}},
-    {UDPOUTDATAGRAMS, COUNTER, RONLY, var_udp, 1, {4}}
+    {UDPOUTDATAGRAMS, COUNTER, RONLY, var_udp, 1, {4}},
+    {UDPLOCALADDRESS, IPADDRESS, RONLY, var_udp, 3, {5, 1, 1}},
+    {UDPLOCALPORT, INTEGER, RONLY, var_udp, 3, {5, 1, 2}}
 };
 
 #ifdef NEVER
@@ -1641,6 +1661,9 @@ var_ifEntry(vp, name, length, exact, var_len, write_method)
 	    return (u_char *) &ifnet.if_oerrors;
 	case IFOUTQLEN:
 	    return (u_char *) &ifnet.if_snd.ifq_len;
+	case IFSPECIFIC:
+	    *var_len = nullOidLen;
+	    return (u_char *) &nullOid;
 	default:
 	    ERROR("");
     }
@@ -1808,10 +1831,15 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
     int			    (**write_method)(); /* OUT - pointer to function to set variable, otherwise 0 */
 {
     /*
-     * object identifier is of form:
+     * Address Translation table object identifier is of form:
      * 1.3.6.1.2.1.3.1.1.1.interface.1.A.B.C.D,  where A.B.C.D is IP address.
      * Interface is at offset 10,
      * IPADDR starts at offset 12.
+     *
+     * IP Net to Media table object identifier is of form:
+     * 1.3.6.1.2.1.4.22.1.1.1.interface.A.B.C.D,  where A.B.C.D is IP address.
+     * Interface is at offset 10,
+     * IPADDR starts at offset 11.
      */
     u_char		    *cp;
     oid			    *op;
@@ -1822,65 +1850,90 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
 #if defined(freebsd2) || defined(netbsd1) || defined(hpux)
     u_short		    ifIndex, lowIfIndex;
 #endif
+    u_long		    ifType, lowIfType;
+
+    int                     oid_length;
 
     /* fill in object part of name for current (less sizeof instance part) */
     bcopy((char *)vp->name, (char *)current, (int)vp->namelen * sizeof(oid));
+
+    if (current[6] == 3 ) {	/* AT group oid */
+	oid_length = 16;
+    }
+    else {			/* IP NetToMedia group oid */
+	oid_length = 15;
+    }
 
     LowAddr = -1;      /* Don't have one yet */
     ARP_Scan_Init();
     for (;;) {
 #if defined(freebsd2) || defined(netbsd1) || defined(hpux)
-	if (ARP_Scan_Next(&Addr, PhysAddr, &ifIndex) == 0)
+	if (ARP_Scan_Next(&Addr, PhysAddr, &ifType, &ifIndex) == 0)
 	    break;
 	current[10] = ifIndex;
+
+	if (current[6] == 3 ) {	/* AT group oid */
+	    current[11] = 1;
+	    op = current + 12;
+	}
+	else {			/* IP NetToMedia group oid */
+	    op = current + 11;
+	}
 #else
-	if (ARP_Scan_Next(&Addr, PhysAddr) == 0)
+	if (ARP_Scan_Next(&Addr, PhysAddr, &ifType) == 0)
 	    break;
 	current[10] = 1;
+
+	if (current[6] == 3 ) {	/* AT group oid */
+	    current[11] = 1;
+	    op = current + 12;
+	}
+	else {			/* IP NetToMedia group oid */
+	    op = current + 11;
+	}
 #endif
-	/* IfIndex == 1 (ethernet?) XXX */
-	current[11] = 1;
 	cp = (u_char *)&Addr;
-	op = current + 12;
 	*op++ = *cp++;
 	*op++ = *cp++;
 	*op++ = *cp++;
 	*op++ = *cp++;
 
 	if (exact){
-	    if (compare(current, 16, name, *length) == 0){
-		bcopy((char *)current, (char *)lowest, 16 * sizeof(oid));
+	    if (compare(current, oid_length, name, *length) == 0){
+		bcopy((char *)current, (char *)lowest, oid_length * sizeof(oid));
 		LowAddr = Addr;
 #if defined(freebsd2) || defined(netbsd1) || defined(hpux)
 		lowIfIndex = ifIndex;
 #endif
 		bcopy(PhysAddr, LowPhysAddr, sizeof(PhysAddr));
+		lowIfType = ifType;
 		break;	/* no need to search further */
 	    }
 	} else {
-	    if ((compare(current, 16, name, *length) > 0) &&
-		 ((LowAddr == -1) || (compare(current, 16, lowest, 16) < 0))){
+	    if ((compare(current, oid_length, name, *length) > 0) &&
+		 ((LowAddr == -1) || (compare(current, oid_length, lowest, oid_length) < 0))){
 		/*
 		 * if new one is greater than input and closer to input than
 		 * previous lowest, save this one as the "next" one.
 		 */
-		bcopy((char *)current, (char *)lowest, 16 * sizeof(oid));
+		bcopy((char *)current, (char *)lowest, oid_length * sizeof(oid));
 		LowAddr = Addr;
 #if defined(freebsd2) || defined(netbsd1) || defined(hpux)
 		lowIfIndex = ifIndex;
 #endif
 		bcopy(PhysAddr, LowPhysAddr, sizeof(PhysAddr));
+		lowIfType = ifType;
 	    }
 	}
     }
     if (LowAddr == -1)
 	return(NULL);
 
-    bcopy((char *)lowest, (char *)name, 16 * sizeof(oid));
-    *length = 16;
+    bcopy((char *)lowest, (char *)name, oid_length * sizeof(oid));
+    *length = oid_length;
     *write_method = 0;
     switch(vp->magic){
-	case ATIFINDEX:
+	case IPMEDIAIFINDEX:			/* also ATIFINDEX */
 	    *var_len = sizeof long_return;
 #if defined(freebsd2) || defined(netbsd1) || defined(hpux)
 	    long_return = lowIfIndex;
@@ -1888,12 +1941,16 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
 	    long_return = 1; /* XXX */
 #endif
 	    return (u_char *)&long_return;
-	case ATPHYSADDRESS:
+	case IPMEDIAPHYSADDRESS:		/* also ATPHYSADDRESS */
 	    *var_len = sizeof(LowPhysAddr);
 	    return (u_char *)LowPhysAddr;
-	case ATNETADDRESS:
+	case IPMEDIANETADDRESS:			/* also ATNETADDRESS */
 	    *var_len = sizeof long_return;
 	    long_return = LowAddr;
+	    return (u_char *)&long_return;
+	case IPMEDIATYPE:
+	    *var_len = sizeof long_return;
+	    long_return = lowIfType;
 	    return (u_char *)&long_return;
 	default:
 	    ERROR("");
@@ -2143,6 +2200,9 @@ var_ip(vp, name, length, exact, var_len, write_method)
 	case IPFRAGCREATES:
 	    long_return = 0;
 	    return (u_char *) &long_return;
+	case IPROUTEDISCARDS:
+	    long_return = 0;
+	    return (u_char *) &long_return;
 	default:
 	    ERROR("");
     }
@@ -2264,6 +2324,9 @@ var_ipAddrEntry(vp, name, length, exact, var_len, write_method)
           long_return = ntohl(((struct sockaddr_in *) &lowin_ifaddr.ia_broadaddr)->sin_addr.s_addr) & 1;
 #endif
 	    return(u_char *) &long_return;	   
+	case IPADREASMMAX:
+	    long_return = -1;
+	    return(u_char *) &long_return;
 	default:
 	    ERROR("");
     }
@@ -2723,10 +2786,15 @@ var_udp(vp, name, length, exact, var_len, write_method)
     int     *var_len;	    /* OUT - length of variable or 0 if function returned. */
     int     (**write_method)(); /* OUT - pointer to function to set variable, otherwise 0 */
 {
+    int i;
     static struct udpstat udpstat;
-    oid newname[MAX_NAME_LEN];
+    oid newname[MAX_NAME_LEN], lowest[MAX_NAME_LEN], *op;
+    u_char *cp;
+    int LowState;
+    static struct inpcb inpcb, Lowinpcb;
     int result;
 
+  if (vp->magic < UDPLOCALADDRESS) {
     bcopy((char *)vp->name, (char *)newname, (int)vp->namelen * sizeof(oid));
     newname[8] = 0;
     result = compare(name, *length, newname, (int)vp->namelen + 1);
@@ -2771,6 +2839,61 @@ var_udp(vp, name, length, exact, var_len, write_method)
 	default:
 	    ERROR("");
     }
+ }
+ else {			/* Information about UDP 'connections' */
+
+    bcopy((char *)vp->name, (char *)newname, (int)vp->namelen * sizeof(oid));
+		/* find the "next" pseudo-connection */
+Again:
+LowState = -1;		/* UDP doesn't have 'State', but it's auseful flag */
+	UDP_Scan_Init();
+	for (;;) {
+	    if ((i = UDP_Scan_Next(&inpcb)) < 0) goto Again;
+	    if (i == 0) break;	    /* Done */
+	    cp = (u_char *)&inpcb.inp_laddr.s_addr;
+	    op = newname + 10;
+	    *op++ = *cp++;
+	    *op++ = *cp++;
+	    *op++ = *cp++;
+	    *op++ = *cp++;
+	    
+	    newname[14] = ntohs(inpcb.inp_lport);
+
+	    if (exact){
+		if (compare(newname, 15, name, *length) == 0){
+		    bcopy((char *)newname, (char *)lowest, 15 * sizeof(oid));
+		    LowState = 0;
+		    Lowinpcb = inpcb;
+		    break;  /* no need to search further */
+		}
+	    } else {
+		if ((compare(newname, 15, name, *length) > 0) &&
+		     ((LowState < 0) || (compare(newname, 15, lowest, 15) < 0))){
+		    /*
+		     * if new one is greater than input and closer to input than
+		     * previous lowest, save this one as the "next" one.
+		     */
+		    bcopy((char *)newname, (char *)lowest, 15 * sizeof(oid));
+		    LowState = 0;
+		    Lowinpcb = inpcb;
+		}
+	    }
+	}
+	if (LowState < 0) return(NULL);
+	bcopy((char *)lowest, (char *)name, ((int)vp->namelen + 10) * sizeof(oid));
+	*length = vp->namelen + 5;
+	*write_method = 0;
+	*var_len = sizeof(long);
+	switch (vp->magic) {
+	    case UDPLOCALADDRESS:
+		return (u_char *) &Lowinpcb.inp_laddr.s_addr;
+	    case UDPLOCALPORT:
+		long_return = ntohs(Lowinpcb.inp_lport);
+		return (u_char *) &long_return;
+	    default:
+		ERROR("");
+	}
+ }
     return NULL;
 }
 
@@ -3244,13 +3367,50 @@ Again:	/*
 	return(Established);
 }
 
-static struct inpcb inpcb, *prev;
+static struct inpcb udp_inpcb, *udp_prev;
+static struct inpcb tcp_inpcb, *tcp_prev;
+
+static void UDP_Scan_Init()
+{
+    KNLookup( N_UDB, (char *)&udp_inpcb, sizeof(udp_inpcb));
+#if !(defined(freebsd2) || defined(netbsd1))
+    udp_prev = (struct inpcb *) nl[N_UDB].n_value;
+#endif
+}
+
+static int UDP_Scan_Next(RetInPcb)
+struct inpcb *RetInPcb;
+{
+	register struct inpcb *next;
+
+#if defined(freebsd2) || defined(netbsd1)
+	if ((udp_inpcb.inp_next == NULL) ||
+	    (udp_inpcb.inp_next == (struct inpcb *) nl[N_UDB].n_value)) {
+#else
+	if (udp_inpcb.inp_next == (struct inpcb *) nl[N_UDB].n_value) {
+#endif
+	    return(0);	    /* "EOF" */
+	}
+
+	next = udp_inpcb.inp_next;
+
+	klookup((unsigned long)next, (char *)&udp_inpcb, sizeof (udp_inpcb));
+#if !(defined(netbsd1) || defined(freebsd2))
+	if (udp_inpcb.inp_prev != udp_prev)	   /* ??? */
+          return(-1); /* "FAILURE" */
+#endif
+	*RetInPcb = udp_inpcb;
+#if !(defined(netbsd1) || defined(freebsd2))
+	udp_prev = next;
+#endif
+	return(1);	/* "OK" */
+}
 
 static void TCP_Scan_Init()
 {
-    KNLookup( N_TCB, (char *)&inpcb, sizeof(inpcb));
+    KNLookup( N_TCB, (char *)&tcp_inpcb, sizeof(tcp_inpcb));
 #if !(defined(freebsd2) || defined(netbsd1))
-    prev = (struct inpcb *) nl[N_TCB].n_value;
+    tcp_prev = (struct inpcb *) nl[N_TCB].n_value;
 #endif
 }
 
@@ -3262,26 +3422,26 @@ struct inpcb *RetInPcb;
 	struct tcpcb tcpcb;
 
 #if defined(freebsd2) || defined(netbsd1)
-	if ((inpcb.inp_next == NULL) ||
-	    (inpcb.inp_next == (struct inpcb *) nl[N_TCB].n_value)) {
+	if ((tcp_inpcb.inp_next == NULL) ||
+	    (tcp_inpcb.inp_next == (struct inpcb *) nl[N_TCB].n_value)) {
 #else
-	if (inpcb.inp_next == (struct inpcb *) nl[N_TCB].n_value) {
+	if (tcp_inpcb.inp_next == (struct inpcb *) nl[N_TCB].n_value) {
 #endif
 	    return(0);	    /* "EOF" */
 	}
 
-	next = inpcb.inp_next;
+	next = tcp_inpcb.inp_next;
 
-	klookup((unsigned long)next, (char *)&inpcb, sizeof (inpcb));
+	klookup((unsigned long)next, (char *)&tcp_inpcb, sizeof (tcp_inpcb));
 #if !(defined(netbsd1) || defined(freebsd2))
-	if (inpcb.inp_prev != prev)	   /* ??? */
+	if (tcp_inpcb.inp_prev != tcp_prev)	   /* ??? */
           return(-1); /* "FAILURE" */
 #endif
-	klookup ( (int)inpcb.inp_ppcb, (char *)&tcpcb, sizeof (tcpcb));
+	klookup ( (int)tcp_inpcb.inp_ppcb, (char *)&tcpcb, sizeof (tcpcb));
 	*State = tcpcb.t_state;
-	*RetInPcb = inpcb;
+	*RetInPcb = tcp_inpcb;
 #if !(defined(netbsd1) || defined(freebsd2))
-	prev = next;
+	tcp_prev = next;
 #endif
 	return(1);	/* "OK" */
 }
@@ -3351,13 +3511,14 @@ static void ARP_Scan_Init()
 }
 
 #if defined(freebsd2) || defined(netbsd1) || defined(hpux)
-static int ARP_Scan_Next(IPAddr, PhysAddr, ifIndex)
+static int ARP_Scan_Next(IPAddr, PhysAddr, ifType, ifIndex)
 u_short *ifIndex;
 #else
-static int ARP_Scan_Next(IPAddr, PhysAddr)
+static int ARP_Scan_Next(IPAddr, PhysAddr, ifType)
 #endif
 u_long *IPAddr;
 char *PhysAddr;
+u_long *ifType;
 {
 #if !defined (netbsd1) && !defined (freebsd2)
 	register struct arptab *atab;
@@ -3385,6 +3546,7 @@ char *PhysAddr;
 		atab = &at[arptab_current++];
 #endif
 		if (!(atab->at_flags & ATF_COM)) continue;
+		*ifType = (atab->at_flags & ATF_PERM) ? 4 : 3 ;
 		*IPAddr = atab->at_iaddr.s_addr;
 #if defined (sunV3) || defined(sparc) || defined(hpux)
 		bcopy((char *) &atab->at_enaddr, PhysAddr, sizeof(atab->at_enaddr));
@@ -3410,6 +3572,7 @@ char *PhysAddr;
 			*IPAddr = sin->sin_addr.s_addr;
 			bcopy((char *) LLADDR(sdl), PhysAddr, sdl->sdl_alen);
 			*ifIndex = sdl->sdl_index;
+			*ifType = 1;	/* XXX */
 			return(1);
 		}
 	}
