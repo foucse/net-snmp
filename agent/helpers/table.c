@@ -316,10 +316,12 @@ table_helper_handler(
 	 * do we have sufficent index info to continue?
 	 */
 	
-		if ( (tbl_req_info->number_indexes != tbl_info->number_indexes) &&
-				 (reqinfo->mode != MODE_GETNEXT) ) {
-			table_helper_cleanup(reqinfo, requests,SNMP_ERR_NOSUCHNAME);
-		}
+		if ((reqinfo->mode != MODE_GETNEXT) &&
+				((tbl_req_info->number_indexes != tbl_info->number_indexes) ||
+				 (tmp_len!=-1)))
+			{
+				table_helper_cleanup(requests,SNMP_ERR_NOSUCHNAME);
+			}
 
 		DEBUGIF("helper:table") {
 			int count;
