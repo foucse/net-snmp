@@ -70,7 +70,7 @@ free_all_list_data(data_list *head)
         free_list_data(head);
         tmpptr = head;
         head = head->next;
-        SNMP_FREE(TMPPTR);
+        SNMP_FREE(tmpptr);
     }
 }
 
