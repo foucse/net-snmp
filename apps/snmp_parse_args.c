@@ -465,8 +465,8 @@ snmp_parse_args(argc, argv, session)
   }
   if (Xpsz) {
       session->securityPrivKeyLen = USM_PRIV_KU_LEN;
-      if (generate_Ku(session->securityPrivProto,
-                      session->securityPrivProtoLen,
+      if (generate_Ku(session->securityAuthProto,
+                      session->securityAuthProtoLen,
                       Xpsz, strlen(Xpsz),
                       session->securityPrivKey,
                       &session->securityPrivKeyLen) != SNMPERR_SUCCESS) {
