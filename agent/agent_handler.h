@@ -1,6 +1,10 @@
 #ifndef AGENT_HANDLER_H
 #define AGENT_HANDLER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct handler_registration_s;
 
 typedef struct mib_handler_s {
@@ -88,5 +92,9 @@ void handler_add_parent_data(request_info *, request_parent_data *);
 void *handler_get_parent_data(request_info *, const char *);
 void free_parent_data_set(request_info *);  /* single */
 void free_parent_data_sets(request_info *); /* multiple */
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif /* AGENT_HANDLER_H */
