@@ -1889,6 +1889,8 @@ usm_set_password(char *token, char *line)
   }
   
   if (type < 2) {
+    *key = malloc(SNMP_MAXBUF_SMALL);
+    *keyLen = SNMP_MAXBUF_SMALL;
     ret = generate_kul(	user->authProtocol, user->authProtocolLen,
 			engineID, engineIDLen,
 			userKey, userKeyLen,
