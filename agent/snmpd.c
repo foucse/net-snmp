@@ -533,7 +533,7 @@ main(argc, argv)
 	char           *cptr, **argvptr;
 	u_char          *engineID;
 	int             engineIDLen;
-        struct usmUser *user;
+        struct usmUser *user, *userListPtr;
 
 	logfile[0]		= 0;
 	optconfigfile		= NULL;
@@ -672,24 +672,15 @@ main(argc, argv)
 		exit(0);
 	}
 
-        user = usm_get_user(NULL, 0, "initial");
-        if (user == NULL) {
-          user = (struct usmUser *) SNMP_MALLOC(sizeof(struct usmUser));
-          user->name = strdup("initial");
-          user->secName = strdup("initial");
-          user->authProtocolLen = sizeof(usmNoAuthProtocol)/sizeof(oid);
-          user->authProtocol =
-            snmp_duplicate_objid(usmNoAuthProtocol, user->authProtocolLen);
-          user->privProtocolLen = sizeof(usmNoPrivProtocol)/sizeof(oid);
-          user->privProtocol =
-            snmp_duplicate_objid(usmNoPrivProtocol, user->privProtocolLen);
-          usm_add_user(user);
-        }
         usm_set_reportErrorOnUnknownID(1);
 	init_agent();		/* register our .conf handlers */
 	init_snmpv3("snmpd");	/* register the v3 handlers */
 	register_mib_handlers();/* snmplib .conf handlers */
 	read_premib_configs();	/* read pre-mib-reading .conf handlers */
+        user = usm_create_initial_user();
+        userListPtr = usm_add_user(user);
+        if (userListPtr == NULL) /* user already existed */
+          usm_free_user(user);
 	init_mib();		/* initialize the mib structures */
 	update_config(0);	/* read in config files and register HUP */
         init_usm_post_config();
