@@ -137,6 +137,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     static oid      unknownEngineID[] = {1,3,6,1,6,3,12,1,1,1};
     static long     ltmp;
     struct variable_list *vp, *ovp;
+    int ret_err;
     
     len = length;
     cp = asn_parse_header(data, &len, &type);
@@ -147,15 +148,21 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
         DEBUGP("parsing SNMPv%d message\n", (version));
         if (version == SNMP_VERSION_3) {
           pdu = snmp_pdu_create(SNMP_MSG_RESPONSE);
-          snmpv3_parse(pdu, data, &length, &data);
+          engineID = snmpv3_generate_engineID(&engineIDLen);
+          set_enginetime(engineID, engineIDLen, snmpv3_local_snmpEngineTime(),
+                         snmpv3_local_snmpEngineBoots());
+          if (snmpv3_parse(pdu, data, &length, &data) == -1) {
+            ret_err = snmp_get_errno();
+            DEBUGP("parse failed with: %d: %s\n", ret_err,
+                   snmp_api_errstring(ret_err));
+          } else
+            ret_err = 0;
           pi->version = pdu->version;
           pi->sec_level = pdu->securityLevel;
           pi->sec_model = pdu->securityModel;
           pi->securityName = pdu->securityName;
           pi->packet_end = data + length;
-          engineID = snmpv3_generate_engineID(&engineIDLen);
-          if (pdu->contextEngineIDLen != engineIDLen ||
-              memcmp(pdu->contextEngineID, engineID, engineIDLen)) {
+          if (ret_err == SNMP_ERR_UNKNOWNENGINEID) {
             /* unknown incoming security engineID, return ours and a varbind */
             /* free the current varbind */
             snmp_free_varbind(pdu->variables);
@@ -176,16 +183,6 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
             snmpv3_packet_build(pdu, out_data, out_length, NULL, 0);
             snmp_free_pdu(pdu);
             return 1;
-          }
-          pdu->securityName[pdu->securityNameLen] = 0;
-          user = usm_get_user(engineID, engineIDLen, pdu->securityName);
-          if (user == NULL) {
-            ltmp = snmp_increment_statistic(STAT_USMSTATSUNKNOWNUSERNAMES);
-            return 0;
-          }
-          if (usm_check_secLevel(pdu->securityLevel, user)) {
-            ltmp = snmp_increment_statistic(STAT_USMSTATSUNSUPPORTEDSECLEVELS);
-            return 0;
           }
           free(engineID);
         } else {
