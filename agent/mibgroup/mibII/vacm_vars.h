@@ -29,7 +29,7 @@ extern u_char *var_vacm_sec2group __P((struct variable *, oid *, int *, int, int
 extern u_char *var_vacm_access __P((struct variable *, oid *, int *, int, int *, int (**write) __P((int, u_char *, u_char, int, u_char *, oid *, int)) ));
 extern u_char *var_vacm_view __P((struct variable *, oid *, int *, int, int *, int (**write) __P((int, u_char *, u_char, int, u_char *, oid *, int)) ));
 
-#define OID_SNMPVACMMIB		SNMP_OID_SNMPMODULES, 13
+#define OID_SNMPVACMMIB		SNMP_OID_SNMPMODULES, 16
 #define OID_VACMMIBOBJECTS	OID_SNMPVACMMIB, 1
 
 #define OID_VACMCONTEXTTABLE	OID_VACMMIBOBJECTS, 1
