@@ -11,6 +11,8 @@
  */
 
 int register_instance(handler_registration *reginfo);
+int register_read_only_instance(handler_registration *reginfo);
+
 mib_handler *get_instance_handler(void);
    
 NodeHandler instance_helper_handler;

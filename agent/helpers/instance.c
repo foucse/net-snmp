@@ -24,6 +24,13 @@ register_instance(handler_registration *reginfo) {
 }
 
 int
+register_read_only_instance(handler_registration *reginfo) {
+    inject_handler(reginfo, get_instance_handler());
+    inject_handler(reginfo, get_read_only_handler());
+    return register_serialize(reginfo);
+}
+
+int
 instance_helper_handler(
     mib_handler               *handler,
     handler_registration      *reginfo,
