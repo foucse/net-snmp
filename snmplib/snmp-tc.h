@@ -12,6 +12,7 @@ extern "C" {
 #define TV_FALSE 2
 
 /* RowStatus */
+#define RS_NONEXISTENT    0
 #define RS_ACTIVE	        1
 #define RS_NOTINSERVICE	        2
 #define RS_NOTREADY	        3
@@ -20,12 +21,14 @@ extern "C" {
 #define RS_DESTROY		6
 
 /* StorageType */
+#define ST_NONE 0
 #define ST_OTHER	1
 #define ST_VOLATILE	2
 #define ST_NONVOLATILE	3
 #define ST_PERMANENT	4
 #define ST_READONLY	5
 
+char check_rowstatus_transition( int old_val, int new_val, int storage_type );
 #ifdef __cplusplus
 }
 #endif
