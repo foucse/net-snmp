@@ -953,6 +953,8 @@ snmp_read_packet(sd)
 	    return 0;
 	}
 
+    } else {
+      snmp_perror("snmp_agent_parse()");
     }
     return 1;
 }
