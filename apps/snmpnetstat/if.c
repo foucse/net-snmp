@@ -228,7 +228,7 @@ intpr(int interval)
 		while ((status = snmp_synch_response (Session, request, &response)) == STAT_SUCCESS) {
 		    if (response->errstat != SNMP_ERR_NOSUCHNAME)
 			break;
-		    if ((request = snmp_fix_pdu(response, SNMP_MSG_GET)) == NULL)
+		    if ((request = snmp_fix_pdu(response, SNMP_MSG_GETNEXT)) == NULL)
 			break;
 		    snmp_free_pdu(response);
 		}
@@ -416,7 +416,7 @@ intpro(int interval)
 		while ((status = snmp_synch_response (Session, request, &response)) == STAT_SUCCESS) {
 		    if (response->errstat != SNMP_ERR_NOSUCHNAME)
 			break;
-		    if ((request = snmp_fix_pdu(response, SNMP_MSG_GET)) == NULL)
+		    if ((request = snmp_fix_pdu(response, SNMP_MSG_GETNEXT)) == NULL)
 			break;
 		    snmp_free_pdu(response);
 		}
