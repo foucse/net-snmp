@@ -337,7 +337,7 @@ int snmp_get_errno __P((void));
 void snmp_set_do_debugging __P((int));
 int snmp_get_do_debugging __P((void));
 int compare __P((oid *, int, oid *, int));
-void init_snmp __P((void));
+void init_snmp __P((char *));
 void snmp_pdu_add_variable __P((struct snmp_pdu *, oid *, int, u_char, u_char *, int));
 int hex_to_binary __P((u_char *, u_char *));
 int ascii_to_binary __P((u_char *, u_char *));

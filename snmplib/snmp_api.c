@@ -86,6 +86,7 @@ SOFTWARE.
 #include "context.h"
 #include "system.h"
 #include "int64.h"
+#include "snmpv3.h"
 
 #define PACKET_LENGTH	8000
 
@@ -412,8 +413,8 @@ snmp_sess_init(session)
 {
 extern int init_mib_internals();
 
-    init_snmp();
-    init_mib_internals();
+/*    init_snmp(); 
+      init_mib_internals(); */
 
     /* initialize session to default values */
  
@@ -432,14 +433,18 @@ extern int init_mib_internals();
 static int done_init = 0;  /* prevent double init's */
 
 void
-init_snmp __P((void)) {
+init_snmp(char *type) {
+  char file[512];
   if (done_init)
     return;
   done_init = 1;
   register_mib_handlers();
+  init_snmpv3(type);
   read_premib_configs();
   init_mib();
   read_configs();
+  sprintf(file,"%s/%s.persistent.conf",PERSISTENTDIR,type);
+  read_config_with_type(file, type);
   init_snmp_session();
 }
 
@@ -480,8 +485,8 @@ snmp_sess_open(in_session)
     struct sockaddr_in	me;
     struct hostent *hp;
 
-    if (Reqid == 0)
-      init_snmp();
+/*    if (Reqid == 0)
+      init_snmp(); */
 
 
     if (! servp)
