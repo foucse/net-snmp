@@ -124,7 +124,7 @@ snmpv3_authtype_conf(char *word, char *cptr)
   else
     config_perror("unknown authentication type");
   defaultAuthTypeLen = USM_LENGTH_OID_TRANSFORM;
-  DEBUGP("set default authentication type: %s\n", defaultAuthType);
+  DEBUGP("set default authentication type: %s\n", cptr);
 }
 
 oid *
@@ -143,7 +143,7 @@ snmpv3_privtype_conf(char *word, char *cptr)
   else
     config_perror("unknown privacy type");
   defaultPrivTypeLen = USM_LENGTH_OID_TRANSFORM;
-  DEBUGP("set default privacy type: %s\n", defaultPrivType);
+  DEBUGP("set default privacy type: %s\n", cptr);
 }
 
 oid *
