@@ -1,4 +1,6 @@
 /* testhandler.h */
+#ifndef _TABLE_HANDLER_H_
+#define _TABLE_HANDLER_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,12 +67,19 @@ mib_handler *get_table_handler(table_registration_info *tabreq);
 int register_table(handler_registration *reginfo,
                    table_registration_info *tabreq);
 int table_build_oid(handler_registration *reginfo,
-					request_info *reqinfo,
-					table_request_info *table_info);
+										request_info *reqinfo,
+										table_request_info *table_info);
+int table_build_oid_from_full_index(handler_registration *reginfo,
+																		request_info *reqinfo,
+																		table_request_info *table_info);
 int table_build_result(handler_registration *reginfo,
                        request_info *reqinfo,
                        table_request_info *table_info, u_char type,
                        u_char *result, size_t result_len);
+int update_indexes_from_full_index( table_request_info * );
+int update_indexes_from_variable_list( table_request_info *tri );
+
+unsigned int closest_column(unsigned int current, column_info *valid_columns);
 
 NodeHandler table_helper_handler;
 
@@ -78,4 +87,4 @@ NodeHandler table_helper_handler;
 };
 #endif
 
-
+#endif /* _TABLE_HANDLER_H_ */
