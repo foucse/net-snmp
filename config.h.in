@@ -26,12 +26,18 @@
    counter64, i64, ui64, union? */
 #undef OPAQUE_SPECIAL_TYPES
 
+/* comment the next line if you do not want SNMPv2 party-based auth. */
+#define USE_V2PARTY_PROTOCOL 1
+
+/* define if you want to compile support for both authentication and privacy support. */
+#undef SCAPI_AUTHPRIV
+
+/* define if you are using the v2party MD5 code */
+#undef USE_V2P_MD5
+
 /* comment the next line if you are compiling with libsnmp.h 
    and are not using the UC-Davis SNMP library. */
 #define UCD_SNMP_LIBRARY 1
-
-/* comment the next line if you do not want SNMPv2 party-based auth. */
-#define USE_V2PARTY_PROTOCOL 1
 
 
 /* Define if on AIX 3.
