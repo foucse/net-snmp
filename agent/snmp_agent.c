@@ -1888,7 +1888,7 @@ agent_add_list_data(agent_request_info *ari, data_list *node)
 {
   if (ari) {
     if (ari->agent_data)
-      add_list_data(ari->agent_data, node);
+      add_list_data(&ari->agent_data, node);
     else
       ari->agent_data = node;
   }

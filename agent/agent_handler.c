@@ -209,7 +209,7 @@ create_handler_registration(const char *name,
         the_reg->modes = HANDLER_CAN_DEFAULT;
 
     the_reg->handler = create_handler(name, handler_access_method);
-    the_reg->rootoid = reg_oid;
+    memdup(&the_reg->rootoid, reg_oid, reg_oid_len * sizeof(int));
     the_reg->rootoid_len = reg_oid_len;
     return the_reg;
 }
@@ -267,7 +267,7 @@ request_add_list_data(request_info *request, data_list *node)
 {
   if (request) {
     if (request->parent_data)
-      add_list_data(request->parent_data, node);
+      add_list_data(&request->parent_data, node);
     else
       request->parent_data = node;
   }
