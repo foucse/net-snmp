@@ -1732,15 +1732,21 @@ usm_add_user_to_list(struct usmUser *user,
 struct usmUser *
 usm_remove_user(struct usmUser *user)
 {
-  return usm_remove_user_from_list(user, userList);
+  return usm_remove_user_from_list(user, &userList);
 }
 
 struct usmUser *
 usm_remove_user_from_list(struct usmUser *user,
-                                          struct usmUser *userList)
+                                          struct usmUser **userList)
 {
   struct usmUser *nptr, *pptr;
-  for (nptr = userList, pptr = NULL; nptr != NULL;
+
+  /* NULL pointers aren't allowed */
+  if (userList == NULL)
+    return NULL;
+
+  /* find the user in the list */
+  for (nptr = *userList, pptr = NULL; nptr != NULL;
        pptr = nptr, nptr = nptr->next) {
     if (nptr == user)
       break;
@@ -1755,11 +1761,13 @@ usm_remove_user_from_list(struct usmUser *user,
       nptr->next->prev = pptr;
     }
   } else {
-    return userList;
+    /* user didn't exit */
+    return NULL;
   }
-  if (nptr == userList) /* we're the head of the list, return the next */
-    return nptr->next;
-  return userList;
+  if (nptr == *userList) /* we're the head of the list, need to change
+                            the head to the next user */
+    *userList = nptr->next;
+  return *userList;
 }
 
 /* usm_free_user():  calls free() on all needed parts of struct usmUser and
@@ -1825,8 +1833,8 @@ usm_cloneFrom_user(struct usmUser *from, struct usmUser *to)
   if (from->authKeyLen > 0 &&
       (to->authKey = (char *) malloc(sizeof(char) * from->authKeyLen))
       != NULL) {
-    memcpy(to->authKey, to->authKey, to->authKeyLen);
     to->authKeyLen = from->authKeyLen;
+    memcpy(to->authKey, from->authKey, to->authKeyLen);
   } else {
     to->authKey = NULL;
     to->authKeyLen = 0;
@@ -1850,128 +1858,57 @@ usm_cloneFrom_user(struct usmUser *from, struct usmUser *to)
   if (from->privKeyLen > 0 &&
       (to->privKey = (char *) malloc(sizeof(char) * from->privKeyLen))
       != NULL) {
-    memcpy(to->privKey, to->privKey, to->privKeyLen);
     to->privKeyLen = from->privKeyLen;
+    memcpy(to->privKey, from->privKey, to->privKeyLen);
   } else {
     to->privKey = NULL;
     to->privKeyLen = 0;
   }
 }
 
-/* take a given user and duplicate him */
+/* usm_create_user(void):
+     create a default empty user, instantiating only the auth/priv
+     protocols to noAuth and noPriv OID pointers
+*/
 struct usmUser *
-usm_clone_user(struct usmUser *from)
-{
-  struct usmUser *ptr;
+usm_create_user(void) {
   struct usmUser *newUser;
 
   /* create the new user */
   newUser = (struct usmUser *) malloc(sizeof(struct usmUser));
   if (newUser == NULL)
     return NULL;
-  memset(newUser, 0, sizeof(struct usmUser));  /* initialize everything to 0 */
+  memset(newUser, 0, sizeof(struct usmUser));
 
-/* leave everything initialized to devault values if they didn't give
-   us a user to clone from */
-  if (from == NULL) {
-    if ((newUser->authProtocol =
-         snmp_duplicate_objid(usmNoAuthProtocol,
-                              sizeof(usmNoAuthProtocol)/sizeof(oid))) == NULL)
-      return usm_free_user(newUser);
-    newUser->authProtocolLen = sizeof(usmNoAuthProtocol)/sizeof(oid);
+  /* fill the auth/priv protocols */
+  if ((newUser->authProtocol =
+       snmp_duplicate_objid(usmNoAuthProtocol,
+                            sizeof(usmNoAuthProtocol)/sizeof(oid))) == NULL)
+    return usm_free_user(newUser);
+  newUser->authProtocolLen = sizeof(usmNoAuthProtocol)/sizeof(oid);
 
-    if ((newUser->privProtocol =
-         snmp_duplicate_objid(usmNoPrivProtocol,
-                              sizeof(usmNoPrivProtocol)/sizeof(oid))) == NULL)
-      return usm_free_user(newUser);
-    newUser->privProtocolLen = sizeof(usmNoPrivProtocol)/sizeof(oid);
+  if ((newUser->privProtocol =
+       snmp_duplicate_objid(usmNoPrivProtocol,
+                            sizeof(usmNoPrivProtocol)/sizeof(oid))) == NULL)
+    return usm_free_user(newUser);
+  newUser->privProtocolLen = sizeof(usmNoPrivProtocol)/sizeof(oid);
 
-    newUser->userStorageType = ST_NONVOLATILE;
-    return newUser;
-  }
-
-  /* copy the engineID & it's length */
-  if (from->engineIDLen > 0) {
-    if (from->engineID != NULL) {
-      if ((newUser->engineID = (char *) malloc(from->engineIDLen*sizeof(char)))
-          == NULL);
-      return usm_free_user(newUser);
-      newUser->engineIDLen = from->engineIDLen;
-      memcpy(newUser->engineID, from->engineID, from->engineIDLen*sizeof(char));
-    } else {
-      newUser->engineIDLen = from->engineIDLen;
-      newUser->engineID = NULL;
-    }
-  }
-
-  /* copy the name of the user */
-  if (from->name != NULL)
-    if ((newUser->name = strdup(from->name)) == NULL)
-      return usm_free_user(newUser);
-
-  /* copy the security Name for the user */
-  if (from->secName != NULL)
-    if ((newUser->secName = strdup(from->secName)) == NULL)
-      return usm_free_user(newUser);
-
-  /* copy the cloneFrom oid row pointer */
-  if (from->cloneFromLen > 0) {
-    if ((newUser->cloneFrom = (oid *) malloc(sizeof(oid)*from->cloneFromLen))
-        == NULL)
-      return usm_free_user(newUser);
-    memcpy(newUser->cloneFrom, from->cloneFrom,
-           sizeof(oid)*from->cloneFromLen);
-  }
-
-  /* copy the authProtocol oid row pointer */
-  if (from->authProtocolLen > 0) {
-    if ((newUser->authProtocol =
-         (oid *) malloc(sizeof(oid) * from->authProtocolLen)) == NULL)
-      return usm_free_user(newUser);
-    memcpy(newUser->authProtocol, from->authProtocol,
-           sizeof(oid)*from->authProtocolLen);
-  }
-
-  /* copy the authKey */
-  if (from->authKeyLen > 0) {
-    if ((newUser->authKey = (char *) malloc(sizeof(char) * from->authKeyLen))
-        == NULL)
-      return usm_free_user(newUser);
-  }
-
-  /* copy the privProtocol oid row pointer */
-  if (from->privProtocolLen > 0) {
-    if ((newUser->privProtocol =
-         (oid *) malloc(sizeof(oid)*from->privProtocolLen)) == NULL)
-      return usm_free_user(newUser);
-    memcpy(newUser->privProtocol, from->privProtocol,
-           sizeof(oid)*from->privProtocolLen);
-  }
-
-  /* copy the privKey */
-  if (from->privKeyLen > 0) {
-    if ((newUser->privKey = (char *) malloc(sizeof(char) * from->privKeyLen))
-        == NULL)
-      return usm_free_user(newUser);
-  }
-
-  /* copy the userPublicString convenience string */
-  if (from->userPublicString != NULL)
-    if ((newUser->userPublicString = strdup(from->userPublicString)) == NULL)
-      return usm_free_user(newUser);
-
-  newUser->userStatus = from->userStatus;
-  newUser->userStorageType = from->userStorageType;
-
+  /* set the storage type to nonvolatile, and the status to ACTIVE */
+  newUser->userStorageType = ST_NONVOLATILE;
+  newUser->userStatus = RS_ACTIVE;
   return newUser;
 }
 
-/* create_initial_user: creates an initial user, filled with the
-   defaults defined in the USM document. */
+/* usm_create_initial_user(void):
+   creates an initial user, filled with the defaults defined in the
+   USM document.
+*/
 struct usmUser *
 usm_create_initial_user(void)
 {
-  struct usmUser *newUser  = usm_clone_user(NULL);
+  struct usmUser *newUser  = usm_create_user();
+  if (newUser == NULL)
+    return NULL;
 
   if ((newUser->name = strdup("initial")) == NULL)
     return usm_free_user(newUser);
@@ -2071,7 +2008,10 @@ usm_read_user(char *line) {
   struct usmUser *user;
   int len;
 
-  user = usm_clone_user(NULL);
+  user = usm_create_user();
+  if (user == NULL)
+    return NULL;
+  
   user->userStatus = atoi(line);
   line = skip_token(line);
   user->userStorageType = atoi(line);

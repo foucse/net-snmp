@@ -969,7 +969,7 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
       }
 
       /* generate a new user */
-      if ((uptr = usm_clone_user(NULL)) == NULL) {
+      if ((uptr = usm_create_user()) == NULL) {
         free(engineID);
         free(newName);
         return SNMP_ERR_GENERR;
