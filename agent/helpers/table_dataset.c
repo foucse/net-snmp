@@ -228,15 +228,16 @@ table_data_set_helper_handler(
     table_row *row;
     table_request_info *table_info;
     data_set_cache *cache;
+    request_info *request;
 
     DEBUGMSGTL(("table_data_set", "handler starting"));
-    for(; requests; requests = requests->next) {
-        if (requests->processed)
+    for(request = requests; request; request = request->next) {
+        if (request->processed)
             continue;
 
         /* extract our stored data and table info */
-        row = extract_table_row(requests);
-        table_info = extract_table_info(requests);
+        row = extract_table_row(request);
+        table_info = extract_table_info(request);
 
         if (row)
             data = (table_data_set_storage *) row->data;
@@ -244,32 +245,67 @@ table_data_set_helper_handler(
             if (MODE_IS_SET(reqinfo->mode)) {
                 /* ack */
                 /* XXXWWW creation */
-                set_request_error(reqinfo, requests, SNMP_ERR_NOSUCHNAME);
+                set_request_error(reqinfo, request, SNMP_ERR_NOSUCHNAME);
             }
             continue;
         }
 
         data = table_data_set_find_column(data, table_info->colnum);
-        
+
         switch(reqinfo->mode) {
             case MODE_GET:
             case MODE_GETNEXT:
             case MODE_GETBULK: /* XXXWWW */
+                if (!data) {
+                    table_row *newrow;
+                    table_data_set_storage *newdata = NULL;
+                    int column = table_info->colnum;
+                    table_data_set *datatable =
+                        (table_data_set *) handler->myvoid;
+
+                    while(column <= table_info->reg_info->max_column) {
+                        if (column != table_info->colnum) {
+                            /* start with a new row */
+                            row = datatable->table->first_row;
+                        }
+                        for(newrow = row; newrow; newrow = newrow->next) {
+                            newdata = (table_data_set_storage *) newrow->data;
+                            if (newdata)
+                                newdata =
+                                    table_data_set_find_column(newdata,
+                                                               column);
+                            if (newdata) {
+                                /* this is it */
+                                data = newdata;
+                                row = newrow;
+                                table_info->colnum = column;
+                                goto done;
+                            }
+                        }
+                        column++;
+                    }
+                }
+          done:
                 if (data)
-                    table_data_build_result(reginfo, reqinfo, requests, row,
+                    table_data_build_result(reginfo, reqinfo, request, row,
                                             table_info->colnum,
                                             data->type,
                                             data->data.voidp, data->data_len);
+                else {
+                    /* deal with holes by going to the next data set
+                       in the row or possibly onward to new columns */
+                    snmp_log(LOG_ERR, "ack\n");
+                }
                 break;
 
             case MODE_SET_RESERVE1:
                 if (data) {
                     /* modify existing */
                     if (!data->writable) {
-                        set_request_error(reqinfo, requests,
+                        set_request_error(reqinfo, request,
                                           SNMP_ERR_NOTWRITABLE);
-                    } else if (requests->requestvb->type != data->type) {
-                        set_request_error(reqinfo, requests,
+                    } else if (request->requestvb->type != data->type) {
+                        set_request_error(reqinfo, request,
                                           SNMP_ERR_WRONGTYPE);
                     }
                 } else {
@@ -282,12 +318,12 @@ table_data_set_helper_handler(
                     /* cache old data for later undo */
                     cache = SNMP_MALLOC_TYPEDEF(data_set_cache);
                     if (!cache) {
-                        set_request_error(reqinfo, requests,
+                        set_request_error(reqinfo, request,
                                           SNMP_ERR_RESOURCEUNAVAILABLE);
                     } else {
                         cache->data = data->data.voidp;
                         cache->data_len = data->data_len;
-                        request_add_list_data(requests, create_data_list(TABLE_DATA_SET_NAME, cache, free));
+                        request_add_list_data(request, create_data_list(TABLE_DATA_SET_NAME, cache, free));
                     }
                 } else {
                     /* XXXWWW */
@@ -296,9 +332,9 @@ table_data_set_helper_handler(
 
             case MODE_SET_ACTION:
                 if (data) {
-                    memdup(&data->data.string, requests->requestvb->val.string,
-                           requests->requestvb->val_len);
-                    data->data_len = requests->requestvb->val_len;
+                    memdup(&data->data.string, request->requestvb->val.string,
+                           request->requestvb->val_len);
+                    data->data_len = request->requestvb->val_len;
                 } else {
                     /* XXXWWW */
                 }
@@ -308,7 +344,7 @@ table_data_set_helper_handler(
                 SNMP_FREE(data->data.voidp);
                 
                 cache = (data_set_cache *)
-                    request_get_list_data(requests, TABLE_DATA_SET_NAME);
+                    request_get_list_data(request, TABLE_DATA_SET_NAME);
                 data->data.voidp = cache->data;
                 data->data_len = cache->data_len;
                 /* the cache itself is automatically freed by the
@@ -317,7 +353,7 @@ table_data_set_helper_handler(
 
             case MODE_SET_COMMIT:
                 cache = (data_set_cache *)
-                    request_get_list_data(requests, TABLE_DATA_SET_NAME);
+                    request_get_list_data(request, TABLE_DATA_SET_NAME);
                 SNMP_FREE(cache->data);
                 break;
 
