@@ -249,6 +249,9 @@
 /* Define if you have the strtol function.  */
 #undef HAVE_STRTOL
 
+/* Define if you have the tcgetattr function.  */
+#undef HAVE_TCGETATTR
+
 /* Define if you have the uname function.  */
 #undef HAVE_UNAME
 
