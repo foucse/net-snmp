@@ -112,7 +112,7 @@ main(argc, argv)
 #endif
 
     /* get the common command line arguments */
-    arg = snmp_parse_args(argc, argv, &session, "snmpwalk");
+    arg = snmp_parse_args(argc, argv, &session);
 
     /* get the initial object and subtree */
     if (arg < argc) {

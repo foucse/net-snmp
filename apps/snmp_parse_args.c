@@ -117,11 +117,10 @@ snmp_parse_args_descriptions(outf)
 }
 #define BUF_SIZE 512
 int
-snmp_parse_args(argc, argv, session, type)
+snmp_parse_args(argc, argv, session)
   int argc;
   char **argv;
   struct snmp_session *session;
-  char *type;
 {
   int arg;
   char *psz;
@@ -449,7 +448,7 @@ snmp_parse_args(argc, argv, session, type)
   }
 
   /* read in MIB database and initialize the snmp library*/
-  init_snmp(type);
+  init_snmp("snmpapp");
 
   /* make master key from pass phrases */
   if (Apsz) {
