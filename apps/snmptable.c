@@ -285,7 +285,7 @@ void print_table (void)
   if (show_index) {
     if (field_separator == NULL)
       sprintf(string_buf, "%%%ds", index_width);
-    else sprintf(buf, "%%s");
+    else sprintf(string_buf, "%%s");
     index_fmt = strdup(string_buf);
   }
 
