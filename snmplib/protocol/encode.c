@@ -471,7 +471,7 @@ encode_int64(netsnmp_buf *buf, u_char type, int64 *i64_val)
     int stop_val;
     int offset, i;
     char *cp;
-    u_long high, low;
+    long high, low;
 
     if ((NULL == buf) || (NULL == i64_val)) {
 	return -1;
@@ -483,7 +483,7 @@ encode_int64(netsnmp_buf *buf, u_char type, int64 *i64_val)
 	 * What will repeatedly right-shifting this value
 	 *    eventually result in?
 	 */
-    if (0 > high ) {
+    if (0 > high) {
 	stop_val = -1;
     } else {
 	stop_val =  0;
@@ -545,7 +545,7 @@ encode_unsigned_int64(netsnmp_buf *buf, u_char type, int64 *i64_val)
     int stop_val;
     int offset, i;
     char *cp;
-    long high, low;
+    u_long high, low;
 
     if ((NULL == buf) || (NULL == i64_val)) {
 	return -1;
