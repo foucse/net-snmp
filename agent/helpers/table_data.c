@@ -41,7 +41,7 @@ table_data_add_row(table_data *table, table_row *row)
     row->indexes = NULL;
 
     if (!row->index_oid) {
-        snmp_log(LOG_ERR, "illegal data attempted to be added to table %s",
+        snmp_log(LOG_ERR, "illegal data attempted to be added to table %s\n",
                  table->name);
         return SNMPERR_GENERR;
     }
