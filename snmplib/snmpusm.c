@@ -93,6 +93,11 @@ processIncomingMsg (msgProcModel, maxMsgSize, secParams, secParamsLen, secModel,
      int *maxSizeResponse;      /* OUT - max size of Response PDU */
      void **secStateRef;        /* OUT - ref to security state */
 {
+  memcpy(scopedPdu, msg, msgLen);
+  *scopedPduLen = msgLen;
+  *secEngineIDLen = snmpv3_get_engineID(secEngineID);
+  *secNameLen = strlen("initial");
+  memcpy(secName,"initial", *secNameLen);
   return 0;
 }
 
