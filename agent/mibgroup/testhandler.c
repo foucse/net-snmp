@@ -22,6 +22,9 @@ static oid my_table_oid[4] = {1,2,3,5};
 static oid my_instance_oid[5] = {1,2,3,6,1};
 static oid my_data_table_oid[4] = {1,2,3,7};
 static oid my_data_table_set_oid[4] = {1,2,3,8};
+static oid my_data_ulong_instance[4] = {1,2,3,9};
+
+u_long my_ulong=0;
 
 void
 init_testhandler(void) {
@@ -50,6 +53,10 @@ init_testhandler(void) {
                                                   my_test_instance_handler,
                                                   my_instance_oid, 5,
                                                   HANDLER_CAN_RWRITE));
+
+    register_ulong_instance("myulong",
+                            my_data_ulong_instance, 4,
+                            &my_ulong);
     
     /*
      * table helper test
