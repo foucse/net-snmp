@@ -42,6 +42,8 @@ static Enginetime etimelist[ETIMELIST_SIZE];
  * the time tuple is returned immediately as zero.
  *
  * XXX	What if timediff wraps?  >shrug<
+ * XXX  Then: you need to increment the boots value.  Now.  Detecting
+ *            this is another matter.
  */
 int
 get_enginetime(	u_char	*engineID,	
