@@ -497,3 +497,10 @@ extract_table_info(request_info *request)
     return (table_request_info *)
         handler_get_parent_data(request, TABLE_HANDLER_NAME);
 }
+
+table_registration_info *
+find_table_registration_info(handler_registration *reginfo) 
+{
+    return (table_registration_info *)
+        find_handler_data_by_name(reginfo, TABLE_HANDLER_NAME);
+}

@@ -84,24 +84,24 @@ mib_handler *get_table_handler(table_registration_info *tabreq);
 int register_table(handler_registration *reginfo,
                    table_registration_info *tabreq);
 int table_build_oid(handler_registration *reginfo,
-										request_info *reqinfo,
-										table_request_info *table_info);
+                    request_info *reqinfo,
+                    table_request_info *table_info);
 int table_build_oid_from_index(handler_registration *reginfo,
-																		request_info *reqinfo,
-																		table_request_info *table_info);
+                               request_info *reqinfo,
+                               table_request_info *table_info);
 int table_build_result(handler_registration *reginfo,
                        request_info *reqinfo,
                        table_request_info *table_info, u_char type,
                        u_char *result, size_t result_len);
 int update_variable_list_from_index( table_request_info * );
 int update_indexes_from_variable_list( table_request_info *tri );
-
+table_registration_info *find_table_registration_info(handler_registration *reginfo);
+    
 unsigned int closest_column(unsigned int current, column_info *valid_columns);
 
 NodeHandler table_helper_handler;
 
 #define table_helper_add_index(tinfo, type) snmp_varlist_add_variable(&tinfo->indexes, NULL, 0, type, NULL, 0);
-
 
 int
 check_getnext_reply(request_info *request, oid *prefix,
