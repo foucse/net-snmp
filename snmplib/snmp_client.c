@@ -101,7 +101,9 @@ snmp_pdu_create(command)
  * Add a null variable with the requested name to the end of the list of
  * variables for this pdu.
  */
-snmp_add_null_var(pdu, name, name_length)
+/* Modif PVA GTmH 21/05/96 return pointer to added variable */
+struct variable_list* snmp_add_null_var(pdu, name, name_length)
+/* End Modif PVA GTmH 21/05/96 return pointer to added variable */
     struct snmp_pdu *pdu;
     oid *name;
     int name_length;
@@ -124,6 +126,9 @@ snmp_add_null_var(pdu, name, name_length)
     vars->type = ASN_NULL;
     vars->val.string = NULL;
     vars->val_len = 0;
+/* Modif PVA GTmH 21/05/96 return pointer to added variable */
+    return vars;
+/* End Modif PVA GTmH 21/05/96 return pointer to added variable */
 }
 
 snmp_synch_input(op, session, reqid, pdu, magic)
