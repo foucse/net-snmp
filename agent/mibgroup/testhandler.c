@@ -14,17 +14,22 @@
 #include "snmp_client.h"
 #include "helpers/table.h"
 #include "helpers/instance.h"
+#include "helpers/table_data.h"
 
 static oid my_test_oid[4] = {1,2,3,4};
 static oid my_table_oid[4] = {1,2,3,5};
 static oid my_instance_oid[5] = {1,2,3,6,1};
+static oid my_data_table_oid[5] = {1,2,3,7};
 
 void
 init_testhandler(void) {
     /* we're registering at .1.2.3.4 */
     handler_registration *my_test;
     table_registration_info *table_info;
-
+    u_long ind1;
+    table_data *table;
+    table_row *row;
+    
     DEBUGMSGTL(("testhandler", "initializing\n"));
 
     /*
@@ -48,7 +53,6 @@ init_testhandler(void) {
     my_test = create_handler_registration("myTable",
                                           my_test_table_handler,
                                           my_table_oid, 4);
-    
     if (!my_test)
         return;
 
@@ -59,6 +63,54 @@ init_testhandler(void) {
     table_info->min_column = 3;
     table_info->max_column = 3;
     register_table(my_test, table_info);
+
+    /*
+     * data table helper test
+     */
+    /* we'll construct a simple table here with two indexes: an
+           integer and a string (why not).  It'll contain only one
+           column so the data pointer is merely the data in that
+           column. */
+        
+    table = create_table_data("data_table_test");
+
+    table_data_add_index(table, ASN_INTEGER);
+    table_data_add_index(table, ASN_OCTET_STR);
+
+    /* 1 partridge in a pear tree */
+    row = create_table_data_row();
+    ind1 = 1;
+    table_row_add_index(row, ASN_INTEGER, &ind1, sizeof(ind1));
+    table_row_add_index(row, ASN_OCTET_STR, "partridge",\
+                        strlen("partridge"));
+    row->data = (void *) "pear tree";
+    table_data_add_row(table, row);
+
+    /* 2 turtle doves */
+    row = create_table_data_row();
+    ind1 = 2;
+    table_row_add_index(row, ASN_INTEGER, &ind1, sizeof(ind1));
+    table_row_add_index(row, ASN_OCTET_STR, "turtle",\
+                        strlen("turtle"));
+    row->data = (void *) "doves";
+    table_data_add_row(table, row);
+
+    /* we're going to register it as a normal table too, so we get the
+       automatically parsed column and index information */
+    table_info = SNMP_MALLOC_TYPEDEF(table_registration_info);
+
+    table_helper_add_index(table_info, ASN_INTEGER);
+    table_helper_add_index(table_info, ASN_OCTET_STR);
+    table_info->min_column = 3;
+    table_info->max_column = 3;
+
+    register_read_only_table_data(
+        create_handler_registration("12days",
+                                    my_data_table_handler,
+                                    my_data_table_oid,
+                                    4),
+        table,
+        table_info);
 }
 
 int
@@ -264,5 +316,37 @@ my_test_instance_handler(
             break;
     }
     
+    return SNMP_ERR_NOERROR;
+}
+
+int
+my_data_table_handler(
+    mib_handler               *handler,
+    handler_registration      *reginfo,
+    agent_request_info        *reqinfo,
+    request_info              *requests) {
+
+    char *column3;
+    table_request_info *table_info;
+    table_row *row;
+    
+    while(requests) {
+        if (requests->processed)
+            continue;
+
+        /* extract our stored data and table info */
+        row = extract_table_row(requests);
+        table_info = extract_table_info(requests);
+        if (row)
+            column3 = (char *) row->data;
+        if (!row || !table_info || !column3)
+            continue;
+        
+        /* there's only one column, we don't need to check if it's right */
+        table_data_build_result(reginfo, reqinfo, requests, row,
+                                table_info->colnum,
+                                ASN_OCTET_STR, column3, strlen(column3));
+        requests = requests->next;
+    }
     return SNMP_ERR_NOERROR;
 }
