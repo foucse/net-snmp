@@ -59,9 +59,10 @@ SOFTWARE.
  *             best features of SNMPv2p and SNMPv2u, defined
  *             by unpublished documents found at WEB site
  *             owned by SNMP Research (a leading SNMP vendor)
- *  SNMPv3 - (??) another attempt to add strong security
- *            to SNMP, defined by not yet published documents
- *            of the IETF SNMPv3 WG.
+ *  SNMPv3 - the current attempt by the IETF working group to merge
+ *             the SNMPv2u and SNMPv2* proposals into a more widly
+ *             accepted SNMPv3.  It is defined by not yet published
+ *             documents of the IETF SNMPv3 WG.
  *
  * SNMPv1, SNMPv2c, SNMPv2u, and SNMPv3 messages have a common
  * form, which is an ASN.1 sequence containing a message version 
@@ -75,18 +76,24 @@ SOFTWARE.
  * value of the message version field. Since SNMPsec, SNMPv2p,
  * and SNMPv2* messages do not have a message version field,
  * the value in the defines for them is choosen to be a large
- * arbitrary number. 
-*/
+ * arbitrary number.
+ *
+ * Note that many of the version ID's are defined below purely for
+ * documentational purposes.  At this point the only protocol planned
+ * for future implementations is SNMP3, as the other v2 protocols will
+ * not be supported by the IETF (ie, v2u, v2sec, v2star) or used by
+ * the snmp community at large (at the time of this writing).  */
+
 /* versions based on version field */
-#define SNMP_VERSION_1	    0
-#define SNMP_VERSION_2c     1
-#define SNMP_VERSION_2u     2  /* not supported by this code */
-#define SNMP_VERSION_3      3  /* not yet supported by this code */
+#define SNMP_VERSION_1	   0
+#define SNMP_VERSION_2c    1
+#define SNMP_VERSION_2u    2   /* not (will never be) supported by this code */
+#define SNMP_VERSION_3     3   /* not yet supported by this code */
 
 /* versions not based on a version field */
-#define SNMP_VERSION_sec    128 /* not supported by this code */
-#define SNMP_VERSION_2p	    129
-#define SNMP_VERSION_2star  130 /* not supported by this code */
+#define SNMP_VERSION_sec   128 /* not (will never be) supported by this code */
+#define SNMP_VERSION_2p	   129
+#define SNMP_VERSION_2star 130 /* not (will never be) supported by this code */
 
 /* PDU types in SNMPv1, SNMPsec, SNMPv2p, SNMPv2c, SNMPv2u, SNMPv2*, and SNMPv3 */
 #define GET_REQ_MSG	    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x0)
