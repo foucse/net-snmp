@@ -221,15 +221,15 @@ sc_check_keyed_hash_quit:
  * sc_encrypt
  *
  * Parameters:
- *	  privtype
- *	 *key
- *	  keylen
- *	 *iv
- *	  ivlen
- *	 *plaintext
- *	  ptlen
- *	**ciphertext
- *	 *ctlen
+ *	 privtype
+ *	*key
+ *	 keylen
+ *	*iv
+ *	 ivlen
+ *	*plaintext
+ *	 ptlen
+ *	*ciphertext
+ *	*ctlen
  *      
  * Returns:
  *	SNMPERR_SUCCESS		Success.
@@ -239,7 +239,7 @@ sc_encrypt(	oid    *privtype,	int   privtypelen,
 		u_char *key,		u_int keylen,
 		u_char *iv,		u_int ivlen,
 		u_char *plaintext,	u_int ptlen,
-		u_char **ciphertext,	u_int *ctlen)
+		u_char *ciphertext,	u_int *ctlen)
 {
 	int		rval = SNMPERR_SUCCESS;
 
@@ -257,15 +257,15 @@ sc_encrypt_quit:
  * sc_decrypt
  *
  * Parameters:
- *	  privtype
- *	 *key
- *	  keylen
- *	 *iv
- *	  ivlen
- *	 *ciphertext
- *	  ctlen
- *	**plaintext
- *	 *ptlen
+ *	 privtype
+ *	*key
+ *	 keylen
+ *	*iv
+ *	 ivlen
+ *	*ciphertext
+ *	 ctlen
+ *	*plaintext
+ *	*ptlen
  *      
  * Returns:
  *	SNMPERR_SUCCESS		Success.
@@ -275,7 +275,7 @@ sc_decrypt(	oid    *privtype,	int   privtypelen,
 		u_char *key,		u_int keylen,
 		u_char *iv,		u_int ivlen,
 		u_char *ciphertext,	u_int ctlen,
-		u_char **plaintext,	u_int *ptlen)
+		u_char *plaintext,	u_int *ptlen)
 {
 	int		rval = SNMPERR_SUCCESS;
 

@@ -38,13 +38,13 @@ int	sc_encrypt __P((	oid    *privtype,	int   privtypelen,
 				u_char *key,		u_int keylen,
 				u_char *iv,		u_int ivlen,
 				u_char *plaintext,	u_int ptlen,
-				u_char **ciphertext,	u_int *ctlen));
+				u_char *ciphertext,	u_int *ctlen));
 
 int	sc_decrypt __P((	oid    *privtype,	int   privtypelen,
 				u_char *key,		u_int keylen,
 				u_char *iv,		u_int ivlen,
 				u_char *ciphertext,	u_int ctlen,
-				u_char **plaintext,	u_int *ptlen));
+				u_char *plaintext,	u_int *ptlen));
 
 #endif	/* _SCAPI_H */
 
