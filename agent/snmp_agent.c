@@ -1306,7 +1306,7 @@ int
 handle_one_var(struct agent_snmp_session  *asp, struct variable_list *varbind_ptr)
 {
     u_char  statType;
-    u_char *statP;
+    u_char *statP = NULL;
     size_t  statLen;
     u_short acl;
     struct saved_var_data *saved;
@@ -1349,10 +1349,20 @@ statp_loop:
 	    if ( view == 0 ) {
                 struct agent_snmp_session  *oldval = get_current_agent_session();
                 set_current_agent_session(asp);
-	        statP = getStatPtr(  varbind_ptr->name,
-			   &varbind_ptr->name_length,
-			   &statType, &statLen, &acl,
-			   asp->exact, &write_method, asp->pdu, &noSuchObject);
+		if (asp->inclusive && !asp->exact) {
+		    statP = getStatPtr(varbind_ptr->name,
+				       &varbind_ptr->name_length,
+				       &statType, &statLen, &acl,
+				       1, &write_method, 
+				       asp->pdu, &noSuchObject);
+		}
+		if (statP == NULL) {
+		    statP = getStatPtr(varbind_ptr->name,
+				       &varbind_ptr->name_length,
+				       &statType, &statLen, &acl,
+				       asp->exact, &write_method, 
+				       asp->pdu, &noSuchObject);
+		}
                 set_current_agent_session(oldval);
             }
 	    else {
