@@ -68,3 +68,6 @@
 + hardaker/Sep 27
     usmUser parsing will fill the structure if parsed twice.  The free 
     routine in the config_handler needs to be created.
+
++ hardaker/Sep 29
+    Correctly map error codes from mib modules from v2/v3 errors to v1.
