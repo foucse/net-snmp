@@ -176,6 +176,8 @@ struct internal_snmp_pdu {
     int	    contextNameLen;  /* Length of contextName */
     u_char  *securityName;	/* on behalf of this principal */
     int	    securityNameLen;  /* Length of securityName. */
+    u_char  securityAuthKey[16];  /* Ku for authentication protocol */
+    u_char  securityPrivKey[16];  /* Ku for privacy protocol */
     int	    securityModel;
     int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
     oid     *srcParty;
@@ -455,7 +457,7 @@ extern int init_mib_internals();
  *
  * Parameters:
  *      *type   Label for the config file "type" used by calling entity.
- *      
+ *
  * Call appropriately the functions to do config file loading and
  * mib module parsing in the correct order.
  */
