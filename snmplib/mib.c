@@ -1901,8 +1901,21 @@ fprint_description(FILE *f,
     struct tree *subtree = tree_head;
     int pos, len;
     char buf[128];
+    const char *cp;
 
-    fprintf(f, "%s OBJECT-TYPE\n", tp->label);
+    if (tp->type <= TYPE_SIMPLE_LAST)
+        cp = "OBJECT-TYPE";
+    else
+	switch (tp->type) {
+	case TYPE_TRAPTYPE:	cp = "TRAP-TYPE"; break;
+	case TYPE_NOTIFTYPE:	cp = "NOTIFICATION-TYPE"; break;
+	case TYPE_OBJGROUP:	cp = "OBJECT-GROUP"; break;
+	case TYPE_AGENTCAP:	cp = "AGENT-CAPABILITIES"; break;
+	case TYPE_MODID:	cp = "MODULE-IDENTITY"; break;
+	case TYPE_MODCOMP:	cp = "MODULE-COMPLIANCE"; break;
+	default:		sprintf(buf, "type_%d", tp->type); cp = buf;
+	}
+    fprintf(f, "%s %s\n", tp->label, cp);
     print_tree_node(f, tp, width);
     fprintf(f, "::= {");
     pos = 5;
@@ -1967,8 +1980,7 @@ print_tree_node(FILE *f,
 	case TYPE_BITSTRING:	cp = "BIT STRING"; break;
 	case TYPE_NSAPADDRESS:	cp = "NsapAddress"; break;
 	case TYPE_UINTEGER:	cp = "UInteger32"; break;
-	case 0:			cp = NULL; break;
-	default:		sprintf(str,"type_%d", tp->type); cp = str;
+	default:		cp = NULL; break;
 	}
 #if SNMP_TESTING_CODE
 	if (!cp && (tp->ranges || tp->enums)) { /* ranges without type ? */
@@ -2043,12 +2055,14 @@ print_tree_node(FILE *f,
 	}
 #endif /* SNMP_TESTING_CODE */
 	if (cp) fprintf(f, "  STATUS\t%s\n", cp);
+	if (tp->augments)
+	    fprintf(f, "  AUGMENTS\t{ %s }\n", tp->augments);
 	if (tp->indexes) {
             struct index_list *ip = tp->indexes;
             int first=1;
             fprintf(f, "  INDEX\t\t");
-            fprintf(f," { ");
-	    pos = 16+3;
+            fprintf(f,"{ ");
+	    pos = 16+2;
 	    while (ip) {
 		if (first) first = 0;
 		else fprintf(f, ", ");
@@ -2056,12 +2070,34 @@ print_tree_node(FILE *f,
 			ip->ilabel);
 		len = strlen(str);
 		if (pos+len+2 > width) {
-		    fprintf(f, "\n\t\t   ");
-		    pos = 16+3;
+		    fprintf(f, "\n\t\t  ");
+		    pos = 16+2;
 		}
 		fprintf(f, "%s", str);
 		pos += len+2;
 		ip = ip->next;
+	    }
+	    fprintf(f," }\n");
+	}
+	if (tp->varbinds) {
+            struct varbind_list *vp = tp->varbinds;
+            int first=1;
+            fprintf(f, "  %s\t", tp->type == TYPE_TRAPTYPE ?
+	      			   "VARIABLES" : "OBJECTS");
+            fprintf(f,"{ ");
+	    pos = 16+2;
+	    while (vp) {
+		if (first) first = 0;
+		else fprintf(f, ", ");
+		sprintf(str, "%s", vp->vblabel);
+		len = strlen(str);
+		if (pos+len+2 > width) {
+		    fprintf(f, "\n\t\t  ");
+		    pos = 16+2;
+		}
+		fprintf(f, "%s", str);
+		pos += len+2;
+		vp = vp->next;
 	    }
 	    fprintf(f," }\n");
 	}
