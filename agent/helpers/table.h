@@ -57,10 +57,8 @@ typedef struct _table_request_info {
    unsigned int colnum;            /* 0 if OID not long enough */
    unsigned int number_indexes;    /* 0 if failure to parse any */
    struct variable_list *indexes; /* contents freed by helper upon exit */
-  oid original_index_oid[MAX_OID_LEN];
-  size_t original_index_oid_len;
-  oid full_index_oid[MAX_OID_LEN];
-  size_t full_index_oid_len;
+  oid index_oid[MAX_OID_LEN];
+  size_t index_oid_len;
 } table_request_info;
 
 mib_handler *get_table_handler(table_registration_info *tabreq);
@@ -69,14 +67,14 @@ int register_table(handler_registration *reginfo,
 int table_build_oid(handler_registration *reginfo,
 										request_info *reqinfo,
 										table_request_info *table_info);
-int table_build_oid_from_full_index(handler_registration *reginfo,
+int table_build_oid_from_index(handler_registration *reginfo,
 																		request_info *reqinfo,
 																		table_request_info *table_info);
 int table_build_result(handler_registration *reginfo,
                        request_info *reqinfo,
                        table_request_info *table_info, u_char type,
                        u_char *result, size_t result_len);
-int update_indexes_from_full_index( table_request_info * );
+int update_variable_list_from_index( table_request_info * );
 int update_indexes_from_variable_list( table_request_info *tri );
 
 unsigned int closest_column(unsigned int current, column_info *valid_columns);
