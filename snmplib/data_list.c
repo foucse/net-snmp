@@ -28,16 +28,19 @@ create_data_list(const char *name, void *data,
 inline void
 add_list_data(data_list **head, data_list *node) 
 {
+    data_list *ptr;
     if (!*head) {
         *head = node;
         return;
     }
 
     /* xxx-rks: check for duplicate names? */
-    while((*head)->next != NULL)
-        (*head) = (*head)->next;
+    for(ptr = *head; ptr->next != NULL; ptr = ptr->next) {
+        /* noop */
+    }
 
-    (*head)->next = node;
+    if (ptr) /* should always be true */
+        ptr->next = node;
 }
 
 inline void *
