@@ -278,28 +278,36 @@ buffer_append_oid(netsnmp_buf *buf, netsnmp_oid *oid)
          *
          * Returns the current value of the buffer.
          *
-         * ??? Not convinced about this next bit....
-         * Calling this routine transfers responsibility for freeing
-         *   the memory used by this string from 'buffer_free()' to
-         *   the calling procedure.
+         * The calling procedure is responsible for freeing
+         *   this memory when it is no longer required.
          * This should be done *after* calling 'buffer_free()'
          */
 char*
 buffer_string(netsnmp_buf *buf)
 {
     int offset;
+    char *cp, *ret;
 
     if (NULL == buf) {
         return NULL;
     }
-    buf->flags |= NETSNMP_BUFFER_NOFREE;
 
     if (buf->flags & NETSNMP_BUFFER_REVERSE) {
 	offset = buf->max_len - buf->cur_len;
-	return (buf->string + offset);
+	cp = (buf->string + offset);
     } else {
-        return buf->string;
+        cp =  buf->string;
     }
+
+    if ( buf->flags & NETSNMP_BUFFER_NOFREE ) {
+        ret = calloc(buf->cur_len, 1);
+        memcpy(ret, cp, buf->cur_len);
+    } else {
+        buf->flags |= NETSNMP_BUFFER_NOFREE;
+        ret = cp;
+    }
+
+    return ret;
 }
 
 
