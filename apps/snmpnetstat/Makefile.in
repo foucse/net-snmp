@@ -23,13 +23,14 @@ LDFLAGS=@LDFLAGS@
 CC = @CC@ $(CPPFLAGS)
 
 LIBS=	-lsnmp @LIBS@
-LDFLAGS=@LDFLAGS@ -L../../lib
+LDFLAGS=@LDFLAGS@ -L../../snmplib
+USELIBS=../../snmplib/libsnmp.a
 SRCS=	inet.c if.c main.c route.c 
 OBJS=	inet.o if.o main.o route.o
 
 all: snmpnetstat
 
-snmpnetstat: ${OBJS}
+snmpnetstat: ${OBJS} ${USELIBS}
 	${CC} -o $@ ${CFLAGS} ${OBJS} ${LDFLAGS} ${LIBS}
 
 clean:
