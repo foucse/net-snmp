@@ -738,9 +738,12 @@ EM(-1);
 	{
 		struct usmUser *user;
 
+                /* we do allow an unknown user name for
+                   unauthenticated requests. */
 		if ( (user = 
 			usm_get_user(secEngineID, secEngineIDLen, secName))
-				== NULL )
+				== NULL &&
+                     			secLevel != SNMP_SEC_LEVEL_NOAUTH)
 		{
 			DEBUGPL (("Unknown User\n"));
 			if (secStateRef)
@@ -751,17 +754,28 @@ EM(-1);
 		theName		 	= secName;
 		theNameLength		= secNameLen;
 		theEngineID		= secEngineID;
+                theSecLevel		= secLevel;
 		theEngineIDLength	= secEngineIDLen;
-		theAuthProtocol		= user->authProtocol;
-		theAuthProtocolLength	= user->authProtocolLen;
-		theAuthKey		= user->authKey;
-		theAuthKeyLength	= user->authKeyLen;
-		thePrivProtocol		= user->privProtocol;
-		thePrivProtocolLength	= user->privProtocolLen;
-		thePrivKey		= user->privKey;
-		thePrivKeyLength	= user->privKeyLen;
-		theSecLevel		= secLevel;
-
+                if (user) {
+                  theAuthProtocol	= user->authProtocol;
+                  theAuthProtocolLength	= user->authProtocolLen;
+                  theAuthKey		= user->authKey;
+                  theAuthKeyLength	= user->authKeyLen;
+                  thePrivProtocol	= user->privProtocol;
+                  thePrivProtocolLength	= user->privProtocolLen;
+                  thePrivKey		= user->privKey;
+                  thePrivKeyLength	= user->privKeyLen;
+                } else {
+                  /* unknown users can not do authentication (obviously) */
+                  theAuthProtocol	= usmNoAuthProtocol;
+                  theAuthProtocolLength	= sizeof(usmNoAuthProtocol)/sizeof(oid);
+                  theAuthKey		= NULL;
+                  theAuthKeyLength	= 0;
+                  thePrivProtocol	= usmNoPrivProtocol;
+                  thePrivProtocolLength	= sizeof(usmNoPrivProtocol)/sizeof(oid);
+                  thePrivKey		= NULL;
+                  thePrivKeyLength	= 0;
+                }
 	}  /* endif -- secStateRef==NULL */
 
 
