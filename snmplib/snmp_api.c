@@ -1989,7 +1989,7 @@ int
 snmpv3_get_report_type(struct snmp_pdu *pdu)
 {
   static oid snmpMPDStats[] = {1,3,6,1,6,3,11,2,1};
-  static oid usmStats[] = {1,3,6,1,6,3,12,1,1};
+  static oid usmStats[] = {1,3,6,1,6,3,15,1,1};
   struct variable_list *vp;
   int rpt_type = SNMPERR_UNKNOWN_REPORT;
 
