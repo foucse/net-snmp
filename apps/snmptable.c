@@ -92,7 +92,7 @@ struct column {
 
 static char **data = NULL;
 static char **indices = NULL;
-static int index_width = 5;
+static int index_width = sizeof("index")-1;
 static int fields;
 static int entries;
 static int allocated;
@@ -108,8 +108,7 @@ static size_t name_length;
 static oid root[MAX_OID_LEN];
 static size_t rootlen;
 static int localdebug;
-
-
+static int use_getbulk;
 static int nonsequential = 1;
 
 #ifdef COMMENT
@@ -120,7 +119,7 @@ behaviour of pre-4.1. Forget about it. It is just there as a safe-
 guard in case a problem shows up.
 
 You could get away with
- snmptable -C host community table
+ snmptable -CC host community table
 
 but again, -C should be forgotten.
 
@@ -129,6 +128,7 @@ but again, -C should be forgotten.
 
 void get_field_names (char *);
 void get_table_entries( struct snmp_session *ss );
+void getbulk_table_entries( struct snmp_session *ss );
 void print_table (void);
 
 static void optProc(int argc, char *const *argv, int opt)
@@ -164,6 +164,9 @@ static void optProc(int argc, char *const *argv, int opt)
           case 'C':
             nonsequential = 0;
             break;
+	  case 'B':
+	    use_getbulk = 1;
+	    break;
           case 'b':
             brief = 1;
             break;
@@ -201,6 +204,7 @@ void usage(void)
   fprintf(stdout,"  -Cw <W>\tprint table in parts of W characters width\n");
   fprintf(stdout,"  -Cf <F>\tprint an F delimited table\n");
   fprintf(stdout,"  -Cb\t\tbrief field names\n");
+  fprintf(stdout,"  -CB\t\tuse GETBULK requests\n");
   fprintf(stdout,"  -Ci\t\tprint index value\n");
   fprintf(stdout,"  -Ch\t\tprint only the column headers\n");
   fprintf(stdout,"  -CH\t\tprint no column headers\n");
@@ -255,7 +259,12 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  if (!headers_only) get_table_entries(ss);
+  if (!headers_only) {
+    if (use_getbulk)
+      getbulk_table_entries(ss);
+    else
+      get_table_entries(ss);
+  }
 
   snmp_close(ss);
   SOCK_CLEANUP;
@@ -522,6 +531,126 @@ void get_table_entries( struct snmp_session *ss )
 	  }
 	  running = 0;
 	  continue;
+	}
+      } else {
+	/* error in response, print it */
+	running = 0;
+	if (response->errstat == SNMP_ERR_NOSUCHNAME){
+	  printf("End of MIB\n");
+	} else {
+	  fprintf(stderr, "Error in packet.\nReason: %s\n",
+		  snmp_errstring(response->errstat));
+	  if (response->errstat == SNMP_ERR_NOSUCHNAME){
+	    fprintf(stderr, "The request for this object identifier failed: ");
+	    for(count = 1, vars = response->variables;
+		  vars && count != response->errindex;
+		  vars = vars->next_variable, count++)
+	      /*EMPTY*/;
+	    if (vars)
+	      fprint_objid(stderr, vars->name, vars->name_length);
+	    fprintf(stderr, "\n");
+	  }
+	}
+      }
+    } else if (status == STAT_TIMEOUT){
+      fprintf(stderr, "Timeout: No Response from %s\n", ss->peername);
+      running = 0;
+    } else {    /* status == STAT_ERROR */
+      snmp_sess_perror("snmptable", ss);
+      running = 0;
+    }
+    if (response)
+      snmp_free_pdu(response);
+  }
+}
+
+void getbulk_table_entries( struct snmp_session *ss )
+{
+  int running = 1;
+  struct snmp_pdu *pdu, *response;
+  struct variable_list *vars, *last_var;
+  int   count;
+  int   status;
+  int   i;
+  int   row, col;
+  char  string_buf[SPRINT_MAX_LEN], *cp;
+  char  *name_p = NULL;
+  char  **dp;
+  int end_of_table = 0;
+  int have_current_index;
+
+  while (running) {
+    /* create PDU for GETNEXT request and add object name to request */
+    pdu = snmp_pdu_create(SNMP_MSG_GETBULK);
+    pdu->non_repeaters = 0;
+    pdu->max_repetitions = 50;
+    snmp_add_null_var(pdu, name, name_length);
+
+    /* do the request */
+    status = snmp_synch_response(ss, pdu, &response);
+    if (status == STAT_SUCCESS) {
+      if (response->errstat == SNMP_ERR_NOERROR) {
+	/* check resulting variables */
+	vars = response->variables;
+	last_var = NULL;
+	while (vars) {
+	  sprint_objid(string_buf, vars->name, vars->name_length);
+	  if (vars->type == SNMP_ENDOFMIBVIEW || memcmp(vars->name, name, rootlen*sizeof(oid)) != 0) {
+	    if (localdebug)
+	      printf("%s => end of table\n", string_buf);
+	    running = 0;
+	    break;
+	  }
+	  if (localdebug) printf("%s => taken\n", string_buf);
+	  switch (snmp_get_suffix_only()) {
+	  case 2:
+	    name_p = strrchr(string_buf, ':');
+	    break;
+	  case 1:
+	    name_p = string_buf;
+	    break;
+	  case 0:
+	    name_p = string_buf + strlen(table_name)+1;
+	    name_p = strchr(name_p, '.')+1;
+	    break;
+	  }
+	  name_p = strchr(name_p, '.')+1;
+	  for (row = 0; row < entries; row++)
+	    if (strcmp(name_p, indices[row]) == 0) break;
+	  if (row == entries) {
+	    entries++;
+	    if (entries >= allocated) {
+	      if (allocated == 0) {
+		allocated = 10;
+		data = (char **)malloc(allocated*fields*sizeof(char *));
+		memset (data, 0, allocated*fields*sizeof(char *));
+		indices = (char **)malloc(allocated*sizeof(char *));
+	      }
+	      else {
+		allocated += 10;
+		data = (char **)realloc(data, allocated*fields*sizeof(char *));
+		memset (data+entries*fields, 0,
+			(allocated-entries)*fields*sizeof(char *));
+		indices = (char **)realloc(indices, allocated*sizeof(char *));
+	      }
+	    }
+	    indices[row] = strdup(name_p);
+	  }
+	  dp = data+row*fields;
+	  sprint_value(string_buf, vars->name, vars->name_length, vars);
+	  for (cp = string_buf; *cp; cp++)
+	    if (*cp == '\n') *cp = ' ';
+	  for (col = 0; col < fields; col++)
+	    if (column[col].subid == vars->name[rootlen]) break;
+	  dp[col] = strdup(string_buf);
+	  i = strlen(string_buf);
+	  if (i > column[col].width) column[col].width = i;
+	  last_var = vars;
+	  vars = vars->next_variable;
+	}
+	if (last_var) {
+	  name_length = last_var->name_length;
+	  memcpy(name, last_var->name, name_length * sizeof(oid));
 	}
       } else {
 	/* error in response, print it */
