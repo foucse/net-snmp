@@ -31,12 +31,69 @@
 
 #include "system.h"
 #include "snmpv3.h"
+#include "asn1.h"
+#include "snmp.h"
 
 static int engineBoots=0;
 static char *engineID=NULL;
 static int engineIDLength=0;
 static struct timeval snmpv3starttime;
 
+/* set up default snmpv3 parameter value storage */
+static char *defaultSecName = NULL;
+static char *defaultContext = NULL;
+int defaultSecurityLevel = 0;
+
+void
+snmpv3_secName_conf(char *word, char *cptr)
+{
+  if (defaultSecName)
+    free(defaultSecName);
+  defaultSecName = strdup(cptr);
+  DEBUGP("default security name set to: %s\n",defaultSecName);
+}
+
+char *
+get_default_secName(void) {
+  return defaultSecName;
+}
+
+void
+snmpv3_context_conf(char *word, char *cptr)
+{
+  if (defaultContext)
+    free(defaultContext);
+  defaultContext = strdup(cptr);
+  DEBUGP("default context set to: %s\n",defaultContext);
+}
+
+char *
+get_default_context(void) {
+  return defaultContext;
+}
+
+void
+snmpv3_secLevel_conf(char *word, char *cptr)
+{
+  char buf[1024];
+  
+  if (strcmp(cptr,"noAuthNoPriv") == 0 || strcmp(cptr, "1") == 0)
+    defaultSecurityLevel = SNMP_SEC_LEVEL_NOAUTH;
+  else if (strcmp(cptr,"authNoPriv") == 0 || strcmp(cptr, "2") == 0)
+    defaultSecurityLevel = SNMP_SEC_LEVEL_AUTHNOPRIV;
+  else if (strcmp(cptr,"authPriv") == 0 || strcmp(cptr, "3") == 0)
+    defaultSecurityLevel = SNMP_SEC_LEVEL_AUTHPRIV;
+  else {
+    sprintf(buf,"unknown security level: cptr");
+    config_perror(buf);
+  }
+  DEBUGP("default secLevel set to: %s = %d\n", cptr, defaultSecurityLevel);
+}
+
+int
+get_default_secLevel(void) {
+  return defaultSecurityLevel;
+}
 
 /* places a malloced copy of the engineID into engineID */
 void
@@ -115,6 +172,10 @@ init_snmpv3(char *type) {
   setup_engineID(NULL);
   register_config_handler(type,"engineBoots", engineBoots_conf, NULL);
   register_config_handler(type,"engineID", engineID_conf, NULL);
+  register_config_handler("snmp","defSecurityName", snmpv3_secName_conf, NULL);
+  register_config_handler("snmp","defContext", snmpv3_context_conf, NULL);
+  register_config_handler("snmp","defSecurityLevel", snmpv3_secLevel_conf,
+                          NULL);
 }
 
 void

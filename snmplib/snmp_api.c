@@ -584,6 +584,8 @@ snmp_sess_open(in_session)
     }
     session->community = cp;	/* replace pointer with pointer to new data */
 
+    if (session->securityLevel <= 0)
+      session->securityLevel = get_default_secLevel();
     if (session->contextEngineIDLen > 0) {
       cp = (u_char*)malloc((unsigned)session->contextEngineIDLen * 
 			   sizeof(u_char));
@@ -610,6 +612,16 @@ snmp_sess_open(in_session)
       memmove(cp, session->contextName, 
 	      session->contextNameLen * sizeof(u_char));
       session->contextName = cp;
+    } else if ((cp = get_default_context()) != NULL) {
+      cp = strdup(cp);
+      if (cp == NULL) {
+	snmp_errno = SNMPERR_GENERR;
+	in_session->s_snmp_errno = SNMPERR_GENERR;
+	snmp_sess_close(slp);
+	return(NULL);
+      }
+      session->contextName = cp;
+      session->contextNameLen = strlen(cp);
     }
 
     if (session->securityNameLen > 0) {
@@ -624,6 +636,16 @@ snmp_sess_open(in_session)
       memmove(cp, session->securityName, 
 	      session->securityNameLen * sizeof(u_char));
       session->securityName = cp;
+    } else if ((cp = get_default_secName()) != NULL) {
+      cp = strdup(cp);
+      if (cp == NULL) {
+	snmp_errno = SNMPERR_GENERR;
+	in_session->s_snmp_errno = SNMPERR_GENERR;
+	snmp_sess_close(slp);
+	return(NULL);
+      }
+      session->securityName = cp;
+      session->securityNameLen = strlen(cp);
     }
 
     if (session->srcPartyLen > 0){
