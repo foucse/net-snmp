@@ -151,14 +151,17 @@ table_helper_handler(
 	 * if the agent request info has a state reference, then
 	 * this is a later pass of a set request and we can
 	 * skip all the lookup stuff.
+   * xxx-rks: this might break for handlers which only handle
+   * one pdu at a time... those handlers should not save
+   * data by their handler_name.
 	 */
-    if (reqinfo->state_reference) {
+    if (agent_get_list_data(reqinfo, handler->handler_name)) {
         if (MODE_IS_SET(reqinfo->mode)) {
             return call_next_handler(handler, reginfo, reqinfo, requests);
         }
         else {
-#warning "XXX-rks: memory leak. add cleanup handler?"
-            reqinfo->state_reference = NULL;
+#pragma warning "XXX-rks: memory leak. add cleanup handler?"
+            free_agent_data_sets(reqinfo);
         }
     }
 
@@ -363,7 +366,7 @@ table_helper_handler(
         }
 
         /* save table_req_info */
-        handler_add_parent_data(request, handler_create_parent_data(TABLE_HANDLER_NAME, (void *) tbl_req_info, table_data_free_func));
+        request_add_list_data(request, create_data_list(TABLE_HANDLER_NAME, (void *) tbl_req_info, table_data_free_func));
 
     } /* for each request */
 
@@ -509,7 +512,7 @@ inline table_request_info *
 extract_table_info(request_info *request) 
 {
     return (table_request_info *)
-        handler_get_parent_data(request, TABLE_HANDLER_NAME);
+        request_get_list_data(request, TABLE_HANDLER_NAME);
 }
 
 table_registration_info *
