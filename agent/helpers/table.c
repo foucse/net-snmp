@@ -320,7 +320,7 @@ table_helper_handler(
 				((tbl_req_info->number_indexes != tbl_info->number_indexes) ||
 				 (tmp_len!=-1)))
 			{
-				table_helper_cleanup(requests,SNMP_ERR_NOSUCHNAME);
+				table_helper_cleanup(reqinfo, request, SNMP_ERR_NOSUCHNAME);
 			}
 
 		DEBUGIF("helper:table") {
