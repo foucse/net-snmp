@@ -9,21 +9,25 @@
 #include <mibincl.h>
 #include <data_list.h>
 #include <snmp_agent.h>
-#include <agent_registry.h>
 #include <agent_handler.h>
+#include <agent_registry.h>
+#include <data_list.h>
 /***********************************************************************/
 /* New Handler based API */
 /***********************************************************************/
+/** @defgroup handler All about handlers
+ *  @{
+ */
 
 /** register a handler, as defined by the handler_registration pointer */ 
 int
 register_handler(handler_registration *reginfo) {
     mib_handler *handler;
     DEBUGIF("handler::register") {
-        DEBUGMSGTL(("handler::register", "Registering"));
+        DEBUGMSGTL(("handler::register", "Registering "));
         for(handler = reginfo->handler; handler;
             handler = handler->next) {
-            DEBUGMSG(("handler::register"," %s", handler->handler_name));
+            DEBUGMSG(("handler::register","::%s", handler->handler_name));
         }
             
         DEBUGMSG(("handler::register", " at "));
@@ -67,6 +71,9 @@ inject_handler(handler_registration *reginfo, mib_handler *handler) {
     return SNMPERR_SUCCESS;
 }
 
+/** @internal
+ *  calls all the hnadlers for a given mode.
+ */
 int call_handlers(handler_registration *reginfo,
                   agent_request_info   *reqinfo,
                   request_info         *requests) {
@@ -132,7 +139,7 @@ int call_handlers(handler_registration *reginfo,
     return status;
 }
 
-/** calls a handler with with appropriate NULL checking, etc. */
+/** calls a handler with with appropriate NULL checking of arguments, etc. */
 inline int call_handler(mib_handler          *next_handler,
                         handler_registration *reginfo,
                         agent_request_info   *reqinfo,
@@ -209,7 +216,8 @@ create_handler_registration(const char *name,
         the_reg->modes = HANDLER_CAN_DEFAULT;
 
     the_reg->handler = create_handler(name, handler_access_method);
-    memdup(&the_reg->rootoid, reg_oid, reg_oid_len * sizeof(oid));
+    memdup((u_char **) &the_reg->rootoid, (const u_char *) reg_oid,
+           reg_oid_len * sizeof(oid));
     the_reg->rootoid_len = reg_oid_len;
     return the_reg;
 }
@@ -322,3 +330,124 @@ find_handler_data_by_name(handler_registration *reginfo,
     return NULL;
 }
 
+/** clones a mib handler (it's name and access methods onlys; not myvoid)
+ */
+mib_handler *
+clone_handler(mib_handler *it) 
+{
+    return create_handler(it->handler_name, it->access_method);
+}
+
+static data_list *handler_reg = NULL;
+
+/** registers a given handler by name so that it can be found easily later.
+ */
+void
+register_handler_by_name(const char *name, mib_handler *handler) 
+{
+    add_list_data(&handler_reg, create_data_list(name, (void *) handler, NULL));
+    DEBUGMSGTL(("handler_registry", "registering helper %s\n", name));
+}
+
+/** @internal
+ *  injects a handler into a subtree, peers and children when a given
+ *  subtrees name matches a passed in name.
+ */
+void
+inject_handler_into_subtree(struct subtree *tp, const char *name,
+                            mib_handler *handler) 
+{
+    struct subtree *tptr;
+    mib_handler *mh;
+    
+    for(tptr = tp; tptr; tptr = tptr->next) {
+/*         if (tptr->children) { */
+/*             inject_handler_into_subtree(tptr->children, name, handler); */
+/*         } */
+        if (strcmp(tptr->label, name) == 0) {
+            DEBUGMSGTL(("injectHandler", "injecting handler %s into %s\n",
+                        handler->handler_name,
+                        tptr->label));
+            inject_handler(tptr->reginfo, clone_handler(handler));
+        } else if (tptr->reginfo &&
+                   tptr->reginfo->handlerName &&
+                   strcmp(tptr->reginfo->handlerName, name) == 0) {
+            DEBUGMSGTL(("injectHandler", "injecting handler into %s/%s\n",
+                        tptr->label, tptr->reginfo->handlerName));
+            inject_handler(tptr->reginfo, clone_handler(handler));
+        } else {
+            for(mh = tptr->reginfo->handler; mh; mh = mh->next) {
+                if (strcmp(mh->handler_name, name) == 0) {
+                    DEBUGMSGTL(("injectHandler", "injecting handler into %s\n",
+                                tptr->label));
+                    inject_handler(tptr->reginfo, clone_handler(handler));
+                    break;
+                } else {
+                    DEBUGMSGTL(("yyyinjectHandler", "not injecting handler into %s\n",
+                                mh->handler_name));
+                }
+            }
+        }
+    }
+}
+
+static int doneit = 0;
+/** @internal
+ *  parses the "injectHandler" token line.
+ */
+void
+parse_injectHandler_conf(const char *token, char *cptr) 
+{
+    char handler_to_insert[256];
+    subtree_context_cache *stc;
+    mib_handler *handler;
+    
+    /* XXXWWW: ensure instead that handler isn't inserted twice */
+    if (doneit) /* we only do this once without restart the agent */
+        return;
+
+    cptr = copy_nword(cptr, handler_to_insert, sizeof(handler_to_insert));
+    handler = get_list_data(handler_reg, handler_to_insert);
+    if (!handler) {
+        config_perror("no such \"%s\" handler registered.");
+        return;
+    }
+    
+    if (!cptr) {
+        config_perror("no INTONAME specified.  Can't do insertion.");
+        return;
+    }
+    for(stc = get_top_context_cache(); stc; stc = stc->next) {
+        DEBUGMSGTL(("injectHandler", "Checking context tree %s\n",
+                    stc->context_name));
+        inject_handler_into_subtree(stc->first_subtree, cptr, handler);
+    }
+}
+
+/** @internal
+ *  callback to ensure injectHandler parser doesn't do things twice
+ *  @todo replace this with a method to check the handler chain instead.
+ */
+static int
+handler_mark_doneit(int majorID, int minorID,
+                    void *serverarg, void *clientarg) {
+    doneit = 1;
+    return 0;
+}
+
+/** @internal
+ *  register's the injectHandle parser token.
+ */
+void
+init_handler_conf(void) 
+{
+    snmpd_register_config_handler("injectHandler",
+                                  parse_injectHandler_conf,
+                                  NULL,
+                                  "injectHandler NAME INTONAME");
+    snmp_register_callback(SNMP_CALLBACK_LIBRARY,
+                           SNMP_CALLBACK_POST_READ_CONFIG,
+                           handler_mark_doneit, NULL);
+}
+
+/** @} */

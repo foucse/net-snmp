@@ -128,7 +128,7 @@ PERFORMANCE OF THIS SOFTWARE.
 #include "callback.h"
 #include "snmp_alarm.h"
 #include "snmpd.h"
-#include "helpers/table.h"
+#include "helpers/all_helpers.h"
 #include "mib_module_includes.h"
 
 #ifndef  MIN
@@ -246,6 +246,8 @@ init_agent (const char *app)
       callback_master_num = callback_master_sess->local_port;
   else
       callback_master_num = -1;
+
+  init_helpers();
 
   /* initialize agentx subagent if necessary. */
 #ifdef USING_AGENTX_SUBAGENT_MODULE

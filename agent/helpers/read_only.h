@@ -8,6 +8,7 @@
 
 
 mib_handler *get_read_only_handler(void);
+void init_read_only_helper(void);
    
 NodeHandler read_only_helper;
 

@@ -15,6 +15,12 @@
 #include <dmalloc.h>
 #endif
 
+void
+init_read_only_helper(void) 
+{
+    register_handler_by_name("read_only", get_read_only_handler());
+}
+
 mib_handler *
 get_read_only_handler(void) {
     return create_handler("read_only", read_only_helper);

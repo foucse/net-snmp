@@ -15,6 +15,12 @@
 #include <dmalloc.h>
 #endif
 
+void
+init_serialize(void) 
+{
+    register_handler_by_name("serialize", get_serialize_handler());
+}
+
 mib_handler *
 get_serialize_handler(void) {
     return create_handler("serialize", serialize_helper_handler);

@@ -96,6 +96,7 @@ create_delegated_cache(mib_handler               *,
                        request_info              *,
                        void                      *);
 inline delegated_cache *handler_check_cache(delegated_cache *dcache);
+void register_handler_by_name(const char *, mib_handler *);
 
 inline void
 request_add_list_data(request_info *request, data_list *node);

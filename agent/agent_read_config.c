@@ -208,6 +208,7 @@ void init_agent_read_config (const char *app)
                               config_parse_table_set, NULL, "tableoid");
   register_app_config_handler("add_row",
                               config_parse_add_row, NULL, "indexes... values...");
+  init_handler_conf();
   
 #include "mib_module_dot_conf.h"
 #ifdef TESTING
