@@ -1515,7 +1515,7 @@ var_ifEntry(vp, name, length, exact, var_len, write_method)
 static int
 IF_cmp(void *addr, void *ep)
 {
-#ifdef KDEBUG
+#ifdef DODEBUG
     printf ("... IF_cmp %d %d\n", 
     ((mib2_ifEntry_t *)ep)->ifIndex, ((mib2_ifEntry_t *)addr)->ifIndex);
 #endif
@@ -1546,11 +1546,11 @@ variable, otherwise 0 */
     int                 result, count;
     register char       *cp;
     mib2_ifEntry_t      ifstat;
-#ifdef KDEBUG
+#ifdef DODEBUG
     char c_oid[1024];
 #endif
  
-#ifdef KDEBUG
+#ifdef DODEBUG
     sprint_objid (c_oid, name, *length);
     printf ("var_ifEntry: %s %d\n", c_oid, exact);
 #endif
@@ -1563,7 +1563,7 @@ variable, otherwise 0 */
             break;
     }
     if (interface > count) {
-#ifdef KDEBUG
+#ifdef DODEBUG
 	printf ("... index out of range\n");
 #endif
         return NULL;
@@ -1572,13 +1572,13 @@ variable, otherwise 0 */
     *length = vp->namelen + 1;
     *write_method = 0;
     *var_len = sizeof(long);
-#ifdef KDEBUG
+#ifdef DODEBUG
     sprint_objid (c_oid, newname, *length);
     printf ("... getMibstat %s\n", c_oid);
 #endif
     if (getMibstat(MIB_INTERFACES, &ifstat, sizeof(mib2_ifEntry_t),
                    GET_EXACT, &IF_cmp, &interface) != 0) {
-#ifdef KDEBUG
+#ifdef DODEBUG
       printf ("... no mib stats\n");
 #endif
       return NULL;
@@ -1782,13 +1782,13 @@ var_atEntry(struct variable *vp, oid *name, int *length, int exact,
     mib2_ipNetToMediaEntry_t entry, Lowentry;
     int		Found = 0;
     req_e	req_type;
-#ifdef KDEBUG
+#ifdef DODEBUG
     char	c_oid[1024];
 #endif
 
     /* fill in object part of name for current (less sizeof instance part) */
 
-#ifdef KDEBUG
+#ifdef DODEBUG
     sprint_objid (c_oid, name, *length);
     printf ("var_atEntry: %s %d\n", c_oid, exact);
 #endif
@@ -1831,7 +1831,7 @@ var_atEntry(struct variable *vp, oid *name, int *length, int exact,
 	    }
 	}
     }
-#ifdef KDEBUG
+#ifdef DODEBUG
     printf ("... Found = %d\n", Found);
 #endif
     if (Found == 0)
@@ -2102,11 +2102,11 @@ var_ip(vp, name, length, exact, var_len, write_method)
     oid newname[MAX_NAME_LEN];
     int result;
     u_char *ret = (u_char *)&long_return;	/* Successful completion */
-#ifdef KDEBUG
+#ifdef DODEBUG
     char c_oid[1024];
 #endif
 
-#ifdef KDEBUG
+#ifdef DODEBUG
     sprint_objid (c_oid, name, *length);
     printf ("var_ip: %s %d\n", c_oid, exact);
 #endif
@@ -2225,13 +2225,13 @@ var_ipAddrEntry(vp, name, length, exact, var_len, write_method)
     mib2_ipAddrEntry_t	    entry, Lowentry;
     int			    Found = 0;
     req_e		    req_type;
-#ifdef KDEBUG
+#ifdef DODEBUG
     char		    c_oid[1024];
 #endif
     
     /* fill in object part of name for current (less sizeof instance part) */
 
-#ifdef KDEBUG
+#ifdef DODEBUG
     sprint_objid (c_oid, name, *length);
     printf ("var_ipAddrEntry: %s %d\n", c_oid, exact);
 #endif
@@ -2267,7 +2267,7 @@ var_ipAddrEntry(vp, name, length, exact, var_len, write_method)
 	}
       }
     }
-#ifdef KDEBUG
+#ifdef DODEBUG
     printf ("... Found = %d\n", Found);
 #endif
     if (Found == 0)
@@ -2417,11 +2417,11 @@ var_icmp(vp, name, length, exact, var_len, write_method)
     oid newname[MAX_NAME_LEN];
     int result;
     u_char *ret = (u_char *)&long_return;	/* Successful completion */
-#ifdef KDEBUG
+#ifdef DODEBUG
     char c_oid[1024];
 #endif
 
-#ifdef KDEBUG
+#ifdef DODEBUG
     sprint_objid (c_oid, name, *length);
     printf ("var_icmp: %s %d\n", c_oid, exact);
 #endif
@@ -2590,11 +2590,11 @@ var_udp(vp, name, length, exact, var_len, write_method)
     oid newname[MAX_NAME_LEN];
     int result;
     u_char *ret = (u_char *)&long_return;	/* Successful completion */
-#ifdef KDEBUG
+#ifdef DODEBUG
     char c_oid[1024];
 #endif
 
-#ifdef KDEBUG
+#ifdef DODEBUG
     sprint_objid (c_oid, name, *length);
     printf ("var_udp: %s %d\n", c_oid, exact);
 #endif
@@ -2820,11 +2820,11 @@ int     (**write_method)(); /* OUT - pointer to function to set variable, otherw
   int State, LowState;
   int result;
   u_char *ret = (u_char *)&long_return;	/* Successful completion */
-#ifdef KDEBUG
+#ifdef DODEBUG
   char c_oid[1024];
 #endif
 
-#ifdef KDEBUG
+#ifdef DODEBUG
   sprint_objid (c_oid, name, *length);
   printf ("var_tcp: %s %d\n", c_oid, exact);
 #endif
