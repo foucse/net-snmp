@@ -57,6 +57,21 @@ register_premib_handler(type, token, parser, releaser)
   return (ltmp);
 }
 
+
+
+
+/*******************************************************************-o-******
+ * register_config_handler
+ *
+ * Parameters:
+ *	*type
+ *	*token
+ *	*parser
+ *	*releaser
+ *      
+ * Returns:
+ *	0		Success.
+ */
 struct config_line *
 register_config_handler(type, token, parser, releaser)
   char *type;
@@ -64,45 +79,60 @@ register_config_handler(type, token, parser, releaser)
   void (*parser) __P((char *, char *));
   void (*releaser) __P((void));
 {
-  struct config_files **ctmp = &config_files;
-  struct config_line **ltmp;
+	struct config_files **ctmp = &config_files;
+	struct config_line **ltmp;
 
-  /* find type in current list */
-  while (*ctmp != NULL && strcmp((*ctmp)->fileHeader,type)) {
-    ctmp = &((*ctmp)->next);
-  }
 
-  if (*ctmp == NULL) {
-    /* Not found, create a new one. */
-    *ctmp = (struct config_files *) malloc(sizeof(struct config_files));
-    (*ctmp)->next = NULL;
-    (*ctmp)->start = NULL;
-    (*ctmp)->fileHeader = strdup(type);
-  }
+	/* 
+	 * Find type in current list  -OR-  create a new file type.
+	 */
+	while (*ctmp != NULL && strcmp((*ctmp)->fileHeader, type)) {
+		ctmp = &((*ctmp)->next);
+	}
 
-  ltmp = &((*ctmp)->start);
+	if (*ctmp == NULL) {
+		*ctmp = (struct config_files *)
+					malloc(sizeof(struct config_files));
+		(*ctmp)->next		 = NULL;
+		(*ctmp)->start		 = NULL;
+		(*ctmp)->fileHeader	 = strdup(type);
+	}
 
-  while (*ltmp != NULL && strcmp((*ltmp)->config_token,token)) {
-    ltmp = &((*ltmp)->next);
-  }
 
-  if (*ltmp == NULL) {
-    /* Not found, create a new one. */
-    *ltmp = (struct config_line *) malloc(sizeof(struct config_line));
-    (*ltmp)->next = NULL;
-    (*ltmp)->config_time = NORMAL_CONFIG;
-    (*ltmp)->parse_line = 0;
-    (*ltmp)->free_func = 0;
-    (*ltmp)->config_token = strdup(token);
-  }
+	/* 
+	 * Find parser type in current list  -OR-  create a new
+	 * line parser entry.
+	 */
+	ltmp = &((*ctmp)->start);
 
-  /* Found the handler for this token.  Add/Replace the functions with */
-  /* the newly registered ones: */
+	while (*ltmp != NULL && strcmp((*ltmp)->config_token, token)) {
+		ltmp = &((*ltmp)->next);
+	}
 
-  (*ltmp)->parse_line = parser;
-  (*ltmp)->free_func = releaser;
-  return (*ltmp);
-}
+	if (*ltmp == NULL) {
+		*ltmp = (struct config_line *)
+					malloc(sizeof(struct config_line));
+		(*ltmp)->next		 = NULL;
+		(*ltmp)->config_time	 = NORMAL_CONFIG;
+		(*ltmp)->parse_line	 = 0;
+		(*ltmp)->free_func	 = 0;
+		(*ltmp)->config_token	 = strdup(token);
+	}
+
+
+	/* 
+	 * Add/Replace the parse/free functions for the given line type
+	 * in the given file type.
+	 */
+	(*ltmp)->parse_line = parser;
+	(*ltmp)->free_func  = releaser;
+
+
+	return (*ltmp);
+
+}  /* end register_config_handler() */
+
+
 
 void
 unregister_config_handler(type, token)

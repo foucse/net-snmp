@@ -33,7 +33,7 @@
 #undef SCAPI_AUTHPRIV
 
 /* define if you are using the v2party MD5 code */
-#undef USE_V2P_MD5
+#undef USE_INTERNAL_MD5
 
 /* comment the next line if you are compiling with libsnmp.h 
    and are not using the UC-Davis SNMP library. */

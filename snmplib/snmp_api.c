@@ -220,35 +220,37 @@ struct session_list {
 };
 
 static char *api_errors[-SNMPERR_MAX+1] = {
-    "No error",
-    "Generic error",
-    "Invalid local port",
-    "Unknown host",
-    "Unknown session",
-    "Too long",
-    "No socket",
-    "Cannot send V2 PDU on V1 session",
-    "Cannot send V1 PDU on V2 session",
-    "Bad value for non-repeaters",
-    "Bad value for max-repetitions",
-    "Error building ASN.1 representation",
-    "Failure in sendto",
-    "Bad parse of ASN.1 type",
-    "Bad version specified",
-    "Bad source party specified",
-    "Bad destination party specified",
-    "Bad context specified",
-    "Bad community specified",
-    "Cannot send noAuth/desPriv",
-    "Bad ACL definition",
-    "Bad Party definition",
-    "Session abort failure",
-    "Unknown PDU type",
-    "Timeout",
-    "Failure in recvfrom",
-    "Unable to determine contextEngineID",
-    "Unable to determine contextName",
-    "Unable to determine securityLevel",
+    "No error",				/* SNMPERR_SUCCESS */
+    "Generic error",			/* SNMPERR_GENERR */
+    "Invalid local port",		/* SNMPERR_BAD_LOCPORT */
+    "Unknown host",			/* SNMPERR_BAD_ADDRESS */
+    "Unknown session",			/* SNMPERR_BAD_SESSION */
+    "Too long",				/* SNMPERR_TOO_LONG */
+    "No socket",			/* SNMPERR_NO_SOCKET */
+    "Cannot send V2 PDU on V1 session",	/* SNMPERR_V2_IN_V1 */
+    "Cannot send V1 PDU on V2 session",	/* SNMPERR_V1_IN_V2 */
+    "Bad value for non-repeaters",	/* SNMPERR_BAD_REPEATERS */
+    "Bad value for max-repetitions",	/* SNMPERR_BAD_REPETITIONS */
+    "Error building ASN.1 representation",	/* SNMPERR_BAD_ASN1_BUILD */
+    "Failure in sendto",		/* SNMPERR_BAD_SENDTO */
+    "Bad parse of ASN.1 type",		/* SNMPERR_BAD_PARSE */
+    "Bad version specified",		/* SNMPERR_BAD_VERSION */
+    "Bad source party specified",	/* SNMPERR_BAD_SRC_PARTY */
+    "Bad destination party specified",	/* SNMPERR_BAD_DST_PARTY */
+    "Bad context specified",		/* SNMPERR_BAD_CONTEXT */
+    "Bad community specified",		/* SNMPERR_BAD_COMMUNITY */
+    "Cannot send noAuth/desPriv",	/* SNMPERR_NOAUTH_DESPRIV */
+    "Bad ACL definition",		/* SNMPERR_BAD_ACL */
+    "Bad Party definition",		/* SNMPERR_BAD_PARTY */
+    "Session abort failure",		/* SNMPERR_ABORT */
+    "Unknown PDU type",			/* SNMPERR_UNKNOWN_PDU */
+    "Timeout",				/* SNMPERR_TIMEOUT */
+    "Failure in recvfrom",		/* SNMPERR_BAD_RECVFROM */
+    "Unable to determine contextEngineID",	/* SNMPERR_BAD_ENG_ID */
+    "Unable to determine contextName",	/* SNMPERR_BAD_SEC_NAME */
+    "Unable to determine securityLevel",/* SNMPERR_BAD_SEC_LEVEL */
+    "SCAPI general failure",		/* SNMPERR_SC_GENERAL_FAILURE */
+    "Unknown transform.",		/* SNMPERR_SC_UNKNOWN_TRANSFORM */
 };
 
 /*
@@ -443,29 +445,43 @@ extern int init_mib_internals();
     session->version = SNMP_VERSION_1;
 }
 
-/*
-  init_snmp: call appropriately the functions to do config file
-  loading and mib module parsing in the correct order.
-*/
 
-static int done_init = 0;  /* prevent double init's */
 
+
+/*******************************************************************-o-******
+ * init_snmp
+ *
+ * Parameters:
+ *      *type   Label for the config file "type" used by calling entity.
+ *      
+ * Call appropriately the functions to do config file loading and
+ * mib module parsing in the correct order.
+ */
 void
-init_snmp(char *type) {
-  char file[512];
-  if (done_init)
-    return;
-  done_init = 1;
-  snmp_init_statistics();
-  register_mib_handlers();
-  init_snmpv3(type);
-  read_premib_configs();
-  init_mib();
-  read_configs();
-  sprintf(file,"%s/%s.persistent.conf",PERSISTENTDIR,type);
-  read_config_with_type(file, type);
-  init_snmp_session();
-}
+init_snmp(char *type)
+{
+	static int	done_init = 0;	/* To prevent double init's. */
+	char            file[512];
+
+	if (done_init) {
+		return;
+	}
+	done_init = 1;
+
+	snmp_init_statistics();
+	register_mib_handlers();
+	init_snmpv3(type);
+
+	read_premib_configs();
+	init_mib();
+
+	read_configs();
+	sprintf(file, "%s/%s.persistent.conf", PERSISTENTDIR, type);
+	read_config_with_type(file, type);
+
+	init_snmp_session();
+
+}  /* end init_snmp() */
 
 /*
  * Sets up the session with the snmp_session information provided

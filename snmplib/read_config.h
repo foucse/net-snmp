@@ -11,19 +11,29 @@
 #define PREMIB_CONFIG 1
 #define EITHER_CONFIG 2
 
+
+
+/*
+ * Defines a set of file types and the parse and free functions
+ * which process the syntax following a given token in a given file.
+ */
 struct config_files {
-   char *fileHeader;
-   struct config_line *start;
-   struct config_files *next;
+   char			*fileHeader;	/* Label for entire file. */
+   struct config_line	*start;
+   struct config_files	*next;
 };
 
 struct config_line {
-   char *config_token;
-   void (*parse_line) __P((char *, char *));
-   void (*free_func) __P((void));
-   struct config_line *next;
-   char config_time;
+   char			 *config_token;	/* Label for each line parser
+					 * in the given file.
+					 */
+   void			(*parse_line) __P((char *, char *));
+   void			(*free_func) __P((void));
+   struct config_line	 *next;
+   char			  config_time;	/* {NORMAL,PREMIB,EITHER}_CONFIG */
 };
+
+
 
 void read_config __P((char *, struct config_line *, int));
 void read_configs __P((void));

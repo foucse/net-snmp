@@ -1,3 +1,7 @@
+/*
+ * snmpv3.c
+ */
+
 #include <config.h>
 
 #include <stdio.h>
@@ -54,7 +58,8 @@ snmpv3_secName_conf(char *word, char *cptr)
 }
 
 char *
-get_default_secName(void) {
+get_default_secName(void)
+{
   return defaultSecName;
 }
 
@@ -68,7 +73,8 @@ snmpv3_context_conf(char *word, char *cptr)
 }
 
 char *
-get_default_context(void) {
+get_default_context(void)
+{
   return defaultContext;
 }
 
@@ -91,13 +97,15 @@ snmpv3_secLevel_conf(char *word, char *cptr)
 }
 
 int
-get_default_secLevel(void) {
+get_default_secLevel(void)
+{
   return defaultSecurityLevel;
 }
 
 /* places a malloced copy of the engineID into engineID */
 void
-setup_engineID(char *text) {
+setup_engineID(char *text)
+{
 
 #define MAX_HOSTNAME_LEN 512
   int netid = htonl(ENTERPRISE_NUMBER);
@@ -166,39 +174,84 @@ engineID_conf(char *word, char *cptr)
   DEBUGP("initialized engineID with: %s\n",cptr);
 }
 
-void
-init_snmpv3(char *type) {
-  gettimeofday(&snmpv3starttime, NULL);
-  setup_engineID(NULL);
-  register_config_handler(type,"engineBoots", engineBoots_conf, NULL);
-  register_config_handler(type,"engineID", engineID_conf, NULL);
-  register_config_handler("snmp","defSecurityName", snmpv3_secName_conf, NULL);
-  register_config_handler("snmp","defContext", snmpv3_context_conf, NULL);
-  register_config_handler("snmp","defSecurityLevel", snmpv3_secLevel_conf,
-                          NULL);
-}
 
+/*******************************************************************-o-******
+ * init_snmpv3
+ *
+ * Parameters:
+ *	*type	Label for the config file "type" used by calling entity.
+ *      
+ * Set time and engineID.
+ * Set parsing functions for config file tokens.
+ * Initialize SNMP Crypto API (SCAPI).
+ */
 void
-shutdown_snmpv3(char *type) {
-  char line[512];
-  sprintf(line, "engineBoots %d", engineBoots);
-  read_config_store(type, line);
-}
+init_snmpv3(char *type)
+{
+	gettimeofday(&snmpv3starttime, NULL);
+	setup_engineID(NULL);
+
+
+	register_config_handler(
+		type,	"engineBoots",		engineBoots_conf,	NULL);
+	register_config_handler(
+		type,	"engineID",		engineID_conf,		NULL);
+	register_config_handler(
+		"snmp",	"defSecurityName",	snmpv3_secName_conf,	NULL);
+	register_config_handler(
+		"snmp",	"defContext",		snmpv3_context_conf,	NULL);
+	register_config_handler(
+		"snmp",	"defSecurityLevel",	snmpv3_secLevel_conf,	NULL);
+
+#if		!defined(USE_INTERNAL_MD5)
+	kmt_init();
+#endif		/* !USE_INTERNAL_MD5 */
+
+}  /* end init_snmpv3() */
+
+
+
+
+/*******************************************************************-o-******
+ * shutdown_snmpv3
+ *
+ * Parameters:
+ *	*type
+ */
+void
+shutdown_snmpv3(char *type)
+{
+	char            line[512];
+
+	sprintf(line, "engineBoots %d", engineBoots);
+	read_config_store(type, line);
+
+#if		!defined(USE_INTERNAL_MD5)
+	kmt_close();
+#endif		/* !USE_INTERNAL_MD5 */
+
+}  /* shutdown_snmpv3() */
+
+
+
 
 int
-snmpv3_get_engine_boots(void) {
+snmpv3_get_engine_boots(void)
+{
   return engineBoots;
 }
 
 int
-snmpv3_get_engineID(char *buf) {
+snmpv3_get_engineID(char *buf)
+{
   memcpy(buf,engineID,engineIDLength);
   return engineIDLength;
 }
 
 /* snmpv3_generate_engineID(): generates a malloced copy of our engineID. */
 u_char *
-snmpv3_generate_engineID(int *length) {
+snmpv3_generate_engineID(int *length)
+{
   char *newID;
   newID = (char *) malloc(engineIDLength);
   if (newID)
@@ -210,7 +263,8 @@ snmpv3_generate_engineID(int *length) {
 /* snmpv3_get_engineTime(): return the number of seconds since the
    snmpv3 engine last incremented engine_boots */
 int
-snmpv3_get_engineTime(void) {
+snmpv3_get_engineTime(void)
+{
   struct timeval now;
 
   gettimeofday(&now, NULL);

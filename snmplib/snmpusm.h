@@ -1,4 +1,9 @@
-/* snmpusm.h: header file for usm support */
+/* 
+ * snmpusm.h
+ *
+ * Header file for USM support.
+ */
+
 #ifndef SNMPUSM_H
 #define SNMPUSM_H
 

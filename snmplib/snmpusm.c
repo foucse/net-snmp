@@ -1,5 +1,9 @@
-/* snmpusm.c: routines to manipulate a information about a "user" as
-   defined by the SNMP-USER-BASED-SM-MIB mib */
+/*
+ * snmpusm.c
+ *
+ * Routines to manipulate a information about a "user" as
+ * defined by the SNMP-USER-BASED-SM-MIB MIB.
+ */
 
 #include <config.h>
 
@@ -31,6 +35,8 @@ static oid usmNoAuthProtocol[]      = { 1,3,6,1,6,3,10,1,1,1 };
 static oid usmNoPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,1 };
 static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
 static oid usmDESPrivProtocol[]     = { 1,3,6,1,6,3,10,1,2,2 };
+
+
 
 int
 usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize, 
@@ -199,15 +205,24 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
   return 0;
 }
 
-/* local storage of the default user list */
+
+
+
+/* 
+ * Local storage (LCD) of the default user list.
+ */
 static struct usmUser *userList=NULL;
 
-struct usmUser *usm_get_userList() {
+struct usmUser *
+usm_get_userList()
+{
   return userList;
 }
 
 /* checks that a given security level is valid for a given user */
-int usm_check_secLevel(int level, struct usmUser *user) {
+int
+usm_check_secLevel(int level, struct usmUser *user)
+{
   if (level == SNMP_SEC_LEVEL_AUTHPRIV &&
       compare(user->privProtocol, user->privProtocolLen, usmNoPrivProtocol,
               sizeof(usmNoPrivProtocol)/sizeof(oid)))
@@ -223,12 +238,16 @@ int usm_check_secLevel(int level, struct usmUser *user) {
 /* usm_get_user(): Returns a user from userList based on the engineID,
    engineIDLen and name of the requested user. */
 
-struct usmUser *usm_get_user(char *engineID, int engineIDLen, char *name) {
+struct usmUser *
+usm_get_user(char *engineID, int engineIDLen, char *name)
+{
   return usm_get_user_from_list(engineID, engineIDLen, name, userList);
 }
 
-struct usmUser *usm_get_user_from_list(char *engineID, int engineIDLen,
-                                       char *name, struct usmUser *userList) {
+struct usmUser *
+usm_get_user_from_list(char *engineID, int engineIDLen,
+                                       char *name, struct usmUser *userList)
+{
   struct usmUser *ptr;
   for (ptr = userList; ptr != NULL; ptr = ptr->next) {
     if (ptr->engineIDLen == engineIDLen &&
@@ -250,13 +269,17 @@ struct usmUser *usm_get_user_from_list(char *engineID, int engineIDLen,
    returns the head of the list (which could change due to this add).
 */
 
-struct usmUser *usm_add_user(struct usmUser *user) {
+struct usmUser *
+usm_add_user(struct usmUser *user)
+{
   userList = usm_add_user_to_list(user, userList);
   return userList;
 }
 
-struct usmUser *usm_add_user_to_list(struct usmUser *user,
-                                     struct usmUser *userList) {
+struct usmUser *
+usm_add_user_to_list(struct usmUser *user,
+                                     struct usmUser *userList)
+{
   struct usmUser *nptr, *pptr;
 
   /* loop through userList till we find the proper, sorted place to
@@ -304,12 +327,16 @@ struct usmUser *usm_add_user_to_list(struct usmUser *user,
 }
 
 /* usm_remove_user(): finds and removes a user from a list */
-struct usmUser *usm_remove_user(struct usmUser *user) {
+struct usmUser *
+usm_remove_user(struct usmUser *user)
+{
   return usm_remove_user_from_list(user, userList);
 }
 
-struct usmUser *usm_remove_user_from_list(struct usmUser *user,
-                                          struct usmUser *userList) {
+struct usmUser *
+usm_remove_user_from_list(struct usmUser *user,
+                                          struct usmUser *userList)
+{
   struct usmUser *nptr, *pptr;
   for (nptr = userList, pptr = NULL; nptr != NULL;
        pptr = nptr, nptr = nptr->next) {
@@ -341,7 +368,9 @@ struct usmUser *usm_remove_user_from_list(struct usmUser *user,
    will try to reconnect the list pieces again if it is called this
    way.  If called on the head of the list, the entire list will be
    lost. */
-struct usmUser *usm_free_user(struct usmUser *user) {
+struct usmUser *
+usm_free_user(struct usmUser *user)
+{
   if (user->engineID != NULL)
     free(user->engineID);
   if (user->name != NULL)
@@ -373,7 +402,9 @@ struct usmUser *usm_free_user(struct usmUser *user) {
 }
 
 /* take a given user and clone the security info into another */
-struct usmUser *usm_cloneFrom_user(struct usmUser *from, struct usmUser *to) {
+struct usmUser *
+usm_cloneFrom_user(struct usmUser *from, struct usmUser *to)
+{
   /* copy the authProtocol oid row pointer */
   if (to->authProtocol != NULL)
     free(to->authProtocol);
@@ -426,7 +457,9 @@ struct usmUser *usm_cloneFrom_user(struct usmUser *from, struct usmUser *to) {
 }
 
 /* take a given user and duplicate him */
-struct usmUser *usm_clone_user(struct usmUser *from) {
+struct usmUser *
+usm_clone_user(struct usmUser *from)
+{
   struct usmUser *ptr;
   struct usmUser *newUser;
 
@@ -529,7 +562,9 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
 /* create_initial_user: creates an initial user, filled with the
    defaults defined in the USM document. */
 
-struct usmUser *usm_create_initial_user(void) {
+struct usmUser *
+usm_create_initial_user(void)
+{
   struct usmUser *newUser  = usm_clone_user(NULL);
 
   if ((newUser->name = strdup("initial")) == NULL)
@@ -572,12 +607,16 @@ struct usmUser *usm_create_initial_user(void) {
 }
 
 /* usm_save_users(): saves a list of users to the persistent cache */
-void usm_save_users(char *token, char *type) {
+void 
+usm_save_users(char *token, char *type)
+{
   usm_save_users_from_list(userList, token, type);
 }
 
-void usm_save_users_from_list(struct usmUser *userList, char *token,
-                              char *type) {
+void 
+usm_save_users_from_list(struct usmUser *userList, char *token,
+                              char *type)
+{
   struct usmUser *uptr;
   for (uptr = userList; uptr != NULL; uptr = uptr->next) {
     if (uptr->userStorageType == ST_NONVOLATILE)
@@ -586,7 +625,9 @@ void usm_save_users_from_list(struct usmUser *userList, char *token,
 }
 
 /* usm_save_user(): saves a user to the persistent cache */
-void usm_save_user(struct usmUser *user, char *token, char *type) {
+void
+usm_save_user(struct usmUser *user, char *token, char *type)
+{
   char line[4096];
   char *cptr;
   int i, tmp;
@@ -626,7 +667,9 @@ void usm_save_user(struct usmUser *user, char *token, char *type) {
 
 /* usm_parse_user(): reads in a line containing a saved user profile
    and returns a pointer to a newly created struct usmUser. */
-struct usmUser *usm_read_user(char *line) {
+struct usmUser *
+usm_read_user(char *line)
+{
   struct usmUser *user;
   int len;
 

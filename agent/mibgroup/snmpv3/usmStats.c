@@ -37,7 +37,9 @@ var_usmStats(vp, name, length, exact, var_len, write_method)
       return 0;
 
   /* this is where we do the value assignments for the mib results. */
-  if (vp->magic >= 0 && vp->magic <= STAT_USM_STATS_END-STAT_USM_STATS_START) {
+  if ( (vp->magic >= 0)
+	&& (vp->magic <= (STAT_USM_STATS_END - STAT_USM_STATS_START)) )
+  {
     long_ret = snmp_get_statistic(vp->magic + STAT_USM_STATS_START);
     return (unsigned char *) &long_ret;
   }

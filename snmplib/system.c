@@ -1,3 +1,6 @@
+/*
+ * system.c
+ */
 /***********************************************************
         Copyright 1992 by Carnegie Mellon University
 
