@@ -238,7 +238,6 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
         size_t           properlength;
 
 	u_char		 buf[SNMP_MAXBUF];
-	void		*context = NULL;
 #ifdef SNMP_TESTING_CODE
         int		 i;
 #endif
@@ -286,7 +285,6 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 		
 
 generate_kul_quit:
-	SNMP_FREE(context);
 	return rval;
 
 }  /* end generate_kul() */
