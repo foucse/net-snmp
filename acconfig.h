@@ -163,6 +163,9 @@
 /* define if SIOCGIFADDR exists in sys/ioctl.h */
 #undef SYS_IOCTL_H_HAS_SIOCGIFADDR
 
+/* define if you have /dev/random */
+#undef HAVE_DEV_RANDOM
+
 /* mib pointer to the top of the extensible tree.  This has been
  assigned to UCDavis by the iana group.  Optionally, point this to the
  location in the tree your company/organization has been allocated. */

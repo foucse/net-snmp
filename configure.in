@@ -564,6 +564,9 @@ dnl Replace `main' with a function in -lkvm:
 AC_CHECK_LIB(kvm, kvm_read)
 dnl Check for nlist in mld (irix)
 AC_CHECK_LIB(mld, nlist)
+dnl Check for security related functions
+AC_CHECK_LIB(kmt, kmt_init)
+AC_CHECK_LIB(crypto, SSLeay_version)
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -667,6 +670,33 @@ AC_CHECK_FUNCS(setmntent gethostname uname gettimeofday select socket strtol)
 AC_CHECK_FUNCS(strchr strdup memcpy memmove index bcopy)
 AC_CHECK_FUNCS(signal sigset sigblock sighold strerror setenv)
 AC_CHECK_FUNCS(random lrand48 rand)
+
+dnl
+dnl Check for /dev/random as well
+dnl
+
+dnl
+dnl Check for kernel location
+dnl
+
+AC_CACHE_CHECK(if /dev/random exists,ac_cv_HAVE_DEV_RANDOM,
+[ac_cv_HAVE_DEV_RANDOM="no"
+dnl First determine if test expects a -f or a -c (character device (SYSV))
+
+if test -c /dev/null; then
+  CFLAG="-c"
+elif test -f /dev/null; then
+  CFLAG="-f"
+else
+  dnl fall back
+  CFLAG="-f"
+fi
+if test -f $i -o $CFLAG /dev/random; then
+  ac_cv_HAVE_DEV_RANDOM="yes"
+  AC_DEFINE(HAVE_DEV_RANDOM)
+fi
+])
+
 AC_CHECK_FUNCS(getloadavg)
 AC_CHECK_FUNCS(kvm_openfiles nlist)
 dnl BSDi2 functions differ
@@ -674,7 +704,6 @@ AC_CHECK_FUNCS(statvfs statfs)
 AC_CHECK_FUNCS(getdtablesize)
 dnl freebsd2 checks
 AC_CHECK_FUNCS(getfsstat kvm_getprocs)
-#
 AC_MSG_CHECKING([for SIOCGIFADDR in sys/ioctl.h])
 AC_CACHE_VAL(cv_sys_ioctl_h_has_SIOCGIFADDR,
 [ AC_EGREP_CPP(xxxyesxxx,
