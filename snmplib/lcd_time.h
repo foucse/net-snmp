@@ -5,7 +5,13 @@
 #ifndef _LCD_TIME_H
 #define _LCD_TIME_H
 
+#ifndef TRUE
+#define TRUE (!0)
+#endif
 
+#ifndef FALSE
+#define FALSE !(TRUE)
+#endif
 
 /*
  * Macros and definitions.
@@ -74,7 +80,7 @@ static u_int	dummy_etime, dummy_eboot;
 #define ENSURE_ENGINE_RECORD(e, e_l)				\
 	( (set_enginetime(e, e_l, 0, 0) == SNMPERR_SUCCESS)	\
 		? SNMPERR_SUCCESS				\
-		? SNMPERR_GENERR )
+		: SNMPERR_GENERR )
 
 #define MAKENEW_ENGINE_RECORD(e, e_l)				\
 	( (ISENGINEKNOWN(e, e_l))				\
