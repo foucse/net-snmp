@@ -145,7 +145,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 #endif
 	return 0;
     }
-    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2){
+    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2c){
 	pi->community_id = get_community(pi->community, pi->community_len);
 	if (pi->community_id == -1) {
 #ifdef USING_SNMP_MIB_MODULE       
@@ -154,7 +154,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	    send_easy_trap(4);
 	    return 0;
 	}
-    } else if (pi->version == SNMP_VERSION_2_HISTORIC){
+    } else if (pi->version == SNMP_VERSION_2p){
 	pi->community_id = 0;
     } else {
 	ERROR("Bad Version");
@@ -212,7 +212,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     /* no outgoing variables seen: */
     snmp_vars_inc = 0;
 
-    if (pi->version == SNMP_VERSION_2_HISTORIC){
+    if (pi->version == SNMP_VERSION_2p){
         /*
          * Swap source and destination party pointers for building the reply
          * packet.
@@ -240,11 +240,11 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
      * later.
      */
     out_auth = out_data;
-    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2){
+    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2c){
 	out_header = snmp_auth_build(out_auth, out_length,
 				     pi->community, &pi->community_len,
 				     &pi->version, 0);
-    } else if (pi->version == SNMP_VERSION_2_HISTORIC){
+    } else if (pi->version == SNMP_VERSION_2p){
 	out_header = snmp_secauth_build(out_auth, out_length, pi, 0,
 					pi->dstParty, pi->dstPartyLength,
 					pi->srcParty, pi->srcPartyLength,
@@ -256,14 +256,14 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	return 0;
     }
 
-    if ((pi->version == SNMP_VERSION_2_HISTORIC)
+    if ((pi->version == SNMP_VERSION_2p)
 	&& !has_access(pi->pdutype, pi->dstp->partyIndex,
 		       pi->srcp->partyIndex, pi->cxp->contextIndex)){
 	/* Make sure not to send this response to GetResponse or
 	 * Trap packets.  Currently, code above has this handled.
 	 */
 	errstat = SNMP_ERR_READONLY;
-	if (pi->version == SNMP_VERSION_2_HISTORIC){
+	if (pi->version == SNMP_VERSION_2p){
 	    errstat = SNMP_ERR_AUTHORIZATIONERROR;
 	}
 	errindex = 0;
@@ -403,7 +403,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	    }
 
 	    *out_length = pi->packet_end - out_auth;
-	    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2){
+	    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2c){
 		out_data = snmp_auth_build(out_auth, out_length,
 					   pi->community, &pi->community_len,
 					   &pi->version,
@@ -412,7 +412,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 		    ERROR("internal error");
 		    return 0;
 		}
-	    } else if (pi->version == SNMP_VERSION_2_HISTORIC){
+	    } else if (pi->version == SNMP_VERSION_2p){
 		out_data = snmp_secauth_build(out_auth, out_length, pi,
 					      pi->packet_end - out_header,
 					      pi->dstParty, pi->dstPartyLength,
@@ -423,7 +423,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 
 	    /* packet_end is correct for old SNMP.  This dichotomy needs
 	       to be fixed. */
-	    if (pi->version == SNMP_VERSION_2_HISTORIC)
+	    if (pi->version == SNMP_VERSION_2p)
 		pi->packet_end = out_auth + packet_len;
 #ifdef USING_SNMP_MIB_MODULE       
 	    snmp_intotalreqvars += snmp_vars_inc;
@@ -434,7 +434,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 #ifdef USING_SNMP_MIB_MODULE       
 	    snmp_intoobigs++;
 #endif
-	    if (pi->version == SNMP_VERSION_2_HISTORIC){
+	    if (pi->version == SNMP_VERSION_2p){
 		create_toobig(out_auth, *out_length, reqid, pi);
 		break;
 	    }
@@ -583,8 +583,8 @@ parse_var_op_list(data, length, out_data, out_length, index, pi, action)
 	    return SNMP_ERR_NOSUCHNAME;
 	}
 	if (pi->pdutype == SET_REQ_MSG &&
-            (pi->version == SNMP_VERSION_2_HISTORIC ||
-             pi->version == SNMP_VERSION_2) && 
+            (pi->version == SNMP_VERSION_2p ||
+             pi->version == SNMP_VERSION_2c) && 
             !snmp_access(acl, pi->community_id, rw)){
 	    if (verbose) fprintf (stdout, "    >> notWritable\n");
 	    ERROR("Not Writable");
@@ -603,8 +603,8 @@ parse_var_op_list(data, length, out_data, out_length, index, pi, action)
 		       entity's variable */
 		    if (!goodValue(var_val_type, var_val_len, statType,
 				   statLen)){
-			if (pi->version == SNMP_VERSION_2_HISTORIC ||
-                            pi->version == SNMP_VERSION_2)
+			if (pi->version == SNMP_VERSION_2p ||
+                            pi->version == SNMP_VERSION_2c)
 			    return SNMP_ERR_WRONGTYPE; /* poor approximation */
 			else
 			    return SNMP_ERR_BADVALUE;
@@ -614,8 +614,8 @@ parse_var_op_list(data, length, out_data, out_length, index, pi, action)
 			setVariable(var_val, var_val_type, var_val_len,
 				    statP, statLen);
 		} else {
-		    if (pi->version == SNMP_VERSION_2_HISTORIC
-                        || pi->version == SNMP_VERSION_2)
+		    if (pi->version == SNMP_VERSION_2p
+                        || pi->version == SNMP_VERSION_2c)
 			return SNMP_ERR_NOCREATION;
 		    else
 			return SNMP_ERR_NOSUCHNAME;
@@ -942,7 +942,7 @@ create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi)
         ERROR("unknown auth header type");
         return 0;
     }
-    if (pi->version == SNMP_VERSION_2_HISTORIC){
+    if (pi->version == SNMP_VERSION_2p){
         /*
          * Swap source and destination party pointers for building the reply
          * packet.
@@ -997,11 +997,11 @@ create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi)
 	return 0;
     
     dummy = snmp_length;
-    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2){
+    if (pi->version == SNMP_VERSION_1 || pi->version == SNMP_VERSION_2c){
 	data = snmp_auth_build(snmp_out, (int *)&dummy,
 			       pi->community, &pi->community_len,
 			       (int *)&pi->version, messagelen);
-    } else if (pi->version == SNMP_VERSION_2_HISTORIC){
+    } else if (pi->version == SNMP_VERSION_2p){
 	data = snmp_secauth_build(snmp_out, (int *)&dummy, pi, messagelen,
 				  pi->dstParty, pi->dstPartyLength,
 				  pi->srcParty, pi->srcPartyLength,
@@ -1013,7 +1013,7 @@ create_identical(snmp_in, snmp_out, snmp_length, errstat, errindex, pi)
 	return 0;
     }
     memcpy(data, headerPtr, messagelen);
-    if (pi->version == SNMP_VERSION_2_HISTORIC){
+    if (pi->version == SNMP_VERSION_2p){
 	dummy = snmp_length;
 	data = snmp_secauth_build(snmp_out, (int *)&dummy, pi, messagelen,
 				  pi->dstParty, pi->dstPartyLength,
@@ -1166,7 +1166,7 @@ setVariable(var_val, var_val_type, var_val_len, statP, statLen)
 	    break;
 	case ASN_OCTET_STR:
 	case IPADDRESS:
-	case OPAQUE:
+	case ASNT_OPAQUE:
 	case NSAP:
 	    asn_parse_string(var_val, &buffersize, &var_val_type, statP, &statLen);
 	    break;
