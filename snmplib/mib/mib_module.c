@@ -8,6 +8,8 @@
  *
  *******************************/
 
+#define HAVE_SYS_LIMITS_H  1	/* XXX - until we tweak configure to check for this */
+
 #include <config.h>
 
 #if HAVE_STDLIB_H
@@ -17,6 +19,10 @@
 #include <string.h>
 #else
 #include <strings.h>
+#endif
+#include <sys/types.h>
+#ifdef HAVE_SYS_LIMITS_H
+#include <sys/limits.h>
 #endif
 
 /* Wow.  This is still ugly.  -- Wes  */

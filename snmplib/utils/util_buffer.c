@@ -19,6 +19,7 @@
 #else
 #include <strings.h>
 #endif
+#include <sys/types.h>
 
 #include <net-snmp/utils.h>
 

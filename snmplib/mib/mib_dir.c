@@ -18,6 +18,7 @@
 #else
 #include <strings.h>
 #endif
+#include <sys/types.h>
 
 #include <net-snmp/mib_api.h>
 #include <net-snmp/utils.h>

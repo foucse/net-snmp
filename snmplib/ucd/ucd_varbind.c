@@ -16,6 +16,7 @@
 #else
 #include <strings.h>
 #endif
+#include <sys/types.h>
 
 #include <stdio.h>
 #include <ctype.h>
