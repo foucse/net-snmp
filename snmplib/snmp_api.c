@@ -199,6 +199,8 @@ struct internal_snmp_pdu {
     long     specific_type;  /* specific type */
     u_long  time;       /* Uptime */
 
+    void * secStateRef;
+
     struct variable_list *variables;
     oid srcPartyBuf[MAX_NAME_LEN];
     oid dstPartyBuf[MAX_NAME_LEN];
@@ -1573,7 +1575,7 @@ snmp_parse(session, pdu, data, length)
 #endif /* USE_V2PARTY_PROTOCOL */
 
     case SNMP_VERSION_3:
-      result = snmpv3_parse(pdu, data, &length, NULL);
+      result = snmpv3_parse((struct snmp_pdu *)pdu, data, &length, NULL);
       break;
 
     case SNMP_VERSION_sec:
@@ -2632,6 +2634,30 @@ int
 snmp_get_do_debugging __P((void))
 {
   return dodebug;
+}
+
+int 
+hex_str2bin (buf,ilen,str)
+     u_char * buf;
+     int * ilen;
+     char * str;
+{
+  int len, itmp;
+  if (!buf) return -1;
+  if (!ilen || !*ilen) return -1;
+  len = *ilen;
+  *ilen = 0;
+  memset(buf, 0, len);
+  if (*str && *str == '0' && (*(str+1) == 'x' || *(str+1) == 'X'))
+    str += 2;
+  while (*str) {
+    if (*ilen >= len) return -1; /* ran out of buffer */
+    (*ilen)++;
+    sscanf(str++, "%2x", &itmp);
+    *buf++ = itmp;
+    if (!*str++) return -1; /* odd number of chars is an error */
+  }
+  return 0;  
 }
 
 int

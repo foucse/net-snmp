@@ -34,7 +34,7 @@ struct global_data { /* place holder - not used by USM */
 int generateRequestMsg __P((int, struct global_data *, int, int, u_char *, int,
 			    u_char *, int, int, u_char *, int, u_char *, int *,
 			    u_char *, int *));
-int processIncomingMsg __P((int, int, u_char *, int, int, u_char *, int,
+int processIncomingMsg __P((int, int, u_char *, int, int, int, u_char *, int,
 			    u_char *, int *, u_char *, int *, u_char *, int *,
 			    int *, void **));
 int generateResponseMsg __P((int, struct global_data *, int, int, u_char *, int,

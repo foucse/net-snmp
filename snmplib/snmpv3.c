@@ -57,7 +57,7 @@ setup_engineID(char *text) {
     gethostname(buf, MAX_HOSTNAME_LEN);
     hent = gethostbyname(buf);
 #ifdef AF_INET6
-    if (hent->h_addrtype == AF_INET6)
+    if (hent && hent->h_addrtype == AF_INET6)
       engineIDLength += 2;
 #endif
   }
@@ -78,12 +78,12 @@ setup_engineID(char *text) {
     gethostname(buf, MAX_HOSTNAME_LEN);
     hent = gethostbyname(buf);
 #ifdef AF_INET6
-    if (hent->h_addrtype == AF_INET6) {
+    if (hent && hent->h_addrtype == AF_INET6) {
       engineID[4] = 2;
       memcpy(engineID+5, hent->h_addr_list[0], hent->h_length);
     } else
 #endif
-    if (hent->h_addrtype == AF_INET) {
+    if (hent && hent->h_addrtype == AF_INET) {
       memcpy(engineID+5, hent->h_addr_list[0], hent->h_length);
     } else {
       /* sigh...  unknown address type.  Default to 127.0.0.1 */

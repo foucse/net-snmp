@@ -36,23 +36,24 @@ generateRequestMsg (msgProcModel, globalData, maxMsgSize, secModel,
 		    secEngineID, secEngineIDLen, secName, secNameLen,
 		    secLevel, scopedPdu, scopedPduLen,
 		    secParams, secParamsLen, msg, msgLen)
-     int msgProcModel;               /* not used */
+     int msgProcModel;          /* not used */
      struct global_data *globalData; /* not used */
-     int maxMsgSize;                 /* not used */
-     int secModel;                   /* not used */
-     u_char *secEngineID;            /* IN - pointer snmpEngineID */
-     int secEngineIDLen;             /* IN - snmpEngineID length */
-     u_char *secName;                /* IN - pointer to securityName */
-     int secNameLen;                 /* IN - securityName length */
-     int secLevel;                   /* IN - authNoPriv, authPriv etc. */
-     u_char *scopedPdu;              /* IN - pointer to scopedPdu */
-     int scopedPduLen;               /* IN - scopedPdu length */
-     u_char *secParams;              /* OUT - BER encoded securityParameters */
-                                     /* NOTE: memory provided by caller */
-     int *secParamsLen;              /* IN/OUT - len available, len returned */
-     u_char *msg;                    /* OUT - auth/encrypted data */
-                                     /* NOTE: memory provided by caller */
-     int *msgLen;                    /* IN/OUT - len available, len returned */
+     int maxMsgSize;            /* not used */
+     int secModel;              /* not used */
+     u_char *secEngineID;       /* IN - pointer snmpEngineID */
+     int secEngineIDLen;        /* IN - snmpEngineID length */
+     u_char *secName;           /* IN - pointer to securityName */
+     int secNameLen;            /* IN - securityName length */
+     int secLevel;              /* IN - authNoPriv, authPriv etc. */
+     u_char *scopedPdu;         /* IN - pointer to scopedPdu */
+     int scopedPduLen;          /* IN - scopedPdu length */
+     u_char *secParams;         /* OUT - BER encoded securityParameters */
+                                /* NOTE: pointer to payload of octet string */
+                                /* NOTE: memory provided by caller */
+     int *secParamsLen;         /* IN/OUT - len available, len returned */
+     u_char *msg;               /* OUT - auth/encrypted data */
+                                /* NOTE: memory provided by caller */
+     int *msgLen;               /* IN/OUT - len available, len returned */
 {
   u_char *cp;
   if (secParams && secParamsLen) {
@@ -69,26 +70,28 @@ generateRequestMsg (msgProcModel, globalData, maxMsgSize, secModel,
 }
 
 int
-processIncomingMsg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
-		    msg, msgLen, secEngineID, secEngineIDLen, secName,
+processIncomingMsg (msgProcModel, maxMsgSize, secParams, secParamsLen, secModel,
+		    secLevel, msg, msgLen, secEngineID, secEngineIDLen, secName,
 		    secNameLen, scopedPdu, scopedPduLen, maxSizeResponse,
 		    secStateRef)
-     int msgProcModel;               /* not used */
-     int maxMsgSize;                 /* IN - used to calc maxSizeResponse */
-     u_char *secParams;              /* IN - BER encoded securityParameters */
-     int secModel;                   /* not used */
-     int secLevel;                   /* IN - authNoPriv, authPriv etc. */
-     u_char *msg;                    /* IN - auth/encrypted data */
-     int msgLen;                     /* IN - msg length */
-     u_char *secEngineID;            /* OUT - pointer snmpEngineID */
-     int *secEngineIDLen;            /* IN/OUT - len available, len returned */
-                                     /* NOTE: memory provided by caller */
-     u_char *secName;                /* OUT - pointer to securityName */
-     int *secNameLen;                 /* IN/OUT - len available, len returned */
-     u_char *scopedPdu;              /* OUT - pointer to plaintext scopedPdu */
-     int *scopedPduLen;              /* IN/OUT - len available, len returned */
-     int *maxSizeResponse;           /* OUT - max size of Response PDU */
-     void **secStateRef;             /* OUT - ref to security state */
+     int msgProcModel;          /* not used */
+     int maxMsgSize;            /* IN - used to calc maxSizeResponse */
+     u_char *secParams;         /* IN - BER encoded securityParameters */
+                                /* NOTE: pointer to payload of octet string */
+     int secParamsLen;          /* IN - length of securityParameters */
+     int secModel;              /* not used */
+     int secLevel;              /* IN - authNoPriv, authPriv etc. */
+     u_char *msg;               /* IN - auth/encrypted data */
+     int msgLen;                /* IN - msg length */
+     u_char *secEngineID;       /* OUT - pointer snmpEngineID */
+     int *secEngineIDLen;       /* IN/OUT - len available, len returned */
+                                /* NOTE: memory provided by caller */
+     u_char *secName;           /* OUT - pointer to securityName */
+     int *secNameLen;           /* IN/OUT - len available, len returned */
+     u_char *scopedPdu;         /* OUT - pointer to plaintext scopedPdu */
+     int *scopedPduLen;         /* IN/OUT - len available, len returned */
+     int *maxSizeResponse;      /* OUT - max size of Response PDU */
+     void **secStateRef;        /* OUT - ref to security state */
 {
   return 0;
 }
@@ -98,24 +101,25 @@ generateResponseMsg (msgProcModel, globalData, maxMsgSize, secModel,
 		    secEngineID, secEngineIDLen, secName, secNameLen,
 		    secLevel, scopedPdu, scopedPduLen, secStateRef,
 		    secParams, secParamsLen, msg, msgLen)
-     int msgProcModel;               /* not used */
+     int msgProcModel;          /* not used */
      struct global_data *globalData; /* not used */
-     int maxMsgSize;                 /* not used */
-     int secModel;                   /* not used */
-     u_char *secEngineID;            /* IN - pointer snmpEngineID */
-     int secEngineIDLen;             /* IN - snmpEngineID length */
-     u_char *secName;                /* IN - pointer to securityName */
-     int secNameLen;                 /* IN - securityName length */
-     int secLevel;                   /* IN - authNoPriv, authPriv etc. */
-     u_char *scopedPdu;              /* IN - pointer to scopedPdu */
-     int scopedPduLen;               /* IN - scopedPdu length */
-     void *secStateRef;              /* IN - ref to security state */
-     u_char *secParams;              /* OUT - BER encoded securityParameters */
-                                     /* NOTE: memory provided by caller */
-     int *secParamsLen;              /* IN/OUT - len available, len returned */
-     u_char *msg;                    /* OUT - auth/encrypted data */
-                                     /* NOTE: memory provided by caller */
-     int *msgLen;                    /* IN/OUT - len available, len returned */
+     int maxMsgSize;            /* not used */
+     int secModel;              /* not used */
+     u_char *secEngineID;       /* IN - pointer snmpEngineID */
+     int secEngineIDLen;        /* IN - snmpEngineID length */
+     u_char *secName;           /* IN - pointer to securityName */
+     int secNameLen;            /* IN - securityName length */
+     int secLevel;              /* IN - authNoPriv, authPriv etc. */
+     u_char *scopedPdu;         /* IN - pointer to scopedPdu */
+     int scopedPduLen;          /* IN - scopedPdu length */
+     void *secStateRef;         /* IN - ref to security state */
+     u_char *secParams;         /* OUT - BER encoded securityParameters */
+                                /* NOTE: pointer to payload of octet string */
+                                /* NOTE: memory provided by caller */
+     int *secParamsLen;         /* IN/OUT - len available, len returned */
+     u_char *msg;               /* OUT - auth/encrypted data */
+                                /* NOTE: memory provided by caller */
+     int *msgLen;               /* IN/OUT - len available, len returned */
 {
   return 0;
 }
