@@ -297,22 +297,89 @@ pdu_print(netsnmp_pdu *pdu)
                 /** @package protocol_internals */
 
 
+   /**
+    *  Parse an SNMP PDU from the given input buffer.
+    *
+    *  blah, blah, returns pointer, blah, release memory, blah blah
+    */
+netsnmp_pdu*
+pdu_parse(netsnmp_buf *buf)
+{
+    netsnmp_buf *seq  = NULL;
+    netsnmp_pdu *pdu = NULL;
+    long version;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+    seq = decode_sequence(buf);
+    if (NULL == seq) {
+        return NULL;
+    }
+    if (NULL == decode_integer(seq, &version)) {
+        buffer_free(seq);
+        return NULL;
+    }
+
+    switch( version ) {
+    case SNMP_VERSION_1:
+    case SNMP_VERSION_2c:
+        pdu = community_decode_pdu(seq);
+        break;
+    case SNMP_VERSION_3:
+        pdu = snmpv3_decode_pdu(seq);
+        break;
+    default:
+        /* UNKNOWN VERSION */
+        break;
+    }
+
+    if (NULL == pdu) {
+        buffer_free(seq);
+        return NULL;
+    }
+    if (0 != seq->cur_len) {
+        pdu_free(pdu);
+        buffer_free(seq);
+        return NULL;
+    }
+
+    pdu->version = version;
+    buffer_free(seq);
+
+    return pdu;
+}
+
+
+#include "ucd/ucd_api.h"
+
 int
-snmp_pdu_parse(struct snmp_pdu *pdu, u_char  *data, size_t *length)
+_snmp_parse(void *sess, struct snmp_session *session, struct snmp_pdu *pdu, u_char *data, size_t length)
 {
     netsnmp_pdu *p;
+    struct snmp_pdu *p2;
     netsnmp_buf* buf;
 
-    buf = buffer_new(data, *length, NETSNMP_BUFFER_NOFREE);
+    pdu->transid = snmp_get_next_transid();
+
+    buf = buffer_new(data, length, NETSNMP_BUFFER_NOFREE);
     buf->cur_len = buf->max_len;
 
-    p = decode_pdu(buf);
-    if (NULL == pdu) {
+    p = pdu_parse(buf);
+    if (NULL == p) {
         buffer_free(buf);
         return-1;	/* XXX ??? */
     }
-    pdu = ucd_revert_pdu( p );	/* XXX - not quite right */
+    p2 = ucd_revert_pdu( p );
+    memcpy(pdu, p2, sizeof(struct snmp_pdu));
+/*  free(p2);		*/
+
+/*
     data = buf->string;
     *length = buf->cur_len;
+ */
     return 0;		/* XXX ?? */
 }

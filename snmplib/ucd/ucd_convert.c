@@ -431,19 +431,18 @@ ucd_revert_value(netsnmp_value *val)
 
 	/*
 	 * Other types can just use a copy of the UCD raw data
-	 *	XXX - this fudges the internal buffer handling!
 	 */
     v->val_len  = val->len;
-    if (val->val.string != val->valbuf) {
+    if (40 > val->len) {
+        v->val.string = v->buf;
+    } else {
+        v->val.string = (u_char*)calloc(val->len, 1);
 	if (NULL == v->val.string) {
 	    free( v );
 	    return NULL;
 	}
     }
-    else {
-	v->val.string = v->buf;
-	memcpy( v->buf, val->valbuf, NETSNMP_VALBUF_LEN );
-    }
+    memcpy(v->val.string, val->val.string, val->len);
 
     return v;
 }
@@ -469,7 +468,9 @@ ucd_revert_varbind(netsnmp_varbind *vb)
 	return NULL;
     }
 
+				/* XXX - Assumes this will fit in the internal buffer! */
     v->name_length = ucd_revert_oid( vb->oid, v->name_loc);
+    v->name = v->name_loc;
     if (0 > v->name_length) {
 	free( v );	/* XXX - internal buffer? */
 	return NULL;
@@ -567,6 +568,9 @@ ucd_revert_userinfo(struct snmp_pdu *pdu, netsnmp_user *info)
          info->sec_engine->ID ) {
         pdu->securityEngineIDLen = info->sec_engine->ID->cur_len;
         pdu->securityEngineID    = buffer_string(info->sec_engine->ID);
+        set_enginetime(pdu->securityEngineID, pdu->securityEngineIDLen,
+                       info->sec_engine->boots, 
+                       info->sec_engine->time );
     }
     if ( info->sec_name ) {
         pdu->securityNameLen = info->sec_name->cur_len;
@@ -597,6 +601,7 @@ ucd_revert_pdu(netsnmp_pdu *p)
 	return NULL;
     }
 
+    pdu->command  = p->command;
     pdu->errstat  = p->errstatus;
     pdu->errindex = p->errindex;
     pdu->reqid    = p->request ;
@@ -619,5 +624,16 @@ ucd_revert_pdu(netsnmp_pdu *p)
             return NULL;
         }
     }
+
+    switch (p->command) {
+    case SNMP_MSG_RESPONSE:    
+    case SNMP_MSG_REPORT:    
+        pdu->flags |= UCD_MSG_FLAG_RESPONSE_PDU;
+        break;
+    default:
+        pdu->flags &= ~UCD_MSG_FLAG_RESPONSE_PDU;
+        break;
+    }
+
     return pdu;
 }

@@ -29,6 +29,7 @@ typedef u_long oid;
 #define ERROR_MSG(string)   snmp_set_detail(string)
 
 #include "protocol/encode.h"
+#include "protocol/decode.h"
 #include "protocol/asn1_parse.h"
 #include "community/community.h"
 #include "snmp_debug.h"
@@ -154,6 +155,7 @@ comminfo_set(netsnmp_comminfo *info, char *cstring, int cstr_len)
     }
     memcpy(info->string, cstring, cstr_len);
     info->string[cstr_len] = '\0';
+    info->len = cstr_len;
     return 0;
 }
 

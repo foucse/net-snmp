@@ -50,7 +50,7 @@ CSRCS=	snmp_client.c               snmp_api.c snmp.c 		\
 	varbind/varbind.c varbind/vblist.c			\
 	utils/util_buffer.c utils/util_list.c			\
 	ucd/ucd_mib_api.c ucd/ucd_varbind.c ucd/ucd_convert.c	\
-	protocol/pdu.c protocol/encode.c protocol/decode.c	\
+	protocol/pdu.c protocol/encode.c			\
 	snmpv3/pdu.c snmpv3/engine.c snmpv3/v3info.c		\
 	snmpv3/auth.c snmpv3/priv.c snmpv3/usm.c 		\
         community/pdu.c community/cinfo.c
@@ -71,7 +71,7 @@ OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	varbind/varbind.o varbind/vblist.o			\
 	utils/util_buffer.o utils/util_list.o			\
 	ucd/ucd_mib_api.o ucd/ucd_varbind.o ucd/ucd_convert.o	\
-	protocol/pdu.o protocol/encode.o protocol/decode.o	\
+	protocol/pdu.o protocol/encode.o			\
 	snmpv3/pdu.o snmpv3/engine.o snmpv3/v3info.o		\
 	snmpv3/auth.o snmpv3/priv.o snmpv3/usm.o 		\
         community/pdu.o community/cinfo.o
@@ -92,7 +92,7 @@ LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	varbind/varbind.lo varbind/vblist.lo			\
 	utils/util_buffer.lo utils/util_list.lo			\
 	ucd/ucd_mib_api.lo ucd/ucd_varbind.lo ucd/ucd_convert.lo\
-	protocol/pdu.lo protocol/encode.lo protocol/decode.lo	\
+	protocol/pdu.lo protocol/encode.lo			\
 	snmpv3/pdu.lo snmpv3/engine.lo snmpv3/v3info.lo		\
 	snmpv3/auth.lo snmpv3/priv.lo snmpv3/usm.lo 		\
         community/pdu.lo community/cinfo.lo

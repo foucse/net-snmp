@@ -26,6 +26,7 @@
 #include <net-snmp/snmpv3.h>
 
 #include "protocol/encode.h"
+#include "protocol/decode.h"
 
 
                 /**************************************
@@ -277,6 +278,56 @@ v3info_encode(netsnmp_buf *buf, netsnmp_v3info *info)
     __B(encode_integer(buf, ASN_INTEGER,     info->msgID))
     __B(encode_sequence(buf, (buf->cur_len - start_len)))
     return 0;
+}
+
+
+netsnmp_v3info*
+v3info_decode(netsnmp_buf *buf, netsnmp_v3info *info)
+{
+    netsnmp_buf     flags;
+    netsnmp_buf    *seq    = NULL;
+    netsnmp_v3info *v3info = NULL;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+    memset( &flags, 0, sizeof(netsnmp_buf));
+
+    if (NULL == info) {
+        v3info = (netsnmp_v3info *)calloc(1, sizeof(netsnmp_v3info));
+    } else {
+        v3info = info;
+    }
+
+    seq = decode_sequence(buf);
+    if (NULL == seq) {
+        goto fail;
+    }
+    if (NULL == decode_integer(seq, &(v3info->msgID))) {
+        goto fail;
+    }
+    if (NULL == decode_integer(seq, &(v3info->msg_max_size))) {
+        goto fail;
+    }
+    if (NULL == decode_string( seq, &flags)) {
+        goto fail;
+    }
+    v3info->v3_flags = flags.string[0];
+    if (NULL == decode_integer(seq, &(v3info->sec_model))) {
+        goto fail;
+    }
+    if (0 != seq->cur_len) {
+        goto fail;
+    }
+
+    return v3info;
+
+fail:
+    buffer_free( seq );
+    v3info_free( v3info );
+    return NULL;
 }
 
 

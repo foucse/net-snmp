@@ -28,6 +28,7 @@
 
 #include "community/community.h"
 #include "protocol/encode.h"
+#include "protocol/decode.h"
 
 int community_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu);
 int community_check_pdu( netsnmp_pdu *pdu);
@@ -242,6 +243,7 @@ community_decode_pdu(netsnmp_buf *buf)
     }
     pdu = decode_basic_pdu(buf, NULL);
     if (NULL == pdu) {
+        comminfo_free(comminfo);
         return NULL;
     }
     pdu->community = comminfo;

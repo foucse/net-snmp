@@ -26,6 +26,7 @@
 #include <net-snmp/snmpv3.h>
 
 #include "protocol/encode.h"
+#include "protocol/decode.h"
 
 static netsnmp_engine *engine_head = NULL;
 static netsnmp_engine *engine_tail = NULL;
@@ -309,6 +310,46 @@ engine_encode(netsnmp_buf *buf, netsnmp_engine *engine)
         __B(encode_bufstr( buf, NULL))
     }
     return 0;
+}
+
+
+netsnmp_engine*
+engine_decode_ID(netsnmp_buf *buf, netsnmp_engine *e)
+{
+    netsnmp_engine *engine;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+    if (NULL == e) {
+        engine = (netsnmp_engine *)calloc(1, sizeof(netsnmp_engine));
+    } else {
+        engine = e;
+    }
+
+    engine->ID = decode_string(buf, NULL);
+    return engine;
+}
+
+
+netsnmp_engine*
+engine_decode(netsnmp_buf *buf, netsnmp_engine *e)
+{
+    netsnmp_engine *engine;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+    engine = engine_decode_ID(buf, e);
+    (void) decode_integer(buf, &(engine->boots));
+    (void) decode_integer(buf, &(engine->time));
+    return engine;
 }
 
 

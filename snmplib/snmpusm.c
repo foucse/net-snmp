@@ -2641,6 +2641,12 @@ usm_add_user(struct usmUser *user)
       if (user->privProtocol) {
           u->priv_protocol = user->privProtocol[user->privProtocolLen -1 ];
       }
+/*
+      u->auth_key = buffer_new( NULL, user->authKeyLen, 0);
+      memcpy( u->auth_key, user->authKey, user->authKeyLen);
+      u->priv_key = buffer_new( NULL, user->privKeyLen, 0);
+      memcpy( u->priv_key, user->privKey, user->privKeyLen);
+ */
       u->auth_key = buffer_new( user->authKey, user->authKeyLen, 0);
       u->priv_key = buffer_new( user->privKey, user->privKeyLen, 0);
   }

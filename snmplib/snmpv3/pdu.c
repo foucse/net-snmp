@@ -26,6 +26,7 @@
 #include <net-snmp/protocol_api.h>
 
 #include "protocol/encode.h"
+#include "protocol/decode.h"
 #include "ucd/ucd_convert.h"
 #include "snmpv3/snmpv3.h"
 
@@ -179,6 +180,100 @@ snmpv3_check_pdu(netsnmp_pdu *pdu)
 
     /* NOT REACHED */
     return -1;
+}
+
+netsnmp_pdu*
+snmpv3_decode_pdu(netsnmp_buf *buf)
+{
+    netsnmp_buf    *seq    = NULL;
+    netsnmp_pdu    *pdu    = NULL;
+    netsnmp_v3info *v3info = NULL;
+    netsnmp_user   *user   = NULL;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+    v3info = v3info_decode(buf, NULL);
+    if (NULL == v3info) {
+        return NULL;
+    }
+    user   = user_decode(buf, NULL);
+    if (NULL == user) {
+        v3info_free( v3info );
+        return NULL;
+    }
+
+    seq = decode_sequence( buf );
+    if (NULL == seq) {
+        v3info_free( v3info );
+        user_free( user );
+        return NULL;
+    }
+    v3info->context_engine = engine_decode_ID(seq, NULL);
+    v3info->context_name   = decode_string(seq, NULL);
+    pdu = decode_basic_pdu(seq, NULL);
+    if (NULL == pdu) {
+        v3info_free( v3info );
+        user_free( user );
+        buffer_free( seq );
+        return NULL;
+    }
+
+    pdu->v3info   = v3info;
+    pdu->userinfo = user;
+
+    return pdu;
+}
+
+
+   /**
+    *  Parse an SNMPv3 PDU from the given input buffer.
+    *
+    *  blah, blah, returns pointer, blah, release memory, blah blah
+    */
+netsnmp_pdu*
+snmpv3_parse_pdu(netsnmp_buf *buf)
+{
+    netsnmp_buf *seq  = NULL;
+    netsnmp_pdu *pdu = NULL;
+    long version;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+    seq = decode_sequence(buf);
+    if (NULL == seq) {
+        return NULL;
+    }
+    if (NULL == decode_integer(seq, &version)) {
+        buffer_free(seq);
+        return NULL;
+    }
+
+		/*
+		 * XXX - Check version
+		 */
+    pdu = snmpv3_decode_pdu(seq);
+    if (NULL == pdu) {
+        buffer_free(seq);
+        return NULL;
+    }
+    if (0 != seq->cur_len) {
+        pdu_free(pdu);
+        buffer_free(seq);
+        return NULL;
+    }
+
+    pdu->version = version;
+    buffer_free(seq);
+
+    return pdu;
 }
 
 

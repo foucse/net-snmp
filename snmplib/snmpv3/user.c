@@ -26,6 +26,7 @@
 #include <net-snmp/snmpv3.h>
 
 #include "protocol/encode.h"
+#include "protocol/decode.h"
 #include "snmpv3/snmpv3.h"
 
 netsnmp_user *user_head = NULL;
@@ -370,6 +371,67 @@ user_encode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
     }
 #endif
     return 0;
+}
+
+
+netsnmp_user*
+user_decode(netsnmp_buf *buf, netsnmp_user *info)
+{
+    netsnmp_buf  *user_params = NULL;
+    netsnmp_buf  *seq  = NULL;
+    netsnmp_user *user = NULL;
+    char type;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+    if (NULL == info) {
+        user = (netsnmp_user *)calloc(1, sizeof(netsnmp_user));
+        if (NULL == user) {
+            return NULL;
+        }
+    } else {
+        user = info;
+    }
+
+    user_params = decode_string(buf, NULL);
+    if (NULL == user_params) {
+        goto fail;
+    }
+    seq = decode_sequence(user_params);
+    if ((NULL == seq) || (0 != user_params->cur_len)) {
+        goto fail;
+    }
+    user->sec_engine = engine_decode( seq, NULL );
+    if (NULL == user->sec_engine ) {
+        goto fail;
+    }
+    user->sec_name   = decode_string( seq, NULL );
+    if (NULL == user->sec_name ) {
+        goto fail;
+    }
+    user->auth_params= decode_string( seq, NULL );	/* XXX - Temp */
+    if (NULL == user->auth_params ) {
+        goto fail;
+    }
+    user->priv_params= decode_string( seq, NULL );	/* XXX - May need to decode 'buf' */
+    if (NULL == user->priv_params ) {
+        goto fail;
+    }
+    if (0 != seq->cur_len) {
+        goto fail;
+    }
+
+    return user;
+
+fail:
+    buffer_free( user_params );
+    buffer_free( seq );
+    user_free( user );
+    return NULL;
 }
 
 

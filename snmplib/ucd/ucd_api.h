@@ -14,6 +14,12 @@
                                c == SNMP_MSG_GETNEXT || c == SNMP_MSG_GET || \
                                c == SNMP_MSG_SET)
 
+#define UCD_MSG_FLAG_RESPONSE_PDU            0x100
+#define UCD_MSG_FLAG_EXPECT_RESPONSE         0x200
+#define UCD_MSG_FLAG_FORCE_PDU_COPY          0x400
+#define UCD_MSG_FLAG_ALWAYS_IN_VIEW          0x800
+#define UCD_MSG_FLAG_PDU_TIMEOUT            0x1000
+
 typedef u_long oid;
 
 struct variable_list {

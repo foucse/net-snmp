@@ -158,7 +158,7 @@ decode_varbind(netsnmp_buf *buf)
     }
 
     oid_free(oid);
-    var_free_value(val);
+/*  var_free_value(val);		XXX - crashes out! */
     buffer_free(seq);
     return vb;
 }
@@ -217,7 +217,7 @@ decode_basic_pdu(netsnmp_buf *buf, netsnmp_pdu *p)
 {
     netsnmp_buf *seq  = NULL;
     netsnmp_pdu *pdu = NULL;
-    long command;
+    u_char command;
 
     if ((NULL == buf)          ||
         (NULL == buf->string)  ||
@@ -225,12 +225,8 @@ decode_basic_pdu(netsnmp_buf *buf, netsnmp_pdu *p)
         return NULL;
     }
 
-    seq = decode_sequence(buf);
+    seq = decode_asn1_header(buf, &command);
     if (NULL == seq) {
-        return NULL;
-    }
-    if (NULL == decode_integer(seq, &command)) {
-        buffer_free(seq);
         return NULL;
     }
 
@@ -245,6 +241,29 @@ decode_basic_pdu(netsnmp_buf *buf, netsnmp_pdu *p)
         }
     }
 
+    if (NULL == decode_integer(seq, &(pdu->request))) {
+        buffer_free(seq);
+        if (NULL == p) {
+            pdu_free(pdu);
+        }
+        return NULL;
+    }
+    if (NULL == decode_integer(seq, &(pdu->errstatus))) {
+        buffer_free(seq);
+        if (NULL == p) {
+            pdu_free(pdu);
+        }
+        return NULL;
+    }
+    if (NULL == decode_integer(seq, &(pdu->errindex))) {
+        buffer_free(seq);
+        if (NULL == p) {
+            pdu_free(pdu);
+        }
+        return NULL;
+    }
+
+/*
     if ((NULL == decode_integer(seq, &(pdu->request)))   ||
         (NULL == decode_integer(seq, &(pdu->errstatus))) ||
         (NULL == decode_integer(seq, &(pdu->errindex)))) {
@@ -254,6 +273,8 @@ decode_basic_pdu(netsnmp_buf *buf, netsnmp_pdu *p)
         }
         return NULL;
     }
+ */
+
     if (NULL != pdu->varbind_list) {
         vblist_free(pdu->varbind_list);
     }
@@ -286,18 +307,19 @@ decode_basic_pdu(netsnmp_buf *buf, netsnmp_pdu *p)
                  *******************/
 
     /*
-     * Begin to decode an ASN.1 SEQUENCE structure from the
+     * Begin to decode an ASN.1 sequence from the
      *   given input buffer, updating this input buffer to
      *   point to the data following the sequence.
      *
      * Returns a second buffer structure containing the
-     *   (encoded) contents of the sequence (or NULL on failure).
+     *   (encoded) contents of the sequence (or NULL on failure),
+     *   together with an indication of the 'type' of this sequence.
      *
      * It is the responsibility of the calling procedure to
      *   free this structure when it is no longer needed.
      */
 netsnmp_buf *
-decode_sequence(netsnmp_buf *buf)
+decode_asn1_header(netsnmp_buf *buf, u_char *header_val)
 {
     netsnmp_buf *seq_buf;
     long length;
@@ -311,9 +333,7 @@ decode_sequence(netsnmp_buf *buf)
     /*
      * Decode the sequence header
      */
-    if (ASN_SEQUENCE != *(buf->string)) {
-        return NULL;		/* Wrong type */
-    }
+    *header_val = *(buf->string);
     buf->string++;
     buf->cur_len--;
 
@@ -358,6 +378,35 @@ decode_sequence(netsnmp_buf *buf)
 
 
     /*
+     * Decode an ASN.1 SEQUENCE structure from the
+     *   given input buffer, updating this input buffer to
+     *   point to the data following the sequence.
+     *
+     * Returns a second buffer structure containing the
+     *   (encoded) contents of the sequence (or NULL on failure),
+     *   together with an indication of the 'type' of this sequence.
+     *
+     * It is the responsibility of the calling procedure to
+     *   free this structure when it is no longer needed.
+     */
+netsnmp_buf *
+decode_sequence(netsnmp_buf *buf)
+{
+    netsnmp_buf *seq;
+    u_char type;
+
+    seq = decode_asn1_header(buf, &type);
+    if (NULL != seq) {
+        if ((ASN_SEQUENCE|ASN_CONSTRUCTOR) != type) {
+            buffer_free(seq);
+            return NULL;		/* Wrong type */
+        }
+    }
+    return seq;
+}
+
+
+    /*
      *  Decode a length tag from the given input buffer,
      *   updating this to point to the start of the data.
      *
@@ -368,6 +417,7 @@ decode_length(netsnmp_buf *buf)
 {
     u_char length_byte;
     long   length;
+    u_char ch;
 
     if ((NULL == buf)          ||
         (NULL == buf->string)  ||
@@ -384,7 +434,7 @@ decode_length(netsnmp_buf *buf)
      *  the "length of the length", followed by the length itself.
      */
     if (0x80 & length_byte) {
-        length_byte |= 0x7f;	/* Clear the top bit */
+        length_byte &= 0x7f;	/* Clear the top bit */
         buf->cur_len -= length_byte;
         if (0 > buf->cur_len) {
             return -1;		/* Not enough data left for the length */ 
@@ -402,7 +452,8 @@ decode_length(netsnmp_buf *buf)
          * Build up the actual length from the following data.
          */
         while (0 < length_byte--) {
-            length = (length << 8) | *(buf->string++);
+            ch = *(buf->string++);
+            length = (length << 8) + ch;
         }
     }
     /*
@@ -477,7 +528,9 @@ long*
 decode_integer(netsnmp_buf *buf, long *int_val)
 {
     long *value;
+    register long  v;
     long length;
+    u_char ch;
 
     if ((NULL == buf)          ||
         (NULL == buf->string)  ||
@@ -516,15 +569,18 @@ decode_integer(netsnmp_buf *buf, long *int_val)
      * Now we're ready to actually decode the value.
      */
     if ((0 < length) && (0x80 & *(buf->string))) {
-        *value = -1;	/* Negative value, so sign-extend the buffer */
+        v = -1;	/* Negative value, so sign-extend the buffer */
     } else {
-        *value =  0;	/* Clear the buffer */
+        v =  0;	/* Clear the buffer */
     }
 
+    buf->cur_len -= length;
     while (0 < length--) {
-        *value = (*value << 8 ) | *(buf->string++);
+        ch = *(buf->string++);
+        v = (v << 8 ) + ch;
     }
 
+    *value = v;
     return value;
 }
 
@@ -545,6 +601,7 @@ decode_unsigned_integer(netsnmp_buf *buf, u_long *int_val)
 {
     u_long *value;
     long length;
+    u_char ch;
 
     if ((NULL == buf)          ||
         (NULL == buf->string)  ||
@@ -590,8 +647,10 @@ decode_unsigned_integer(netsnmp_buf *buf, u_long *int_val)
         *value = ~(*value);	/* Negative value ??? */
     }
 
+    buf->cur_len -= length;
     while (0 < length--) {
-        *value = (*value << 8 ) | *(buf->string++);
+        ch = *(buf->string++);
+        *value = (*value << 8 ) + ch;
     }
 
     return value;
@@ -717,10 +776,17 @@ decode_string(netsnmp_buf *buf, netsnmp_buf *str_val)
      */
     if (NULL != str_val) {
         buffer_set_string(str_val, buf->string, length);
+        str_val->flags |= NETSNMP_BUFFER_NOFREE;
         string = str_val;
     } else {
-        string = buffer_new(buf->string, length, 0);
+        if (0 == length) {
+            string = buffer_new(NULL, length, NETSNMP_BUFFER_NOFREE|NETSNMP_BUFFER_RESIZE);
+        } else {
+            string = buffer_new(buf->string, length, NETSNMP_BUFFER_NOFREE);
+        }
     }
+    buf->cur_len -= length;
+    buf->string  += length;
     return string;
 }
 

@@ -88,11 +88,11 @@ typedef struct netsnmp_comminfo_s {
 
 typedef struct netsnmp_v3info_s {
 	/* Header Data */
-    int                  msgID;
-    int                  msg_max_size;
+    long                 msgID;
+    long                 msg_max_size;
     u_char               v3_flags;
-    int                  sec_level;
-    int                  sec_model;
+    long                 sec_level;
+    long                 sec_model;
 	/* Scoped PDU context data */
     netsnmp_engine      *context_engine;
     netsnmp_buf         *context_name;
@@ -111,6 +111,7 @@ struct netsnmp_user_s {
 
     int                  auth_protocol;
     netsnmp_buf         *auth_key;
+    netsnmp_buf         *auth_params;
 
     int                  priv_protocol;
     netsnmp_buf         *priv_key;
