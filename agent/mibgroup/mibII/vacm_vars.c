@@ -298,7 +298,7 @@ void vacm_free_view __P((void))
  * vacm_in_view
  *
  * Parameters:
- *	*pi
+ *	*pdu
  *	*name
  *	 namelen
  *      
@@ -310,10 +310,7 @@ void vacm_free_view __P((void))
  *	<securityName> <groupName> <viewName> <viewType>
  */
 int
-vacm_in_view (pi, name, namelen)
-    struct packet_info *pi;
-    oid *name;
-    int namelen;
+vacm_in_view (struct snmp_pdu *pdu, oid *name, int namelen)
 {
     struct vacm_securityEntry *sp = securityFirst;
     struct vacm_accessEntry *ap;
@@ -322,13 +319,13 @@ vacm_in_view (pi, name, namelen)
     char *vn;
     char *sn;
 
-    if (pi->sec_model == SNMP_SEC_MODEL_SNMPv1 || pi->sec_model == SNMP_SEC_MODEL_SNMPv2c) {
-	DEBUGP ("vacm_in_view: ver=%d, source=%.8x, community=%s\n", pi->version, pi->source.sin_addr.s_addr, pi->community);
+    if (pdu->version == SNMP_VERSION_1 || pdu->version == SNMP_VERSION_2c) {
+	DEBUGP ("vacm_in_view: ver=%d, source=%.8x, community=%s\n", pdu->version, pdu->address.sin_addr.s_addr, pdu->community);
 
 	/* allow running without snmpd.conf */
 	if (sp == NULL) {
 	    DEBUGP("vacm_in_view: accepted with no com2sec entries\n");
-	    switch (pi->pdutype) {
+	    switch (pdu->command) {
 	    case SNMP_MSG_GET:
 	    case SNMP_MSG_GETNEXT:
 	    case SNMP_MSG_GETBULK:
@@ -338,18 +335,19 @@ vacm_in_view (pi, name, namelen)
 	    }
 	}
 	while (sp) {
-	    if ((pi->source.sin_addr.s_addr & sp->sourceMask.sin_addr.s_addr)
+	    if ((pdu->address.sin_addr.s_addr & sp->sourceMask.sin_addr.s_addr)
 		    == sp->sourceIp.sin_addr.s_addr
-		&& strcmp(sp->community, pi->community) == 0)
+                && strlen(sp->community) == pdu->community_len
+		&& !strncmp(sp->community, pdu->community, pdu->community_len))
 		break;
 	    sp = sp->next;
 	}
 	if (sp == NULL) return 0;
 	sn = sp->securityName;
-    } else if (pi->sec_model == SNMP_SEC_MODEL_USM) {
+    } else if (pdu->securityModel == SNMP_SEC_MODEL_USM) {
       DEBUGP ("vacm_in_view: ver=%d, model=%d, secName=%s\n",
-              pi->version, pi->sec_model, pi->securityName);
-      sn = pi->securityName;
+              pdu->version, pdu->securityModel, pdu->securityName);
+      sn = pdu->securityName;
     } else {
 	sn = NULL;
     }
@@ -357,14 +355,15 @@ vacm_in_view (pi, name, namelen)
     if (sn == NULL) return 0;
     DEBUGP ("vacm_in_view: sn=%s", sn);
 
-    gp = vacm_getGroupEntry(pi->sec_model, sn);
+    gp = vacm_getGroupEntry(pdu->securityModel, sn);
     if (gp == NULL) { DEBUGP("\n"); return 0; }
     DEBUGP (", gn=%s", gp->groupName);
 
-    ap = vacm_getAccessEntry(gp->groupName, "", pi->sec_model, pi->sec_level);
+    ap = vacm_getAccessEntry(gp->groupName, "", pdu->securityModel,
+                             pdu->securityLevel);
     if (ap == NULL) { DEBUGP("\n"); return 0; }
 
-    switch (pi->pdutype) {
+    switch (pdu->command) {
     case SNMP_MSG_GET:
     case SNMP_MSG_GETNEXT:
     case SNMP_MSG_GETBULK:
@@ -379,7 +378,7 @@ vacm_in_view (pi, name, namelen)
 	vn = ap->notifyView;
 	break;
     default:
-	fprintf(stderr,"bad msg type in vacm_in_view: %d\n", pi->pdutype);
+	fprintf(stderr,"bad msg type in vacm_in_view: %d\n", pdu->command);
 	vn = ap->readView;
     }
 

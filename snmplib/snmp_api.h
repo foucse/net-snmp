@@ -137,7 +137,27 @@ struct snmp_session {
     int     s_snmp_errno;   /* copy of library errno */
 };
 
+
 typedef int (*snmp_callback) __P((int, struct snmp_session *, int, struct snmp_pdu *, void *));
+
+/*
+ * A list of all the outstanding requests for a particular session.
+ */
+#ifdef SNMP_NEED_REQUEST_LIST
+struct request_list {
+    struct request_list *next_request;
+    long  request_id;	/* request id */
+    long  message_id;	/* message id */
+    snmp_callback callback; /* user callback per request (NULL if unused) */
+    void   *cb_data;   /* user callback data per request (NULL if unused) */
+    int	    retries;	/* Number of retries */
+    u_long timeout;	/* length to wait for timeout */
+    struct timeval time; /* Time this request was made */
+    struct timeval expire;  /* time this request is due to expire */
+    struct snmp_pdu *pdu;   /* The pdu for this request
+			       (saved so it can be retransmitted */
+};
+#endif /* SNMP_NEED_REQUEST_LIST */
 
 /*
  * Set fields in session and pdu to the following to get a default or unconfigured value.
@@ -466,6 +486,10 @@ int snmpv3_make_report(u_char *out_data, int *out_length,
 			   u_char *engineID, int engineIDLen);
 int snmpv3_get_report_type(struct snmp_pdu *pdu);
 int snmp_pdu_parse(struct snmp_pdu *pdu, u_char *data, int *length);
+void set_pre_parse( struct snmp_session *sp, int (*hook) (struct snmp_session *, snmp_ipaddr) );
+/*void set_pre_parse(struct snmp_session *, int* (struct snmp_session *, snmp_ipaddr));*/
+void set_post_parse (struct snmp_session *, int (*hook) (struct snmp_session *, struct snmp_pdu *,int));
+void snmp_shutdown(char *type);
 
 void snmp_pdu_add_variable __P((struct snmp_pdu *, oid *, int, u_char, u_char *, int));
 int hex_to_binary __P((u_char *, u_char *));

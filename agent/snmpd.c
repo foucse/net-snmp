@@ -115,10 +115,10 @@ typedef long    fd_mask;
 
 #include "transform_oids.h"
 
+#include "snmp_agent.h"
 #include "agent_read_config.h"
 
 #include "version.h"
-
 
 
 /*
@@ -194,7 +194,7 @@ extern char  dontReadConfigFiles;
 static int	  sdlist[NUM_SOCKETS],
 		  sdlen = 0;
 static int	  portlist[NUM_SOCKETS];
-int		(*sd_handlers[NUM_SOCKETS])__P((int));
+int		(*sd_handlers[NUM_SOCKETS]) (int);
 
 
 
@@ -202,8 +202,6 @@ int		(*sd_handlers[NUM_SOCKETS])__P((int));
 /*
  * Prototypes.
  */
-static int receive __P((int *, int));
-int snmp_read_packet __P((int));
 int snmp_input __P((int, struct snmp_session *, int, struct snmp_pdu *, void *));
 static char *sprintf_stamp __P((time_t *));
 static int create_v1_trap_session __P((char *, char *));
@@ -215,8 +213,9 @@ static void send_v2_trap __P((struct snmp_session *, int, int, int));
 static void usage __P((char *));
 int main __P((int, char **));
 static RETSIGTYPE SnmpTrapNodeDown __P((int));
-
-
+static int receive();
+int snmp_check_packet(struct snmp_session*, snmp_ipaddr);
+int snmp_check_parse(struct snmp_session*, struct snmp_pdu*, int);
 
 static char *
 sprintf_stamp (now)
@@ -616,15 +615,15 @@ main(argc, argv)
 	int             ret;
 	u_short         dest_port = SNMP_PORT;
 	int             dont_fork = 0;
-	char            logfile[SNMP_MAXBUF_SMALL],
-			file[SNMP_MAXBUF_SMALL];
+	char            logfile[SNMP_MAXBUF_SMALL];
 	char           *cptr, **argvptr;
-	u_char          *engineID;
-	int             engineIDLen;
         struct usmUser *user, *userListPtr;
         char           *pid_file = NULL;
         FILE           *PID;
         int             dont_zero_log = 0;
+        struct snmp_session
+                        sess,
+                       *session=&sess;
 
 	logfile[0]		= 0;
 	optconfigfile		= NULL;
@@ -653,7 +652,7 @@ main(argc, argv)
                   break;
 
                 case 'd':
-                  snmp_dump_packet++;
+                  snmp_set_dump_packet(++snmp_dump_packet);
                   verbose = 1;
                   break;
 
@@ -841,12 +840,26 @@ main(argc, argv)
 	init_snmp2p(dest_port);
 	printf("Opening port(s): ");
 	fflush(stdout);
-	if ((ret = open_port(dest_port)) > 0) {
-		/* Save pointer to function.
-		 */
-		sd_handlers[ret - 1] = snmp_read_packet;	
-	}
-	open_ports_snmp2p();
+
+        memset(session, 0, sizeof(struct snmp_session));
+        session->version = SNMP_DEFAULT_VERSION;
+        session->peername = SNMP_DEFAULT_PEERNAME;
+        session->community_len = SNMP_DEFAULT_COMMUNITY_LEN;
+        session->retries = SNMP_DEFAULT_RETRIES;
+        session->timeout = SNMP_DEFAULT_TIMEOUT;
+     
+        session->srcPartyLen = 0;
+        session->dstPartyLen = 0;
+        session->contextLen = 0;
+     
+        session->local_port = dest_port;
+        session->callback = handle_snmp_packet;
+        session->authenticator = NULL;
+        session = snmp_open( session );
+        set_pre_parse( session, snmp_check_packet );
+        set_post_parse( session, snmp_check_parse );
+ 
+	/* open_ports_snmp2p(); */
 	printf("\n");
 	fflush(stdout);
 
@@ -859,75 +872,15 @@ main(argc, argv)
 	signal(SIGINT, SnmpdShutDown);
 
 	memset(addrCache, 0, sizeof(addrCache));
-	receive(sdlist, sdlen);
-
-
+        receive();
 	return 0;
 
 }  /* end main() -- snmpd */
-
-
-/*******************************************************************-o-******
- * open_port
- *
- * Parameters:
- *	dest_port	Port number for destination to open.
- *      
- * Returns:
- *	>0	On success: socket descriptor number.
- *	 0	If the requested port is already open.
- *	<0	Socket manipulation error.
- *
- * ASSUMEs dest_port is in host-byte order.
- */
-int
-open_port ( dest_port )
-     u_short dest_port;
-{
-    int sd, index;
-    struct sockaddr_in	me;
-        
-        for(index = 0; index < sdlen; index++)
-	    if (dest_port == portlist[index])
-		break;
-	if (index < sdlen)  /* found a hit before the end of the list */
-	    return 0;
-	printf("%u ", dest_port); 
-	fflush(stdout);
-	/* Set up connections */
-	sd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sd < 0){
-	    perror("socket");
-	    return -1;
-	}
-	me.sin_family = AF_INET;
-	me.sin_addr.s_addr = INADDR_ANY;
-	me.sin_port = htons(dest_port);
-	if (bind(sd, (struct sockaddr *)&me, sizeof(me)) != 0){
-	    fprintf(stderr,"bind: udp/%d: ", ntohs(me.sin_port));
-	    perror(NULL);
-	    return -2;
-	}
-	sdlist[sdlen] = sd;
-	portlist[sdlen] = dest_port;
-        fcntl(sd,F_SETFD,1);           /* close on exec */
-	if (++sdlen == NUM_SOCKETS){
-	    printf("No more sockets... ignoring rest of file\n");
-	    return -3;
-	}	
-        return sdlen;
-}
-
-
-
-
 
 /*******************************************************************-o-******
  * receive
  *
  * Parameters:
- *	sdlist[]
- *	sdlen
  *      
  * Returns:
  *	0	On success.
@@ -938,9 +891,7 @@ open_port ( dest_port )
  * port basis.  Handle timeouts.
  */
 static int
-receive(sdlist, sdlen)
-    int sdlist[];
-    int sdlen;
+receive()
 {
     int numfds, index;
     fd_set fdset;
@@ -976,11 +927,6 @@ receive(sdlist, sdlen)
 
 	numfds = 0;
 	FD_ZERO(&fdset);
-	for(index = 0; index < sdlen; index++){
-	    if (sdlist[index] + 1 > numfds)
-		numfds = sdlist[index] + 1;
-	    FD_SET(sdlist[index], &fdset);
-	}
         block = 0;
         snmp_select_info(&numfds, &fdset, tvp, &block);
         if (block == 1)
@@ -988,12 +934,6 @@ receive(sdlist, sdlen)
 	count = select(numfds, &fdset, 0, 0, tvp);
 
 	if (count > 0){
-	    for(index = 0; index < sdlen; index++){
-		if(FD_ISSET(sdlist[index], &fdset)){
-		    sd_handlers[index](sdlist[index]);
-		    FD_CLR(sdlist[index], &fdset);
-		}
-	    }
 	    snmp_read(&fdset);
 	} else switch(count){
 	    case 0:
@@ -1059,48 +999,31 @@ receive(sdlist, sdlen)
 
 
 /*******************************************************************-o-******
- * snmp_read_packet
+ * snmp_check_packet
  *
  * Parameters:
- *	sd
+ *	session, from
  *      
  * Returns:
  *	1	On success.
  *	0	On error.
  *
- * Handler for all incoming messages (a.k.a. packets) for the agent.  Pass
- * them on to snmp_agent_parse().  Write to the log file.
+ * Handler for all incoming messages (a.k.a. packets) for the agent.  If using
+ * the libwrap utility, log the connection and deny/allow the access. Print
+ * output when appropriate, and increment the incoming counter.
  *
  */
 int
-snmp_read_packet(sd)
-    int sd;
+snmp_check_packet( session, from )
+  struct snmp_session *session;
+  snmp_ipaddr from;
 {
-    struct sockaddr_in	from;
-    int length, out_length, fromlength;
-    u_char  packet[SNMP_MAXBUF_MESSAGE], outpacket[SNMP_MAXBUF_MESSAGE];
 #ifdef USE_LIBWRAP
     char *addr_string;
-#endif
-
-
-    /*
-     * Receive a message.
-     */
-    fromlength = sizeof from;
-    length = recvfrom(sd, (char *) packet, SNMP_MAXBUF_MESSAGE,
-		      0, (struct sockaddr *)&from,
-		      &fromlength);
-    if (length == -1)
-	perror("recvfrom");
-
-
-
     /*
      * Log the message and/or dump the message.
      * Optionally cache the network address of the sender.
      */
-#ifdef USE_LIBWRAP
     addr_string = inet_ntoa(from.sin_addr);
 
     if(!addr_string) {
@@ -1116,15 +1039,7 @@ snmp_read_packet(sd)
 
     snmp_increment_statistic(STAT_SNMPINPKTS);
 
-
-    if (snmp_dump_packet){
-	printf("\nReceived %d bytes from %s:\n", length,
-	       inet_ntoa(from.sin_addr));
-	xdump(packet, length, "");
-	printf("\n");
-        fflush(stdout);
-
-    } else if (log_addresses){
+    if (log_addresses){
 	int count;
 	
 	for(count = 0; count < ADDRCACHE; count++){
@@ -1148,41 +1063,31 @@ snmp_read_packet(sd)
 	}
     }  /* endif -- snmp_dump_packet */
 
+    return ( 1 );
+}
 
 
-    /*
-     * Parse the message and send a response.
-     * Optionally dump the response message.
-     */
-    out_length = SNMP_MAXBUF_MESSAGE;
-    if (snmp_agent_parse(packet, length, outpacket, &out_length,
-			 from.sin_addr.s_addr)){
-	if (snmp_dump_packet){
-	    printf("\nSent %d bytes to %s:\n", out_length,
-		   inet_ntoa(from.sin_addr));
-	    xdump(outpacket, out_length, "");
-	    printf("\n");
-            fflush(stdout);
+int
+snmp_check_parse( session, pdu, result )
+    struct snmp_session *session;
+    struct snmp_pdu     *pdu;
+    int    result;
+{
+    if ( result == 0 ) {
+        if ( verbose) {
+             char buf [256];
+	     struct variable_list *var_ptr;
+	     
+	     for ( var_ptr = pdu->variables ;
+	           var_ptr != NULL ; var_ptr=var_ptr->next_variable ) {
+                    sprint_objid (buf, var_ptr->name, var_ptr->name_length);
+                    fprintf (stdout, "    -- %s\n", buf);
+	     }
 	}
-
-  	snmp_increment_statistic(STAT_SNMPOUTPKTS);
-
-	if (sendto(sd, (char *)outpacket, out_length, 0,
-		   (struct sockaddr *)&from, sizeof(from)) < 0){
-	    perror("sendto");
-	    return 0;
-	}
-
-    } else {
-      snmp_perror("snmp_agent_parse()");
-    }  /* endif -- snmp_agent_parse */
-
-    return 1;
-
-}  /* end snmp_read_packet() */
-
-
-
+    	return 1;
+    }
+    return 0; /* XXX: does it matter what the return value is? */
+}
 
 /*******************************************************************-o-******
  * snmp_input
@@ -1242,7 +1147,7 @@ snmpd_parse_config_authtrap(word, cptr)
     char *cptr;
 {
     int i;
-  
+
     i = atoi(cptr);
     if (i < 1 || i > 2)
 	config_perror("authtrapenable must be 1 or 2");

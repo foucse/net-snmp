@@ -89,10 +89,6 @@ static void md5Digest __P((u_char *, int, u_char *));
  * Parse the header of a community string-based message such as that found
  * in SNMPv1 and SNMPv2c.
  *
- * NOTE:	This function will need to be changed to support SNMPv2u
- *		and SNMPv3, since the version field must first be examined
- *		to see if the message contains a community string.
- *
  *		FIX -- Status of this note?
  */
 u_char *

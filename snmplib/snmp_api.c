@@ -79,6 +79,7 @@ SOFTWARE.
 
 #include "asn1.h"
 #include "snmp.h"
+#define SNMP_NEED_REQUEST_LIST
 #include "snmp_api.h"
 #include "snmp_client.h"
 #include "snmp_impl.h"
@@ -92,6 +93,7 @@ SOFTWARE.
 #include "snmpusm.h"
 #include "tools.h"
 #include "keytools.h"
+#include "lcd_time.h"
 #include "debug.h"
 
 #include "transform_oids.h"
@@ -134,23 +136,8 @@ struct snmp_internal_session {
     snmp_ipaddr  addr;	/* address of connected peer */
     struct request_list *requests;/* Info about outstanding requests */
     struct request_list *requestsEnd; /* ptr to end of list */
-};
-
-/*
- * A list of all the outstanding requests for a particular session.
- */
-struct request_list {
-    struct request_list *next_request;
-    long  request_id;	/* request id */
-    long  message_id;	/* message id */
-    snmp_callback callback; /* user callback per request (NULL if unused) */
-    void   *cb_data;   /* user callback data per request (NULL if unused) */
-    int	    retries;	/* Number of retries */
-    u_long timeout;	/* length to wait for timeout */
-    struct timeval time; /* Time this request was made */
-    struct timeval expire;  /* time this request is due to expire */
-    struct snmp_pdu *pdu;   /* The pdu for this request
-			       (saved so it can be retransmitted */
+    int (*hook_pre)  __P(( struct snmp_session*, snmp_ipaddr));
+    int (*hook_post) __P(( struct snmp_session*, struct snmp_pdu*, int ));
 };
 
 /*
@@ -461,7 +448,6 @@ void
 init_snmp(char *type)
 {
   static int	done_init = 0;	/* To prevent double init's. */
-  char          file[512];
 
   if (done_init) {
     return;
@@ -1490,6 +1476,29 @@ EM(-1);
 
 
 
+void
+set_pre_parse( struct snmp_session *sp, int (*hook) (struct snmp_session *, snmp_ipaddr) ) {
+    struct session_list *slp;
+    for(slp = Sessions; slp; slp = slp->next){
+	if  (slp->session == sp ) {
+	    slp->internal->hook_pre = hook;
+	    return;
+	}
+    }
+}
+
+void
+set_post_parse( struct snmp_session *sp,
+                int (*hook) ( struct snmp_session*, struct snmp_pdu *, int) ) {
+    struct session_list *slp;
+    for(slp = Sessions; slp; slp = slp->next){
+	if  (slp->session == sp ) {
+	    slp->internal->hook_post = hook;
+	    return;
+	}
+    }
+}
+
 /*
  * Takes a session and a pdu and serializes the ASN PDU into the area
  * pointed to by packet.  out_length is the size of the data area available.
@@ -2087,6 +2096,9 @@ snmp_parse(session, pdu, data, length)
         if (pdu->version != session->version &&
 	    session->version != SNMP_DEFAULT_VERSION)
             return -1;
+	pdu->securityLevel = SNMP_SEC_LEVEL_NOAUTH;
+	pdu->securityModel = (pdu->version == SNMP_VERSION_1) ?
+          SNMP_SEC_MODEL_SNMPv1 : SNMP_SEC_MODEL_SNMPv2c;
 	pdu->community_len = community_length;
 	pdu->community = (u_char *)malloc(community_length);
 	memmove(pdu->community, community, community_length);
@@ -2115,6 +2127,7 @@ snmp_parse(session, pdu, data, length)
         pdu->srcPartyLen = MAX_NAME_LEN;
         pdu->dstPartyLen = MAX_NAME_LEN;
         pdu->contextLen  = MAX_NAME_LEN;
+	pdu->securityModel = SNMP_SEC_MODEL_SNMPv2p;
 
 	/* authenticates message and returns length if valid */
 	data = snmp_party_parse(data, &length, pi,
@@ -2840,7 +2853,7 @@ snmp_sess_read(sessp, fdset)
     struct request_list *rp, *orp = NULL;
     snmp_callback callback;
     void *magic;
-    int rpt_type;
+    int rpt_type, ret;
 
     if (!(FD_ISSET(slp->internal->sd, fdset)))
         return;
@@ -2864,14 +2877,25 @@ snmp_sess_read(sessp, fdset)
 	printf("\nReceived %d bytes from %s:%hu\n", length,
 	       inet_ntoa(from.sin_addr), ntohs(from.sin_port));
 	xdump(packet, length, "");
-                printf("\n");
+        printf("\n");
+        if ( isp->hook_pre ) {
+          if ( isp->hook_pre( sp, from ) == 0 )
+            return;
+        }
     }
 
     pdu = (struct snmp_pdu *)malloc(sizeof(struct snmp_pdu));
     memset (pdu, 0, sizeof(*pdu));
     pdu->address = from;
 
-    if (snmp_parse(sp, pdu, packet, length) != SNMP_ERR_NOERROR){
+    ret = snmp_parse(sp, pdu, packet, length);
+    if ( isp->hook_post ) {
+      if ( isp->hook_post( sp, pdu, ret ) == 0 ) {
+	snmp_free_pdu(pdu);
+        return;
+      }
+    }
+    if (ret != SNMP_ERR_NOERROR) {
 	snmp_free_pdu(pdu);
 	return;
     }
@@ -3153,6 +3177,7 @@ snmp_sess_timeout(sessp)
     struct timeval now;
     snmp_callback callback;
     void *magic;
+    int ret;
 
     sp = slp->session; isp = slp->internal;
 
