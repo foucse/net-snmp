@@ -13,6 +13,7 @@ INSTALLHEADERS=\
 	asn1.h \
 	callback.h \
 	data_list.h \
+	oid_array.h \
 	default_store.h \
 	int64.h \
 	keytools.h \
@@ -42,7 +43,7 @@ CSRCS=	snmp_client.c mib.c parse.c snmp_api.c snmp.c 		\
 	snmp_debug.c tools.c  snmp_logging.c			\
 	snmpv3.c lcd_time.c keytools.c		                \
 	scapi.c callback.c default_store.c snmp_alarm.c		\
-	data_list.c mt_support.c snmp_enum.c				\
+	data_list.c oid_array.h mt_support.c snmp_enum.c				\
 	snprintf.c strtol.c strtoul.c	snmp-tc.c			\
 	snmp_transport.c @transport_src_list@                   \
 	snmp_secmod.c @security_src_list@
@@ -53,7 +54,7 @@ OBJS=	snmp_client.o mib.o parse.o snmp_api.o snmp.o 		\
 	snmp_debug.o tools.o  snmp_logging.o	   	  	\
 	snmpv3.o lcd_time.o keytools.o	  	                \
 	scapi.o callback.o default_store.o snmp_alarm.o	  	\
-	data_list.o mt_support.o snmp_enum.o				\
+	data_list.o oid_array.o mt_support.o snmp_enum.o				\
 	snprintf.o strtol.o strtoul.o	snmp-tc.o			\
 	snmp_transport.o @transport_obj_list@                   \
 	snmp_secmod.o @security_obj_list@
@@ -64,7 +65,7 @@ LOBJS=	snmp_client.lo mib.lo parse.lo snmp_api.lo snmp.lo 	\
 	snmp_debug.lo tools.lo  snmp_logging.lo	   	  	\
 	snmpv3.lo lcd_time.lo keytools.lo	  	        \
 	scapi.lo callback.lo default_store.lo snmp_alarm.lo	\
-	data_list.lo mt_support.lo snmp_enum.lo				\
+	data_list.lo oid_array.lo mt_support.lo snmp_enum.lo				\
 	snprintf.lo strtol.lo strtoul.lo	snmp-tc.lo		\
 	snmp_transport.lo @transport_lobj_list@                 \
         snmp_secmod.lo @security_lobj_list@
