@@ -566,7 +566,7 @@ main(argc, argv)
 				snmp_set_quick_print(1);
 				break;
 			case 'D':
-				snmp_set_do_debugging(1);
+				snmp_set_do_debugging(!snmp_get_do_debugging());
 				break;
 			case 'p':
 				if (++arg == argc)
@@ -684,6 +684,7 @@ main(argc, argv)
             snmp_duplicate_objid(usmNoPrivProtocol, user->privProtocolLen);
           usm_add_user(user);
         }
+        usm_set_reportErrorOnUnknownID(1);
 	init_snmpv3("snmpd");	/* register the v3 handlers */
 	init_agent();		/* register our .conf handlers */
 	register_mib_handlers();/* snmplib .conf handlers */
