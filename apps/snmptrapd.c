@@ -577,7 +577,7 @@ int main(int argc, char *argv[])
     int dofork=1;
 
     /* register our configuration handlers now so -H properly displays them */
-    register_config_handler("snmptrapd","traphandle",snmptrapd_traphandle,NULL,"oid program [args ...] ");
+    register_config_handler("snmptrapd","traphandle",snmptrapd_traphandle,NULL,"oid|\"default\" program [args ...] ");
 
     setvbuf (stdout, NULL, _IOLBF, BUFSIZ);
     /*
