@@ -375,11 +375,14 @@ snmp_parse_args(argc, argv, session)
           usage();
           exit(1);
         }
-        if (!strcmp(psz,"noAuthNoPriv") || !strcmp(psz,"1")) {
+        if (!strcmp(psz,"noAuthNoPriv") || !strcmp(psz,"1") ||
+            !strcmp(psz,"nanp")) {
           session->securityLevel = SNMP_SEC_LEVEL_NOAUTH;
-        } else if (!strcmp(psz,"authNoPriv") || !strcmp(psz,"2")) {
+        } else if (!strcmp(psz,"authNoPriv") || !strcmp(psz,"2") ||
+            !strcmp(psz,"anp")) {
           session->securityLevel = SNMP_SEC_LEVEL_AUTHNOPRIV;
-        } else if (!strcmp(psz,"authPriv") || !strcmp(psz,"3")) {
+        } else if (!strcmp(psz,"authPriv") || !strcmp(psz,"3") ||
+            !strcmp(psz,"ap")) {
           session->securityLevel = SNMP_SEC_LEVEL_AUTHPRIV;
         } else {
           fprintf(stderr,"Invalid security level specified after -l flag: %s\n", psz);
