@@ -52,6 +52,7 @@
 #include "snmp_client.h"
 #include "mib.h"
 #include "snmp.h"
+#include "scapi.h"
 #include "keytools.h"
 
 #ifdef USE_V2PARTY_PROTOCOL
@@ -124,6 +125,8 @@ snmp_parse_args(argc, argv, session, type)
 {
   int arg;
   char *psz;
+  char *Apsz = NULL;
+  char *Xpsz = NULL;
   u_char buf[BUF_SIZE];
   int bsize;
 #ifdef USE_V2PARTY_PROTOCOL
@@ -166,7 +169,7 @@ snmp_parse_args(argc, argv, session, type)
       case 'D':
         snmp_set_do_debugging(1);
         break;
-        
+
       case 'm':
         if (argv[arg][2] != 0)
           setenv("MIBS",&argv[arg][2], 1);
@@ -190,7 +193,7 @@ snmp_parse_args(argc, argv, session, type)
           exit(1);
         }
         break;
-        
+
       case 'f':
 	snmp_set_full_objid(1);
 	break;
@@ -359,7 +362,7 @@ snmp_parse_args(argc, argv, session, type)
           usage();
           exit(1);
         }
-	
+
         break;
 
       case 'a':
@@ -407,21 +410,11 @@ snmp_parse_args(argc, argv, session, type)
 
       case 'A':
         if (argv[arg][2] != 0)
-          psz = &(argv[arg][2]);
+          Apsz = &(argv[arg][2]);
         else
-          psz = argv[++arg];
-        if( psz == NULL) {
+          Apsz = argv[++arg];
+        if( Apsz == NULL) {
           fprintf(stderr,"Need authentication pass phrase value after -A flag. \n");
-          usage();
-          exit(1);
-        }
-	session->securityAuthKeyLen = USM_AUTH_KU_LEN;
-	if (generate_Ku(session->securityAuthProto, 
-			session->securityAuthProtoLen,
-			psz, strlen(psz), 
-			session->securityAuthKey, 
-			&session->securityAuthKeyLen) != SNMPERR_SUCCESS) {
-          fprintf(stderr,"Error generating Ku from authentication pass phrase. \n");
           usage();
           exit(1);
         }
@@ -437,16 +430,6 @@ snmp_parse_args(argc, argv, session, type)
           usage();
           exit(1);
         }
-	session->securityPrivKeyLen = USM_PRIV_KU_LEN;
-	if (generate_Ku(session->securityPrivProto, 
-			session->securityPrivProtoLen,
-			psz, strlen(psz), 
-			session->securityPrivKey, 
-			&session->securityPrivKeyLen) != SNMPERR_SUCCESS) {
-          fprintf(stderr,"Error generating Ku from privacy pass phrase. \n");
-          usage();
-          exit(1);
-        }
 
         break;
 
@@ -454,7 +437,7 @@ snmp_parse_args(argc, argv, session, type)
         usage();
         exit(0);
         break;
-          
+
       default:
         /* This should be removed to support options in clients that
            have more parameters than the defaults above! */
@@ -468,6 +451,31 @@ snmp_parse_args(argc, argv, session, type)
   /* read in MIB database and initialize the snmp library*/
   init_snmp(type);
 
+  /* make master key from pass phrases */
+  if (Apsz) {
+      session->securityAuthKeyLen = USM_AUTH_KU_LEN;
+      if (generate_Ku(session->securityAuthProto,
+                      session->securityAuthProtoLen,
+                      Apsz, strlen(Apsz),
+                      session->securityAuthKey,
+                      &session->securityAuthKeyLen) != SNMPERR_SUCCESS) {
+          fprintf(stderr,"Error generating Ku from authentication pass phrase. \n");
+          usage();
+          exit(1);
+      }
+  }
+  if (Xpsz) {
+      session->securityPrivKeyLen = USM_PRIV_KU_LEN;
+      if (generate_Ku(session->securityPrivProto,
+                      session->securityPrivProtoLen,
+                      Xpsz, strlen(Xpsz),
+                      session->securityPrivKey,
+                      &session->securityPrivKeyLen) != SNMPERR_SUCCESS) {
+          fprintf(stderr,"Error generating Ku from privacy pass phrase. \n");
+          usage();
+          exit(1);
+      }
+  }
   /* get the hostname */
   if (arg == argc) {
     fprintf(stderr,"No hostname specified.\n");
@@ -535,7 +543,7 @@ snmp_parse_args(argc, argv, session, type)
       }
 
       /* source party */
-      
+
       party_scanInit();
       session->srcPartyLen = MAX_NAME_LEN;
       for(pp = party_scanNext(); pp; pp = party_scanNext()){
@@ -564,7 +572,7 @@ snmp_parse_args(argc, argv, session, type)
       }
 
       /* destination party */
-      
+
       session->dstPartyLen = MAX_NAME_LEN;
       party_scanInit();
       for(pp = party_scanNext(); pp; pp = party_scanNext()){
@@ -634,7 +642,7 @@ snmp_parse_args(argc, argv, session, type)
 }
 
 oid
-*snmp_parse_oid(argv,root,rootlen) 
+*snmp_parse_oid(argv,root,rootlen)
   char *argv;
   oid *root;
   int *rootlen;
