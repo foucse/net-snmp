@@ -1,3 +1,4 @@
+
 use Convert::BER;
 use Getopt::Std;
 
@@ -146,9 +147,10 @@ sub pkt_resolve_value {
 		$size = ($size ? ('c','n','nc','N')[$size-1] : 'N');
 		$val = pack($size,$val);
 	    } elsif ($val =~ s/^\"(.*)\"/$1/) {
+		$size ||= '*';
 		$val = pack("a$size",$val);
 	    }
-	    $val ||= "\"\"";
+	    $val ||= "";
 	    last;
 	};
 	/SEQUENCE|CHOICE/ and do {
