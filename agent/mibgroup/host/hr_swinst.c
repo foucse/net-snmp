@@ -315,7 +315,7 @@ var_hrswinst(vp, name, length, exact, var_len, write_method)
 	    ret = (u_char *) nullOid;
 	    break;
 	case HRSWINST_TYPE:
-	    long_return = 4;	/* application */
+	    long_return = 1;	/* unknown */
 	    ret = (u_char *) &long_return;
 	    break;
 	case HRSWINST_DATE:
