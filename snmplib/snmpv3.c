@@ -207,7 +207,7 @@ snmpv3_secLevel_conf(const char *word, char *cptr)
 int
 setup_engineID(u_char **eidp, const char *text)
 {
-  int		  enterpriseid	= htonl(ENTERPRISE_NUMBER),
+  int		  enterpriseid	= htonl(ENTERPRISE_OID),
 		  localsetup	= (eidp) ? 0 : 1;
 
 			/* Use local engineID if *eidp == NULL.  */
