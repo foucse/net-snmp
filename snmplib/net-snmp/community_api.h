@@ -33,4 +33,4 @@ char* comminfo_sprint(char *str_buf, int len, netsnmp_comminfo *info);
 void  comminfo_fprint(FILE * fp,              netsnmp_comminfo *info);
 void  comminfo_print(                         netsnmp_comminfo *info);
 
-#endif _NET_SNMP_COMMUNITY_API_H
+#endif /* _NET_SNMP_COMMUNITY_API_H */

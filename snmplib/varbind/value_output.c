@@ -27,6 +27,7 @@
 #include <net-snmp/utils.h>
 
 #include "default_store.h"
+#include "int64.h"
 
 
         /* 
@@ -817,8 +818,6 @@ val_print_nsapaddr(netsnmp_buf *buf, netsnmp_value *value, netsnmp_mib *mib)
 int
 val_print_oid(netsnmp_buf *buf, netsnmp_value *value, netsnmp_mib *mib)
 {
-    netsnmp_oid     oid;
-
     if ((NULL == buf) || (NULL == value)) {
         return -1;
     }
@@ -832,7 +831,7 @@ val_print_oid(netsnmp_buf *buf, netsnmp_value *value, netsnmp_mib *mib)
     if (!ds_get_boolean(DS_LIBRARY_ID, DS_LIB_QUICK_PRINT)) {
         __B(buffer_append_string(buf, "OBJECT IDENTIFIER: "))
     }
-    return var_bprint_oid(buf, value->val.oid);
+    return oid_bprint(buf, value->val.oid);
 }
 
 
@@ -1029,7 +1028,7 @@ val_print_float(netsnmp_buf *buf, netsnmp_value *value, netsnmp_mib *mib)
     if (!ds_get_boolean(DS_LIBRARY_ID, DS_LIB_QUICK_PRINT)) {
         __B(buffer_append_string(buf, "Opaque: Float: "))
     }
-    snprintf(tmpbuf, BUFSIZ, "%f", value->val.floatVal);
+    snprintf(tmpbuf, BUFSIZ, "%f", *(value->val.floatVal));
     __B(buffer_append_string(buf, tmpbuf))
 
     if (mib && mib->units) {
@@ -1061,7 +1060,7 @@ val_print_double(netsnmp_buf *buf, netsnmp_value *value, netsnmp_mib *mib)
     if (!ds_get_boolean(DS_LIBRARY_ID, DS_LIB_QUICK_PRINT)) {
         __B(buffer_append_string(buf, "Opaque: Double: "))
     }
-    snprintf(tmpbuf, BUFSIZ, "%f", value->val.doubleVal);
+    snprintf(tmpbuf, BUFSIZ, "%f", *(value->val.doubleVal));
     __B(buffer_append_string(buf, tmpbuf))
 
     if (mib && mib->units) {

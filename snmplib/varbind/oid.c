@@ -46,7 +46,7 @@ int _var_append_subids(netsnmp_oid *oid, char *name, netsnmp_mib *mib);
     *
     */
 int
-var_set_oid(netsnmp_oid *oid, char *name)
+oid_set_name(netsnmp_oid *oid, char *name)
 {
     netsnmp_mib     *mib;
 
@@ -70,7 +70,7 @@ var_set_oid(netsnmp_oid *oid, char *name)
          */
     mib = mib_find(name);
     if (NULL != mib) {
-        (void) var_set_oid_value(oid, mib->oid, mib->oidlen);
+        (void) oid_set_value(oid, mib->oid, mib->oidlen);
     }
 
         /* 
@@ -88,7 +88,7 @@ var_set_oid(netsnmp_oid *oid, char *name)
     *
     */
 int
-var_set_oid_value(netsnmp_oid *oid, u_int *name, int len)
+oid_set_value(netsnmp_oid *oid, u_int *name, int len)
 {
     int             i;
 
@@ -134,7 +134,7 @@ var_set_oid_value(netsnmp_oid *oid, u_int *name, int len)
     *  when it is not longer required.
     */
 netsnmp_oid*
-var_create_oid(void)
+oid_create(void)
 {
     return (netsnmp_oid*) calloc(1, sizeof(netsnmp_oid));
 }
@@ -149,13 +149,13 @@ var_create_oid(void)
     *  when it is not longer required.
     */
 netsnmp_oid*
-var_create_oid_name(char *name)
+oid_create_name(char *name)
 {
     netsnmp_oid     *oid;
 
-    oid = var_create_oid();
+    oid = oid_create();
 
-    if (0 > var_set_oid(oid, name)) {
+    if (0 > oid_set_name(oid, name)) {
         if (oid) {
             free(oid);
         }
@@ -174,13 +174,13 @@ var_create_oid_name(char *name)
     *  when it is not longer required.
     */
 netsnmp_oid*
-var_create_oid_value(u_int * name, int len)
+oid_create_value(u_int * name, int len)
 {
     netsnmp_oid     *oid;
 
-    oid = var_create_oid();
+    oid = oid_create();
 
-    if (0 > var_set_oid_value(oid, name, len)) {
+    if (0 > oid_set_value(oid, name, len)) {
         if (oid) {
             free(oid);
         }
@@ -199,12 +199,12 @@ var_create_oid_value(u_int * name, int len)
     *  when it is not longer required.
     */
 netsnmp_oid*
-var_copy_oid(netsnmp_oid *oid)
+oid_copy(netsnmp_oid *oid)
 {
     if (NULL == oid) {
         return NULL;
     }
-    return var_create_oid_value(oid->name, oid->len);
+    return oid_create_value(oid->name, oid->len);
 }
 
 
@@ -216,7 +216,7 @@ var_copy_oid(netsnmp_oid *oid)
     *  once this routine has been called.
     */
 void
-var_free_oid(netsnmp_oid *oid)
+oid_free(netsnmp_oid *oid)
 {
     if (NULL == oid) {
         return;
@@ -238,7 +238,7 @@ var_free_oid(netsnmp_oid *oid)
     *
     */
 int
-var_bprint_oid(netsnmp_buf *buf, netsnmp_oid *oid)
+oid_bprint(netsnmp_buf *buf, netsnmp_oid *oid)
 {
     netsnmp_mib    *mib;
     int             ret = -1;
@@ -276,8 +276,8 @@ var_bprint_oid(netsnmp_buf *buf, netsnmp_oid *oid)
     *  Returns a pointer to this name if successful, NULL otherwise.
     *
     */
-char           *
-var_sprint_oid(char *str_buf, int len, netsnmp_oid *oid)
+char *
+oid_sprint(char *str_buf, int len, netsnmp_oid *oid)
 {
     netsnmp_buf    *buf;
     char           *cp = NULL;
@@ -286,7 +286,7 @@ var_sprint_oid(char *str_buf, int len, netsnmp_oid *oid)
     if (NULL == buf) {
         return NULL;
     }
-    if (0 == var_bprint_oid(buf, oid)) {
+    if (0 == oid_bprint(buf, oid)) {
         cp = buffer_string(buf);
     }
     buffer_free(buf);
@@ -300,7 +300,7 @@ var_sprint_oid(char *str_buf, int len, netsnmp_oid *oid)
     *
     */
 void
-var_fprint_oid(FILE *fp, netsnmp_oid *oid)
+oid_fprint(FILE *fp, netsnmp_oid *oid)
 {
     netsnmp_buf    *buf;
 
@@ -311,7 +311,7 @@ var_fprint_oid(FILE *fp, netsnmp_oid *oid)
     if (NULL == buf) {
         return;
     }
-    if (0 == var_bprint_oid(buf, oid)) {
+    if (0 == oid_bprint(buf, oid)) {
         fprintf(fp, "%s", buf->string);
     }
     buffer_free(buf);
@@ -324,9 +324,9 @@ var_fprint_oid(FILE *fp, netsnmp_oid *oid)
     *
     */
 void
-var_print_oid(netsnmp_oid *oid)
+oid_print(netsnmp_oid *oid)
 {
-    var_fprint_oid(stdout, oid);
+    oid_fprint(stdout, oid);
 }
 
 

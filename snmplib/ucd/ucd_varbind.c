@@ -22,6 +22,7 @@
 #include <ctype.h>
 
 #include <net-snmp/var_api.h>
+#include <net-snmp/protocol_api.h>
 #include <ucd/ucd_api.h>
 #include <ucd/ucd_convert.h>
 
@@ -66,7 +67,7 @@ void print_value (oid *objid, int objidlen, struct variable_list *var)
 
 char *sprint_objid (char *buf, oid *objid, int objidlen)
 {
-    return var_sprint_oid( buf, SPRINT_MAX_LEN,
+    return oid_sprint( buf, SPRINT_MAX_LEN,
 			ucd_convert_oid(objid, objidlen));
 }
 int
@@ -76,7 +77,7 @@ sprint_realloc_objid(u_char **buf, size_t *buf_len,
 {
     char *cp;
 
-    cp = var_sprint_oid( *buf, *buf_len,
+    cp = oid_sprint( *buf, *buf_len,
 			ucd_convert_oid(objid, objidlen));
     if ( !cp ) {
 	return 0;
@@ -125,7 +126,7 @@ char *sprint_variable (char *buf, oid *objid, int objidlen, struct variable_list
     if ( varbind == NULL ) {
 	return NULL;
     }
-    var_free_oid( varbind->oid );
+    oid_free( varbind->oid );
     varbind->oid = ucd_convert_oid( objid, objidlen );
     if ( varbind->oid == NULL ) {
 	var_free_varbind( varbind );

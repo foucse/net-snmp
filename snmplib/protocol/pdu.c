@@ -22,6 +22,8 @@
 
 #include <net-snmp/var_api.h>
 #include <net-snmp/mib_api.h>
+#include <net-snmp/community_api.h>
+#include <net-snmp/snmpv3.h>
 #include <net-snmp/utils.h>
 
 
@@ -71,6 +73,15 @@ pdu_free(netsnmp_pdu *pdu)
     if (pdu->community) {
 	comminfo_free(pdu->community);
 	pdu->community = NULL;
+    }
+
+    if (pdu->v3info) {
+	v3info_free(pdu->v3info);
+	pdu->v3info = NULL;
+    }
+    if (pdu->userinfo) {
+	user_free(pdu->userinfo);
+	pdu->userinfo = NULL;
     }
 
     vblist_free(pdu->varbind_list);
@@ -181,8 +192,38 @@ pdu_bprint(netsnmp_buf *buf, netsnmp_pdu *pdu)
 	return 0;
     }
 
-		/* XXX - print the PDU header fields */
+    /*
+     * Print the common PDU header fields....
+     */
+    __B(buffer_append_string(buf, "PDU:\n Version = "))
+    __B(buffer_append_int(   buf, pdu->version))
+    __B(buffer_append_string(buf, "\n Command = "))
+    __B(buffer_append_int(   buf, pdu->command))
+    __B(buffer_append_string(buf, "\n ErrStatus = "))
+    __B(buffer_append_int(   buf, pdu->errstatus))
+    __B(buffer_append_string(buf, "\n ErrIndex = "))
+    __B(buffer_append_int(   buf, pdu->errindex))
+    __B(buffer_append_string(buf, "\n RequestID = "))
+    __B(buffer_append_int(   buf, pdu->request))
+    __B(buffer_append_string(buf, "\n Flags = "))
+    __B(buffer_append_int(   buf, pdu->flags))
+    __B(buffer_append_char(  buf, '\n'))
 
+    /*
+     *  ... the version-specific header information....
+     */
+    if (pdu->community) {
+        __B(comminfo_bprint(buf, pdu->community))
+    }
+    if (pdu->v3info) {
+        __B(v3info_bprint(buf, pdu->v3info))
+    }
+    if (pdu->userinfo) {
+        __B(user_bprint(buf, pdu->userinfo))
+    }
+    /*
+     *  ... and the list of Variable Bindings
+     */
     __B(vblist_bprint(buf, pdu->varbind_list))
     return 0;
 }

@@ -287,10 +287,10 @@ int snmp_build	(u_char **pkt, size_t *pkt_len, size_t *offset,
 		 struct snmp_session *pss, struct snmp_pdu *pdu);
 static int snmp_parse (void *, struct snmp_session *, struct snmp_pdu *, u_char *, size_t);
 
-static void snmpv3_calc_msg_flags (int, int, u_char *);
+extern void snmpv3_calc_msg_flags (int, int, u_char *);
 static int snmpv3_verify_msg (struct request_list *, struct snmp_pdu *);
 static int snmpv3_build_probe_pdu (struct snmp_pdu **);
-static int snmpv3_build	(u_char **pkt, size_t *pkt_len, size_t *offset,
+extern int snmpv3_build	(u_char **pkt, size_t *pkt_len, size_t *offset,
 			 struct snmp_session *session, struct snmp_pdu *pdu);
 static int snmp_parse_version (u_char *, size_t);
 static int snmp_resend_request (struct netsnmp_session *slp, 
@@ -1569,7 +1569,7 @@ snmpv3_build_probe_pdu (struct snmp_pdu **pdu)
   return 0;
 }
 
-static void
+void
 snmpv3_calc_msg_flags (int sec_level, int msg_command, u_char *flags)
 {
   *flags = 0;
@@ -1614,6 +1614,8 @@ snmpv3_verify_msg(struct request_list *rp, struct snmp_pdu *pdu)
   return 1;
 }
 
+
+#ifdef XXX_DISABLED
 
 /* SNMPv3
  * Takes a session and a pdu and serializes the ASN PDU into the area
@@ -1755,6 +1757,7 @@ snmpv3_build(u_char **pkt, size_t *pkt_len, size_t *offset,
 }  /* end snmpv3_build() */
 
 
+#endif /* XXX_DISABLED */
 
 
 static u_char *

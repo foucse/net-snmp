@@ -97,14 +97,14 @@ mib_init(char *tags)
          */
 
         /* Set up the list of directories to search */
-    cp = conf_read_string("mibdirs");
+    cp = conf_read_string((char*)"mibdirs");
     if (NULL != cp) {
         mib_set_directories(cp);
         free(cp);
     }
 
         /* Read in the appropriate MIB modules */
-    cp = conf_read_string("mibs");
+    cp = conf_read_string((char*)"mibs");
     if (NULL != cp) {
         if (0 == strcmp(cp, "ALL")) {
             (void) mib_load_all();

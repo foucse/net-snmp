@@ -17,18 +17,18 @@
 
         /* OID-related routines */
 
-netsnmp_oid* var_create_oid(       void                  );
-netsnmp_oid* var_create_oid_name(  char   *name          );
-netsnmp_oid* var_create_oid_value( u_int  *name, int len );
-netsnmp_oid* var_copy_oid(      netsnmp_oid *oid                        );
-int          var_set_oid(       netsnmp_oid *oid, char   *name          );
-int          var_set_oid_value( netsnmp_oid *oid, u_int  *name, int len );
-void         var_free_oid(      netsnmp_oid *oid                        );
+netsnmp_oid* oid_create(       void                  );
+netsnmp_oid* oid_create_name(  char   *name          );
+netsnmp_oid* oid_create_value( u_int  *name, int len );
+netsnmp_oid* oid_copy(      netsnmp_oid *oid                        );
+int          oid_set_name(  netsnmp_oid *oid, char   *name          );
+int          oid_set_value( netsnmp_oid *oid, u_int  *name, int len );
+void         oid_free(      netsnmp_oid *oid                        );
 
-int   var_bprint_oid( netsnmp_buf *buf,   netsnmp_oid *oid );
-char* var_sprint_oid( char *buf, int len, netsnmp_oid *oid );
-void  var_fprint_oid( FILE *fp,           netsnmp_oid *oid );
-void  var_print_oid(                      netsnmp_oid *oid );
+int   oid_bprint( netsnmp_buf *buf,   netsnmp_oid *oid );
+char* oid_sprint( char *buf, int len, netsnmp_oid *oid );
+void  oid_fprint( FILE *fp,           netsnmp_oid *oid );
+void  oid_print(                      netsnmp_oid *oid );
 
 
         /* Value-related routines */

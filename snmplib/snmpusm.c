@@ -2625,10 +2625,26 @@ usm_get_user_from_list(u_char *engineID, size_t engineIDLen,
    returns the head of the list (which could change due to this add).
 */
 
+#include "net-snmp/snmpv3.h"
+
 struct usmUser *
 usm_add_user(struct usmUser *user)
 {
   struct usmUser *uptr;
+  netsnmp_user *u;
+
+  u = user_create(user->name, strlen(user->name), engine_new(user->engineID, user->engineIDLen));
+  if (u != NULL) {
+      if (user->authProtocol) {
+          u->auth_protocol = user->authProtocol[user->authProtocolLen -1 ];
+      }
+      if (user->privProtocol) {
+          u->priv_protocol = user->privProtocol[user->privProtocolLen -1 ];
+      }
+      u->auth_key = buffer_new( user->authKey, user->authKeyLen, 0);
+      u->priv_key = buffer_new( user->privKey, user->privKeyLen, 0);
+  }
+
   uptr = usm_add_user_to_list(user, userList);
   if (uptr != NULL)
     userList = uptr;

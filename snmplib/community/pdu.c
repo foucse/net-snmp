@@ -26,10 +26,12 @@
 #include <net-snmp/protocol_api.h>
 #include <net-snmp/community_api.h>
 
+#include "community/community.h"
 #include "protocol/encode.h"
 
 int community_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu);
 int community_check_pdu( netsnmp_pdu *pdu);
+
 
 
 #define _CHECK_VERSION( v, x )	switch ((v)) { \
@@ -170,7 +172,7 @@ community_set_comminfo(netsnmp_pdu *pdu, netsnmp_comminfo *info)
 
    /**
     *
-    *  ASN.1-encode a community-info structure.
+    *  ASN.1-encode a community-based PDU.
     *  Returns 0 if successful, -ve otherwise
     *
     */

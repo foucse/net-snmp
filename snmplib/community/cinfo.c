@@ -30,6 +30,7 @@ typedef u_long oid;
 
 #include "protocol/encode.h"
 #include "protocol/asn1_parse.h"
+#include "community/community.h"
 #include "snmp_debug.h"
 
                 /**************************************
@@ -356,4 +357,3 @@ snmp_comstr_parse(u_char *data,
     return (u_char *)data;
 
 }  /* end snmp_comstr_parse() */
-

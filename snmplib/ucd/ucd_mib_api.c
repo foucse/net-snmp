@@ -39,11 +39,11 @@
 	 */
 void init_mib (void)
 {
-    (void)mib_init( "mib" );
+    (void)mib_init((char*) "mib" );
 }
 void init_mib_internals (void)
 {
-    (void)mib_init( "mib" );
+    (void)mib_init((char*) "mib" );
 }
 
 int  add_mibdir (const char *dir)
@@ -75,7 +75,7 @@ struct tree *read_all_mibs (void)
 
 void shutdown_mib (void)
 {
-    (void)mib_close_down( "mib" );
+    (void)mib_close_down((char*) "mib" );
 }
 
 void print_mib (FILE *fp)
@@ -89,7 +89,7 @@ int read_objid (char *input, oid *output, int *out_len)
     int i;
 
     memset( &o, 0, sizeof( netsnmp_oid ));
-    if ( var_set_oid( &o, input ) < 0 ) {
+    if ( oid_set_name( &o, input ) < 0 ) {
 	return 0;
     }
 
@@ -146,7 +146,7 @@ void fprint_description (FILE *fp, oid *objid, int objidlen)
         (*node->description != '\0' )) {
 	fprintf( fp, "%s\n", node->description);
     }
-    var_free_oid( o );
+    oid_free( o );
 }
 void print_description (oid *objid, int objidlen)
 {

@@ -10,6 +10,10 @@
 #define USM_AUTH_KU_LEN     32
 #define USM_PRIV_KU_LEN     32
 
+#define SNMP_CMD_CONFIRMED(c) (c == SNMP_MSG_INFORM || c == SNMP_MSG_GETBULK ||\
+                               c == SNMP_MSG_GETNEXT || c == SNMP_MSG_GET || \
+                               c == SNMP_MSG_SET)
+
 typedef u_long oid;
 
 struct variable_list {
@@ -174,5 +178,8 @@ struct snmp_session {
     /* security module specific */
     void    *securityInfo;
 };
+
+
+void snmp_set_suffix_only(int);
 
 #endif /* _UCD_UCD_API_H */

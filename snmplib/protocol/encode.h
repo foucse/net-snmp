@@ -5,19 +5,20 @@
 #include <net-snmp/types.h>
 
 
-int encode_length(netsnmp_buf *buf, int length);
+int encode_length(     netsnmp_buf *buf,              int length);
 int encode_asn1_header(netsnmp_buf *buf, u_char type, int length);
-int encode_sequence(netsnmp_buf *buf, int length);
+int encode_sequence(   netsnmp_buf *buf,              int length);
+int encode_bufstr(     netsnmp_buf *buf, netsnmp_buf *str);
 
-int encode_integer(netsnmp_buf *buf, u_char type, long val);
-int encode_unsigned_integer(netsnmp_buf *buf, u_char type, u_long val);
-int encode_unsigned_int64(netsnmp_buf *buf, u_char type, int64 *i64_val);
-int encode_int64(netsnmp_buf *buf, u_char type, int64 *i64_val);
-int encode_null(netsnmp_buf *buf, u_char type, void *dummy);
-int encode_string(netsnmp_buf *buf, u_char type, u_char *string, int len);
-int encode_oid(netsnmp_buf *buf, netsnmp_oid *oid);
-int encode_float(netsnmp_buf *buf, float f_val);
-int encode_double(netsnmp_buf *buf, double d_val);
+int encode_integer(         netsnmp_buf *buf, u_char type,   long      val);
+int encode_unsigned_integer(netsnmp_buf *buf, u_char type, u_long      val);
+int encode_unsigned_int64(  netsnmp_buf *buf, u_char type, int64  *i64_val);
+int encode_int64(           netsnmp_buf *buf, u_char type, int64  *i64_val);
+int encode_null(            netsnmp_buf *buf, u_char type, void   *dummy);
+int encode_string(          netsnmp_buf *buf, u_char type, u_char *string, int len);
+int encode_oid(             netsnmp_buf *buf,         netsnmp_oid *oid);
+int encode_float(           netsnmp_buf *buf,              float   f_val);
+int encode_double(          netsnmp_buf *buf,              double  d_val);
 
 
 #define ASN_EXTENSION_ID	(0x1F)

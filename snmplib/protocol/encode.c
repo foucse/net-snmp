@@ -24,24 +24,12 @@
 
 #include <net-snmp/var_api.h>
 #include <net-snmp/mib_api.h>
+#include <net-snmp/protocol_api.h>
 #include <net-snmp/utils.h>
 #include <net-snmp/types.h>
 
+#include "protocol/encode.h"
 
-
-int encode_length(netsnmp_buf *buf, int length);
-int encode_asn1_header(netsnmp_buf *buf, u_char type, int length);
-int encode_sequence(netsnmp_buf *buf, int length);
-
-int encode_integer(netsnmp_buf *buf, u_char type, long val);
-int encode_unsigned_integer(netsnmp_buf *buf, u_char type, u_long val);
-int encode_unsigned_int64(netsnmp_buf *buf, u_char type, int64 *i64_val);
-int encode_int64(netsnmp_buf *buf, u_char type, int64 *i64_val);
-int encode_null(netsnmp_buf *buf, u_char type, void *dummy);
-int encode_string(netsnmp_buf *buf, u_char type, u_char *string, int len);
-int encode_oid(netsnmp_buf *buf, netsnmp_oid *oid);
-int encode_float(netsnmp_buf *buf, float f_val);
-int encode_double(netsnmp_buf *buf, double d_val);
 
 
 #define ASN_EXTENSION_ID	(0x1F)
@@ -283,10 +271,10 @@ encode_length(netsnmp_buf *buf, int length)
     start_len= buf->cur_len;	/* Remember the length before we start */
 
 	/*
-	 * Short lengths (<127) can be encoded
+	 * Short lengths (<=127) can be encoded
 	 *  in a single byte.
 	 */
-    if (0x7f > length) {
+    if (0x7f >= length) {
 	return buffer_append_char(buf, (u_char)length&0xff);
     }    
 
@@ -298,8 +286,8 @@ encode_length(netsnmp_buf *buf, int length)
 	 * So encode the length itself (working backwards)...
 	 */
     while (0xff < length) {
-	__B( buffer_append_char(buf, (u_char)length&0xff))
-	length >>= 8;
+        __B( buffer_append_char(buf, (u_char)length&0xff))
+        length >>= 8;
     }
     __B( buffer_append_char(buf, (u_char)length&0xff))
 
@@ -309,7 +297,7 @@ encode_length(netsnmp_buf *buf, int length)
 	 *   this "long form" encoding.
 	 */
     length_len = buf->cur_len - start_len;
-    __B( encode_sequence(buf, length_len | 0x80 ))
+    __B( buffer_append_char(buf, (u_char)length_len | 0x80))
     return 0;
 }
 
@@ -369,6 +357,18 @@ encode_subid(netsnmp_buf *buf, int subid)
     while (0 < subid) {
         __B( buffer_append_char(buf, (u_char)(0x80 | (subid & 0x7f))))
         subid >>= 7;
+    }
+    return 0;
+}
+
+
+int
+encode_bufstr(netsnmp_buf *buf, netsnmp_buf *str)
+{
+    if (NULL == str) {
+        __B( encode_string(buf, ASN_OCTET_STR, NULL, 0))
+    } else {
+        __B( encode_string(buf, ASN_OCTET_STR, buffer_string(str), str->cur_len))
     }
     return 0;
 }

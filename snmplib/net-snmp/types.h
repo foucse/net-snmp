@@ -54,12 +54,14 @@
 #define SNMP_ENDOFMIBVIEW    (ASN_CONTEXT | ASN_PRIMITIVE | 0x2)
 
 
+#ifndef ASN1_H
 struct counter64 {
     u_long high;
     u_long low;
 };
 typedef struct counter64 integer64;
 typedef struct counter64 unsigned64;
+#endif /* ASN1_H */
 
 
 #define SNMP_MSG_GET        (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x0)

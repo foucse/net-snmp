@@ -21,7 +21,9 @@
 #endif
 #include <sys/types.h>
 
+#include <net-snmp/struct.h>
 #include <net-snmp/utils.h>
+#include <net-snmp/var_api.h>	/* for 'oid_sprint' */
 
 int _buffer_extend(netsnmp_buf * buf, int increase);
 
@@ -156,6 +158,7 @@ buffer_append(netsnmp_buf *buf, char *string, int len)
          *  Return 0 on success, -ve on failure
          *
          */
+#undef buffer_append_string
 int 
 buffer_append_string(netsnmp_buf *buf, char *string)
 {
@@ -163,6 +166,36 @@ buffer_append_string(netsnmp_buf *buf, char *string)
         return 0;
     }
     return buffer_append(buf, string, strlen(string));
+}
+
+
+        /**
+         *
+         * Appends a Hex representation of the given string to the buffer.
+         *
+         *  Return 0 on success, -ve on failure
+         *
+         */
+int 
+buffer_append_hexstr(netsnmp_buf *buf, char *string, int len)
+{
+    char            tmp_buf[BUFSIZ];
+    int             i;
+    char           *cp;
+
+    if (NULL == string) {
+        return 0;
+    }
+
+    if ( len*2 > BUFSIZ ) {
+        return -1;		/* XXX - Lazy, Dave! */
+    }
+
+    for (i=0, cp=tmp_buf; i<len; i++, cp+=2) {
+        sprintf(cp, "%2x", string[i]);
+    }
+
+    return buffer_append(buf, tmp_buf, 2*len);
 }
 
 
@@ -184,8 +217,68 @@ buffer_append_char(netsnmp_buf *buf, char ch)
 
         /**
          *
+         * Appends one buffer structure to another
+         *
+         *  Return 0 on success, -ve on failure
+         *
+         */
+int 
+buffer_append_bufstr(netsnmp_buf *buf, netsnmp_buf *str)
+{
+    int offset;
+
+    if (NULL == str) {
+        return 0;		/* Trivially succeeds */
+    }
+
+    if (str->flags & NETSNMP_BUFFER_REVERSE) {
+	offset = str->max_len - str->cur_len;
+        return buffer_append(buf, (str->string + offset), str->cur_len);
+    } else {
+        return buffer_append(buf,  str->string,           str->cur_len);
+    }
+}
+
+
+        /**
+         *
+         * Appends the given integer to the buffer.
+         *
+         *  Return 0 on success, -ve on failure
+         *
+         */
+int 
+buffer_append_int(netsnmp_buf *buf, int i)
+{
+    char            tmp_buf[BUFSIZ];
+
+    sprintf(tmp_buf, "%d", i);
+    return buffer_append(buf, tmp_buf, strlen(tmp_buf));
+}
+
+
+        /**
+         *
+         * Appends the given OID to the buffer.
+         *
+         *  Return 0 on success, -ve on failure
+         *
+         */
+int 
+buffer_append_oid(netsnmp_buf *buf, netsnmp_oid *oid)
+{
+    char            tmp_buf[BUFSIZ];
+
+    oid_sprint(tmp_buf, BUFSIZ, oid);
+    return buffer_append(buf, tmp_buf, strlen(tmp_buf));
+}
+
+
+        /**
+         *
          * Returns the current value of the buffer.
          *
+         * ??? Not convinced about this next bit....
          * Calling this routine transfers responsibility for freeing
          *   the memory used by this string from 'buffer_free()' to
          *   the calling procedure.
@@ -207,6 +300,32 @@ buffer_string(netsnmp_buf *buf)
     } else {
         return buf->string;
     }
+}
+
+        /**
+         *
+         * Creates a copy of a buffer structure.
+         *
+         * The calling routine should invoke 'buffer_free()'
+         *      when this structure is no longer required.
+         *
+         */
+netsnmp_buf*
+buffer_copy(netsnmp_buf *buf)
+{
+    netsnmp_buf    *copy;
+
+    if (NULL == buf ) {
+        return NULL;
+    }
+    copy = buffer_new(NULL, buf->max_len, buf->flags);
+    if (NULL == copy) {
+        return NULL;
+    }
+    memcpy(copy->string, buf->string, buf->max_len);
+    copy->cur_len = buf->cur_len;
+
+    return copy;
 }
 
 
@@ -301,4 +420,21 @@ _buffer_extend(netsnmp_buf *buf, int increase)
     buf->string  = new_buf;
     buf->max_len = new_buf_len;
     return 0;
+}
+
+
+int 
+buffer_compare(netsnmp_buf *one, netsnmp_buf *two)
+{
+    int compare;
+
+    if ((NULL == one) || (NULL == two)) {
+        return 0;		/* Not really, but.... */
+    }
+
+    compare = (one->cur_len - two->cur_len);
+    if (0 == compare) {
+        compare = memcmp(one->string, two->string, one->cur_len);
+    }
+    return compare;
 }

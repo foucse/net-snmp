@@ -54,9 +54,9 @@ var_set_varbind(netsnmp_varbind *vb, netsnmp_oid *oid, netsnmp_value *value)
     }
 
     if (NULL != vb->oid) {
-        var_free_oid(vb->oid);
+        oid_free(vb->oid);
     }
-    vb->oid = var_copy_oid(oid);
+    vb->oid = oid_copy(oid);
     if (NULL == vb->oid) {
         return -1;
     }
@@ -88,7 +88,7 @@ var_create_varbind(void)
     varbind = (netsnmp_varbind*) calloc(1, sizeof(netsnmp_varbind));
 
     if (NULL != varbind) {
-        varbind->oid   = var_create_oid();
+        varbind->oid   = oid_create();
         varbind->value = var_create_value();
 
         if ((NULL == varbind->oid) || (NULL == varbind->value)) {
@@ -163,7 +163,7 @@ var_free_varbind(netsnmp_varbind *vb)
     if (NULL == vb) {
         return;
     }
-    var_free_oid(  vb->oid);
+    oid_free(  vb->oid);
     var_free_value(vb->value);
     memset((void *) vb, 0, sizeof(netsnmp_varbind));
     free(vb);
@@ -188,7 +188,7 @@ var_bprint_varbind(netsnmp_buf *buf, netsnmp_varbind *varbind)
 
     mib = mib_find_by_oid(varbind->oid);
 
-    __B(var_bprint_oid(buf, varbind->oid))
+    __B(oid_bprint(buf, varbind->oid))
     __B(buffer_append_string(buf, " = "))
     __B(var_bprint_value(buf, varbind->value, mib))
 

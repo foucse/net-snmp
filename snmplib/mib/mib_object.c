@@ -31,9 +31,6 @@
 
 #include "default_store.h"
 
-int             oid_set_name(netsnmp_oid *oid, unsigned int *subids,
-                             int len);
-
 static int      _mib_bprint_entry(netsnmp_buf *buf, SmiNode *node);
 static void     _mib_tree_walk_callback(netsnmp_mib *mib, void *data);
 
@@ -197,7 +194,7 @@ mib_objectid(netsnmp_mib *mib)
     if (NULL == oid) {
         return NULL;
     }
-    if (0 > var_set_oid_value(oid, (unsigned int *) node->oid, node->oidlen)) {
+    if (0 > oid_set_value(oid, (unsigned int *) node->oid, node->oidlen)) {
         free(oid);
         return NULL;
     }
@@ -381,6 +378,7 @@ mib_tree_dump(FILE *fp)
 }
 
 
+#ifdef XXX_DEFUNCT
                 /**************************************
                  *
                  *      temporary utility routines
@@ -426,6 +424,8 @@ oid_set_name(netsnmp_oid *oid, unsigned int *subids, int len)
     oid->len = len;
     return 0;
 }
+
+#endif /* XXX_DEFUNCT */
 
 
                 /**************************************
