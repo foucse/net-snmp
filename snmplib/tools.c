@@ -327,7 +327,8 @@ dump_snmpEngineID(u_char *estring, u_int *estring_len)
 #define eb(b)	( *(esp+b) & 0xff )
 
 	int		 rval		= SNMPERR_SUCCESS,
-			 gotviolation	= 0;
+                         gotviolation	= 0,
+                         slen           = 0;
 	u_int	 	 remaining_len;
 
 	char	 	 buf[SNMP_MAXBUF],
@@ -476,12 +477,12 @@ dump_snmpEngineID_violation:
 
 dump_snmpEngineID_quit:
 	if (s) {
-		*estring_len = s-buf+1;
-		s = SNMP_MALLOC(*estring_len);
-		memcpy(s, buf, (*estring_len)-1);
+                slen = s-buf+1;
+		s = SNMP_MALLOC(slen);
+		memcpy(s, buf, (slen)-1);
 	}
 
-	memset(buf, 0, SNMP_MAXBUF);	/* XXX -- Overkill? */
+	memset(buf, 0, SNMP_MAXBUF);	/* XXX -- Overkill? XXX: Yes! */
 
 	return s;
 
