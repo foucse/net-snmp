@@ -200,7 +200,7 @@ snmpv3_decode_pdu(netsnmp_buf *buf)
     if (NULL == v3info) {
         return NULL;
     }
-    user   = user_decode(buf, NULL);
+    user   = user_decode(buf, v3info, NULL);
     if (NULL == user) {
         v3info_free( v3info );
         return NULL;
@@ -238,7 +238,10 @@ netsnmp_pdu*
 snmpv3_parse_pdu(netsnmp_buf *buf)
 {
     netsnmp_buf *seq  = NULL;
-    netsnmp_pdu *pdu = NULL;
+    netsnmp_pdu *pdu  = NULL;
+    netsnmp_buf *tmp  = NULL;
+    char *cp;
+    int   i;
     long version;
 
     if ((NULL == buf)          ||
@@ -247,6 +250,8 @@ snmpv3_parse_pdu(netsnmp_buf *buf)
         return NULL;
     }
 
+    cp = buf->string;
+    i  = buf->cur_len;
     seq = decode_sequence(buf);
     if (NULL == seq) {
         return NULL;
@@ -260,7 +265,8 @@ snmpv3_parse_pdu(netsnmp_buf *buf)
 		 * XXX - Check version
 		 */
     pdu = snmpv3_decode_pdu(seq);
-    if (NULL == pdu) {
+    if ((NULL == pdu) ||
+        (NULL == pdu->v3info)) {
         buffer_free(seq);
         return NULL;
     }
@@ -268,6 +274,17 @@ snmpv3_parse_pdu(netsnmp_buf *buf)
         pdu_free(pdu);
         buffer_free(seq);
         return NULL;
+    }
+
+    if (AUTH_FLAG & pdu->v3info->v3_flags) {
+        tmp = buffer_new(cp, i, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
+        if (-1 == auth_verify(tmp, pdu->v3info, pdu->userinfo)) {
+            pdu_free(pdu);
+            buffer_free(seq);
+            buffer_free(tmp);
+            return NULL;
+        }
+        buffer_free(tmp);
     }
 
     pdu->version = version;
@@ -326,7 +343,7 @@ printf("**** Using NEW version !!! *** \n");
 
     memset( *pkt, 0, *pkt_len );        /* clear the buffer! */
     buf = buffer_new( *pkt, *pkt_len,
-        NETSNMP_BUFFER_RESIZE|NETSNMP_BUFFER_REVERSE );
+        NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_RESIZE|NETSNMP_BUFFER_REVERSE );
     
     if (0 > snmpv3_encode_pdu( buf, p )) {
         return -1;

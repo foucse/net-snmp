@@ -26,6 +26,7 @@
 #include <net-snmp/snmpv3.h>
 
 #include "protocol/encode.h"
+#include "protocol/decode.h"
 #include "ucd/ucd_api.h"
 #include "scapi.h"
 #include "callback.h"
@@ -97,10 +98,11 @@ priv_oid( int protocol )
 #define USM_MAX_SALT_LENGTH 64		/* In bits */
 
 #define BYTESIZE(bitsize)       ((bitsize + 7) >> 3)
+
    /**
-    *  Perform any necessary preparations for authenticating
-    *    an outgoing PDU.  This is called before the full
-    *    UsmSecurityParameters header has been constructed.
+    *  Encrypt the given PDU payload using the user information
+    *    provided.  Replaces the contents of the data buffer
+    *    with the encrypted version.
     *
     *  Return -1 on failure.
     */
@@ -144,7 +146,7 @@ priv_encrypt(netsnmp_buf     *buf,
     /*
      * The maximum padding size supported is no more than 64,
      *   so let's use a fixed buffer of that size.
-     * We'll need to check that the encrupted version fits
+     * We'll need to check that the encrypted version fits
      *   before copying it back into the message buffer.
      */
     encrypted_buf = buffer_new(NULL, buf->cur_len+64, 0);
@@ -191,5 +193,86 @@ priv_encrypt(netsnmp_buf     *buf,
      */
     buf->cur_len = 0;
     __B(encode_string(buf, ASN_OCTET_STR, encrypted_buf->string, encrypted_buf->cur_len))
+    return 0;
+}
+
+
+
+
+   /**
+    *  Decrypt an incoming PDU payload, replacing the contents of
+    *    the buffer structure with the decrypted PDU.
+    *
+    *  Return -1 on failure.
+    */
+int
+priv_decrypt(netsnmp_buf     *buf,
+             netsnmp_v3info  *v3info,
+             netsnmp_user *userinfo)
+{
+    netsnmp_buf *str;
+    netsnmp_buf *decrypted_buf;
+    netsnmp_oid *oid;
+    u_char  iv[BYTESIZE(USM_MAX_SALT_LENGTH)];
+    u_int   iv_length = BYTESIZE(USM_MAX_SALT_LENGTH);
+    u_int   start, i;
+
+    if (!(v3info->v3_flags & PRIV_FLAG) ||
+        !(userinfo->priv_key)) {
+        return -1;
+    }
+    switch ( userinfo->auth_protocol ) {
+        case NETSNMP_PRIV_PROTOCOL_NONE:
+            return -1;			/* XXX ??? */
+        case NETSNMP_PRIV_PROTOCOL_DES:
+            break;
+        default:
+            return -1;
+    }
+
+    oid = priv_oid(userinfo->priv_protocol);
+    if (NULL == oid) {
+        return -1;
+    }
+
+    /*
+     * Strip off the enclosing OCTET STRING wrapper,
+     *   calculate the IV string (by XORing the salt from the
+     *       encrypted PDU with the user's private key)
+     *   and prepare to decode the result back into an SNMP PDU
+     */
+    str = decode_string(buf, NULL);
+    if (NULL == str) {
+        return -1;
+    }
+    decrypted_buf = buffer_new(NULL, str->cur_len+64, NETSNMP_BUFFER_NOFREE);
+    if (NULL == decrypted_buf) {
+        return -1;
+    }
+    start = userinfo->priv_key->cur_len - iv_length;
+    for (i = 0; i < iv_length; i++) {
+        iv[i] = userinfo->priv_params->string[i] ^
+                userinfo->priv_key->string[start+i];
+    }
+
+    decrypted_buf->cur_len = decrypted_buf->max_len;
+    if (0 > sc_decrypt(oid->name,              oid->len,
+                         userinfo->priv_key->string, userinfo->priv_key->cur_len,
+                         iv,                        iv_length,
+                         str->string,               str->cur_len,
+                         decrypted_buf->string,   &(decrypted_buf->cur_len))) {
+        return -1;
+    }
+
+    /*
+     * Insert the decrypted PDU back into the input 'buf' structure,
+     *   so that it can be parsed by the rest of the code.
+     */
+    buf->string  = decrypted_buf->string;
+    buf->cur_len = decrypted_buf->cur_len;
+    decrypted_buf->string = NULL;
+
+    buffer_free(str);
+    buffer_free(decrypted_buf);
     return 0;
 }

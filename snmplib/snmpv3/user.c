@@ -228,7 +228,7 @@ user_sprint(char *str_buf, int len, netsnmp_user *info)
     netsnmp_buf    *buf;
     char           *cp = NULL;
 
-    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOFREE);
+    buf = buffer_new(str_buf, len, NETSNMP_BUFFER_NOCOPY|NETSNMP_BUFFER_NOFREE);
     if (NULL == buf) {
         return NULL;
     }
@@ -375,12 +375,14 @@ user_encode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
 
 
 netsnmp_user*
-user_decode(netsnmp_buf *buf, netsnmp_user *info)
+user_decode(netsnmp_buf *buf, netsnmp_v3info *v3info, netsnmp_user *userinfo)
 {
-    netsnmp_buf  *user_params = NULL;
-    netsnmp_buf  *seq  = NULL;
-    netsnmp_user *user = NULL;
-    char type;
+    netsnmp_buf    *user_params = NULL;
+    netsnmp_buf    *seq      = NULL;
+    netsnmp_engine *sec_eng  = NULL;
+    netsnmp_buf    *sec_name = NULL;
+    netsnmp_user   *user     = NULL;
+    char *cp;
 
     if ((NULL == buf)          ||
         (NULL == buf->string)  ||
@@ -388,15 +390,11 @@ user_decode(netsnmp_buf *buf, netsnmp_user *info)
         return NULL;
     }
 
-    if (NULL == info) {
-        user = (netsnmp_user *)calloc(1, sizeof(netsnmp_user));
-        if (NULL == user) {
-            return NULL;
-        }
-    } else {
-        user = info;
-    }
 
+    /*
+     * Unpack the UsmSecurityParameters header from the
+     *   enclosing OCTET STRING and sequence
+     */
     user_params = decode_string(buf, NULL);
     if (NULL == user_params) {
         goto fail;
@@ -405,31 +403,96 @@ user_decode(netsnmp_buf *buf, netsnmp_user *info)
     if ((NULL == seq) || (0 != user_params->cur_len)) {
         goto fail;
     }
-    user->sec_engine = engine_decode( seq, NULL );
-    if (NULL == user->sec_engine ) {
+    sec_eng = engine_decode( seq, NULL );
+    if (NULL == sec_eng ) {
         goto fail;
     }
-    user->sec_name   = decode_string( seq, NULL );
-    if (NULL == user->sec_name ) {
+    sec_name   = decode_string( seq, NULL );
+    if (NULL == sec_name ) {
         goto fail;
     }
-    user->auth_params= decode_string( seq, NULL );	/* XXX - Temp */
+
+    /*
+     * Retrieve (or create) the user structure for this user
+     * This can legitimately fail for non-authenticated requests
+     *    (e.g. engine probes)
+     */
+    user = user_create( sec_name->string, sec_name->cur_len, sec_eng);
+    if (NULL == user) {
+        if (NULL != sec_name->string) {
+            goto fail;
+        }
+
+        /*
+         *  If there wasn't a security name specified, and so
+         *    the 'user_create' call failed, then we still
+         *    need something to hang everything else off.
+         */
+        if (NULL == userinfo) {
+            user = (netsnmp_user *)calloc(1, sizeof(netsnmp_user));
+            if (NULL == user) {
+                return NULL;
+            }
+        } else {
+            user = userinfo;
+        }
+        user->sec_name = sec_name;
+        user->sec_engine = sec_eng;
+        user->ref_count++;
+    }
+
+    /*
+     * Extract the authParameters, and attempt to authenticate
+     *   the request if so indicated.
+     * Note that for unauthenticated requests, the authParameters field
+     *   will result in a non-NULL buffer, containing an empty string.
+     */
+    cp = seq->string;
+    user->auth_params= decode_string( seq, NULL );
     if (NULL == user->auth_params ) {
         goto fail;
     }
-    user->priv_params= decode_string( seq, NULL );	/* XXX - May need to decode 'buf' */
+    if ( v3info->v3_flags & AUTH_FLAG ) {
+
+        /*
+         * Blank out the signature from the original message,
+         *   so we can authenticate it later.
+         */
+        memset(cp, 0, user->auth_params->cur_len);
+        /*
+         * The signature itself needs to be calculate over the *whole*
+         *  message buffer, which we don't actually have access to here.
+         *  So we'll postpone calling 'auth_verify' until we return to 'decode_pdu'.
+         * This doesn't feel right in terms of modular programming,
+         *  (since it hardwires using USM at a much too high level in the code)
+         *  but I can't see any alternative just at the moment.
+         */
+    }
+
+    /*
+     * Extract the privParameters (which may also be an empty string)
+     * If the request has been encrypted, replace the contents of the
+     *   input 'buf' with the decrypted version.
+     */
+    user->priv_params= decode_string( seq, NULL );
     if (NULL == user->priv_params ) {
         goto fail;
     }
     if (0 != seq->cur_len) {
         goto fail;
     }
-
+    if ( v3info->v3_flags & PRIV_FLAG ) {
+        if (-1 == priv_decrypt(buf, v3info, user)) {
+            goto fail;
+        }
+    }
     return user;
 
 fail:
     buffer_free( user_params );
     buffer_free( seq );
+    buffer_free( sec_name );
+    engine_free( sec_eng );
     user_free( user );
     return NULL;
 }

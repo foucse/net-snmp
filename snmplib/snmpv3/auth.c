@@ -32,6 +32,9 @@
 int auth_generate_keyed_hash(netsnmp_user *info,
                          netsnmp_buf     *msg,
                          netsnmp_buf     *params);
+int auth_check_keyed_hash(netsnmp_user *info,
+                      netsnmp_buf     *msg,
+                      netsnmp_buf     *params);
 
                 /**************************************
                  *
@@ -213,7 +216,10 @@ auth_generate_keyed_hash(netsnmp_user *info,
     int          offset;
     netsnmp_oid *oid;
 
-    if ((NULL == info ) || (NULL == msg) || (NULL == params)) {
+    if ((NULL == info )          || 
+        (NULL == info->auth_key) || 
+        (NULL == msg)            || 
+        (NULL == params)) {
         return -1;
     }
     if (!(msg->flags & NETSNMP_BUFFER_REVERSE)) {
@@ -238,3 +244,50 @@ auth_generate_keyed_hash(netsnmp_user *info,
 }
 
 
+   /**
+    *  Verify that the authParameter 'signature' matches the
+    *    incoming PDU, and the given user information.
+    *
+    *  Return -1 on failure.
+    */
+int
+auth_verify(netsnmp_buf     *buf,
+               netsnmp_v3info  *v3info,
+               netsnmp_user    *userinfo)
+{
+    if ((NULL == buf)      || 
+        (NULL == v3info)   || 
+        (NULL == userinfo)) {
+        return -1;
+    }
+    return auth_check_keyed_hash(userinfo, buf, userinfo->auth_params);
+}
+
+int
+auth_check_keyed_hash(netsnmp_user *info,
+                      netsnmp_buf     *msg,
+                      netsnmp_buf     *params)
+{
+    netsnmp_oid *oid;
+
+    if ((NULL == info )          || 
+        (NULL == info->auth_key) || 
+        (NULL == msg)            || 
+        (NULL == params)) {
+        return -1;
+    }
+
+    oid      = auth_oid(info->auth_protocol);
+    if (NULL == oid) {
+        return -1;
+    }
+
+    if (0 != sc_check_keyed_hash(
+                       oid->name,               oid->len,
+                       info->auth_key->string,  info->auth_key->cur_len,
+                       msg->string,             msg->cur_len,
+                       params->string,          params->cur_len)) {
+        return -1;
+    }
+    return 0;
+}
