@@ -14,6 +14,7 @@ the ChangeLog file for a more detailed listing of changes/bug fixes.
       works
     - Apply -w width constraint to snmptranslate -Td output
     - Fix for ifSpeed on Irix 6.5
+    - Fix a bug against -H options that might segfault
 
 *4.1.2*
  Fixes:
