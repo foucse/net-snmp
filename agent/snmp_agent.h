@@ -35,8 +35,10 @@ typedef struct request_info_s {
                                        needed for a request (SETs
                                        namely), this can be used to
                                        store data between calls */
+   int delegated;
    int processed;
    int status;
+   int index;
    struct request_info_s         *next;
    struct request_info_s         *prev;
 } request_info;
@@ -126,7 +128,10 @@ int init_master_agent(void);
 int agent_check_and_process(int block);
 struct agent_snmp_session  *get_current_agent_session(void);
 void check_outstanding_agent_requests(int status);
-
+int set_request_error(agent_request_info *reqinfo, request_info *request,
+                      int error_value);
+int set_all_requests_error(agent_request_info *reqinfo, request_info *requests,
+                           int error_value);
 int marker_uptime( marker_t pm );
 int timeval_uptime( struct timeval *tv );
 int get_agent_uptime(void);

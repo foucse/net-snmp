@@ -90,12 +90,14 @@ old_api_helper(mib_handler               *handler,
 #endif
     struct variable	compat_var, *cvp = &compat_var;
     int exact = 1;
-
+    int status;
+    
     struct variable *vp;
     WriteMethod *write_method = NULL;
     size_t len;
     u_char *access = NULL;
-    
+    old_api_cache *cacheptr;
+
     vp = (struct variable *) handler->myvoid;
 
     /* create old variable structure with right information */
@@ -120,36 +122,86 @@ old_api_helper(mib_handler               *handler,
                savelen*sizeof(oid));
 #endif
 
-        /* Actually call the old mib-module */
-        if (vp && vp->findVar)
-            access = (*(vp->findVar))(cvp, requests->requestvb->name,
-                                      &(requests->requestvb->name_length),
-                                      exact, &len, &write_method);
-        else
-            access = NULL;
+        switch(reqinfo->mode) {
+            case MODE_GET:
+            case MODE_GETNEXT:
+            case MODE_GETBULK:   /* WWW */
+            case MODE_SET_RESERVE1:
+                /* Actually call the old mib-module function */
+                if (vp && vp->findVar)
+                    access = (*(vp->findVar))(cvp, requests->requestvb->name,
+                                              &(requests->requestvb->name_length),
+                                              exact, &len, &write_method);
+                else
+                    access = NULL;
 
-        /* WWW: end range checking */
-        if (access) {
-            /* result returned */
-            snmp_set_var_typed_value(requests->requestvb, cvp->type, access,
-                                     len);
-        } else {
-            /* no result returned */
+                /* WWW: end range checking */
+                if (access) {
+                    /* result returned */
+                    if (reqinfo->mode != MODE_SET_RESERVE1)
+                        snmp_set_var_typed_value(requests->requestvb,
+                                                 cvp->type, access, len);
+                } else {
+                    /* no result returned */
 #if MIB_CLIENTS_ARE_EVIL
-            if (access == NULL) {
-                if (snmp_oid_compare(requests->requestvb->name,
-                                     requests->requestvb->name_length,
-                                     save, savelen) != 0) {
-                    snmp_log(LOG_WARNING, "evil_client: ",
-                             reginfo->handlerName);
-                    memcpy(requests->requestvb->name, save,
-                           savelen*sizeof(oid));
-                    requests->requestvb->name_length = savelen;
-                }
-            }
+                    if (access == NULL) {
+                        if (snmp_oid_compare(requests->requestvb->name,
+                                             requests->requestvb->name_length,
+                                             save, savelen) != 0) {
+                            snmp_log(LOG_WARNING, "evil_client: ",
+                                     reginfo->handlerName);
+                            memcpy(requests->requestvb->name, save,
+                                   savelen*sizeof(oid));
+                            requests->requestvb->name_length = savelen;
+                        }
+                    }
 #endif
-        }
+                }
 
+                if (reqinfo->mode != MODE_SET_RESERVE1)
+                    break;
+
+                cacheptr = SNMP_MALLOC_TYPEDEF(old_api_cache);
+                if (!cacheptr)
+                    return set_request_error(reqinfo, requests,
+                                             SNMP_ERR_RESOURCEUNAVAILABLE);
+                cacheptr->data = access;
+                cacheptr->write_method = write_method;
+                requests->state_reference = (void *) cacheptr;
+                
+            default:
+                /* SET contions */
+                cacheptr = (old_api_cache *) requests->state_reference;
+
+                if (cacheptr == NULL || cacheptr->write_method == NULL) {
+                    /* WWW: try to set ourselves if possible? */
+                    return set_request_error(reqinfo, requests,
+                                             SNMP_ERR_NOTWRITABLE);
+                }
+
+                /* set_current_agent_session(asp); /* WWW */
+                status =
+                    (*(cacheptr->write_method))(reqinfo->mode,
+                                                requests->requestvb->val.string,
+                                                requests->requestvb->type,
+                                                requests->requestvb->val_len,
+                                                cacheptr->data,
+                                                requests->requestvb->name,
+                                                requests->requestvb->name_length);
+                /* set_current_agent_session(oldval); /* WWW */
+
+                if (requests->status == SNMP_ERR_NOERROR)
+                    set_request_error(reqinfo, requests, status);
+
+                /* clean up */
+                if (reqinfo->mode == MODE_SET_FREE ||
+                    reqinfo->mode == MODE_SET_UNDO) {
+                    free(cacheptr);
+                    requests->state_reference = NULL;
+                }
+
+                break;
+        }
         requests = requests->next;
     }
     return SNMP_ERR_NOERROR;

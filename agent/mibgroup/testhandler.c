@@ -117,7 +117,8 @@ my_test_handler(
                 break;
                 
             default:
-                return SNMPERR_GENERR;
+                set_request_error(reqinfo, requests, SNMP_ERR_GENERR);
+                break;
         }
 
         requests = requests->next;
@@ -146,6 +147,9 @@ my_test_table_handler(mib_handler               *handler,
     
     while(requests) {
         struct variable_list *var = requests->requestvb;
+
+        if (requests->processed != 0)
+            continue;
 
         DEBUGMSGTL(("testhandler_table", "Got request:\n"));
         DEBUGMSGTL(("testhandler_table", "  oid:"));
@@ -244,7 +248,7 @@ my_test_instance_handler(
 
         case MODE_SET_RESERVE1:
             if (requests->requestvb->type != ASN_UNSIGNED)
-                return SNMP_ERR_WRONGTYPE;
+                set_request_error(reqinfo, requests, SNMP_ERR_WRONGTYPE);
             break;
 
         case MODE_SET_RESERVE2:
@@ -252,7 +256,8 @@ my_test_instance_handler(
             memdup((u_char **) &requests->state_reference,
                    (u_char *) &accesses, sizeof(accesses));
             if (requests->state_reference == NULL)
-                return SNMP_ERR_RESOURCEUNAVAILABLE;
+                set_request_error(reqinfo, requests,
+                                  SNMP_ERR_RESOURCEUNAVAILABLE);
             break;
 
         case MODE_SET_ACTION:

@@ -9,6 +9,10 @@ typedef struct old_api_info_s {
    int flags;
 } old_api_info;
 
+typedef struct old_opi_cache_s {
+   u_char *data;
+   WriteMethod *write_method;
+} old_api_cache;
 
 int register_old_api(const char *moduleName,
                      struct variable *var,

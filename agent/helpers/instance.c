@@ -61,7 +61,8 @@ instance_helper_handler(
         case MODE_SET_UNDO:
         case MODE_SET_FREE:
             if (cmp != 0) {
-                return SNMP_NOSUCHOBJECT;
+                set_request_error(reqinfo, requests, SNMP_ERR_NOSUCHNAME);
+                return SNMP_ERR_NOERROR;
             } else {
                 return call_next_handler(handler, reginfo, reqinfo, requests);
             }

@@ -80,6 +80,7 @@ clean:
 	rm -f core *.o *.lo *.exe ${TARG} ${LIBTARG} ${CLEANTARG}
 	rm -rf .libs
 	cd mibgroup; $(MAKE) clean
+	cd helpers; $(MAKE) clean
 
 
 install:  installdirs

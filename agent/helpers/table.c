@@ -40,9 +40,10 @@ register_table(handler_registration *reginfo,
 }
 
 static void
-table_helper_cleanup(request_info *request, int status ) {
+table_helper_cleanup(agent_request_info *reqinfo, request_info *request,
+                     int status ) {
 
-	request->status = status;
+	set_request_error(reqinfo, request, status);
 	if (request->parent_data) {
 		snmp_free_varbind(((table_request_info*)request->parent_data)->indexes);
 		free(request->parent_data);
@@ -173,7 +174,8 @@ table_helper_handler(
 		if ( (reqinfo->mode == MODE_GET) &&
 				 (var->type != ASN_NULL) ) { /* valid request if ASN_NULL */
 			DEBUGMSGTL(("helper:table", "  GET var type is not ASN_NULL\n" ));
-			request->status = SNMP_ERR_WRONGTYPE;
+                        set_request_error(reqinfo, request,
+                                          SNMP_ERR_WRONGTYPE);
 			continue;
 		}
 
@@ -215,7 +217,7 @@ table_helper_handler(
 		if (out_of_range) {
 			DEBUGMSGTL(("helper:table", "  Not processed.\n"));
 			if (reqinfo->mode != MODE_GETNEXT) {
-				table_helper_cleanup(request,SNMP_ERR_NOSUCHNAME);
+				table_helper_cleanup(reqinfo, request,SNMP_ERR_NOSUCHNAME);
 			}
 			continue;
 		}
@@ -242,7 +244,7 @@ table_helper_handler(
 				/* this is out of range...  remove from requests, free memory */
 				DEBUGMSGTL(("helper:table", "  oid is out of range. Not processed.\n"));
 				if (reqinfo->mode != MODE_GETNEXT) {
-					table_helper_cleanup(request,SNMP_ERR_NOSUCHNAME);
+					table_helper_cleanup(reqinfo, request,SNMP_ERR_NOSUCHNAME);
 				}
 				continue;
 			}
@@ -286,7 +288,7 @@ table_helper_handler(
 				DEBUGMSGTL(("helper:table", "  oid indexes not complete.\n" ));
 				/* no sense in trying anymore if this is a GET/SET. */
 				if (reqinfo->mode != MODE_GETNEXT) {
-					table_helper_cleanup(requests,SNMP_ERR_NOSUCHNAME);
+					table_helper_cleanup(reqinfo, requests,SNMP_ERR_NOSUCHNAME);
 				}
 				tmp_len = 0;
 				tmp_name = (oid*) &tmp_len;
@@ -316,7 +318,7 @@ table_helper_handler(
 	
 		if ( (tbl_req_info->number_indexes != tbl_info->number_indexes) &&
 				 (reqinfo->mode != MODE_GETNEXT) ) {
-			table_helper_cleanup(requests,SNMP_ERR_NOSUCHNAME);
+			table_helper_cleanup(reqinfo, requests,SNMP_ERR_NOSUCHNAME);
 		}
 
 		DEBUGIF("helper:table") {

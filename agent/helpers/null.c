@@ -36,9 +36,15 @@ null_handler(mib_handler               *handler,
 
     switch(reqinfo->mode) {
         case MODE_GETNEXT:
+        case MODE_GETBULK:
             return SNMP_ERR_NOERROR;
 
-		default:
-			return SNMP_ERR_NOSUCHNAME;
+        case MODE_GET:
+            set_all_requests_error(reqinfo, requests, SNMP_NOSUCHOBJECT);
+            return SNMP_ERR_NOERROR;
+
+        default:
+            set_all_requests_error(reqinfo, requests, SNMP_ERR_NOSUCHNAME);
+            return SNMP_ERR_NOERROR;
     }
 }

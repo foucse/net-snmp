@@ -46,7 +46,6 @@ return_delayed_response(unsigned int clientreg, void *clientarg) {
     delegated_cache *cache = (delegated_cache *) clientarg;
     request_info              *requests = cache->requests;
     agent_request_info        *reqinfo  = cache->reqinfo;
-    struct agent_snmp_session *asp      = reqinfo->asp;
     int cmp;
     
     DEBUGMSGTL(("testdelayed", "continuing delayed request, mode = %d\n",
@@ -57,6 +56,7 @@ return_delayed_response(unsigned int clientreg, void *clientarg) {
         return;
     }
     
+    requests->delegated = 0; /* mark it as completed, because it will be */
     switch(cache->reqinfo->mode) {
         case MODE_GET:
             if (requests->requestvb->name_length == 5 &&
@@ -112,7 +112,7 @@ return_delayed_response(unsigned int clientreg, void *clientarg) {
         case MODE_SET_RESERVE1:
             /* check type */
             if (requests->requestvb->type != ASN_INTEGER) {
-                asp->status = SNMP_ERR_WRONGTYPE;
+                set_request_error(reqinfo, requests, SNMP_ERR_WRONGTYPE);
                 return;
             }
             break;
@@ -122,7 +122,8 @@ return_delayed_response(unsigned int clientreg, void *clientarg) {
             memdup((u_char **) &requests->state_reference,
                    (u_char *) &sleeptime, sizeof(sleeptime));
             if (requests->state_reference == NULL) {
-                asp->status = SNMP_ERR_RESOURCEUNAVAILABLE;
+                set_request_error(reqinfo, requests,
+                                  SNMP_ERR_RESOURCEUNAVAILABLE);
                 return;
             }
             break;
@@ -155,10 +156,9 @@ my_test_delayed_handler(
     DEBUGMSGTL(("testdelayed", "Got request, mode = %d:\n", reqinfo->mode));
 
     switch(reqinfo->mode) {
-        case MODE_GET:
-        case MODE_GETNEXT:
+        default:
             /* mark this variable as something that can't be handled now */
-            requests->requestvb->type = ASN_PRIV_DELEGATED;
+            requests->delegated = 1;
             /* register an alarm to update the results at a later time */
             snmp_alarm_register(sleeptime, 0, return_delayed_response,
                                 (void *)

@@ -33,7 +33,8 @@ read_only_helper(
         case MODE_SET_COMMIT:
         case MODE_SET_FREE:
         case MODE_SET_UNDO:
-            return SNMP_ERR_NOTWRITABLE;
+            set_all_requests_error(reqinfo, requests, SNMP_ERR_NOTWRITABLE);
+            return SNMP_ERR_NOERROR;
             
         default:
             return call_next_handler(handler, reginfo, reqinfo, requests);

@@ -43,6 +43,9 @@ multiplexer_helper_handler(
     switch(reqinfo->mode) {
         case MODE_GET:
             handler = methods->get_handler;
+            if (!handler) {
+                set_all_requests_error(reqinfo, requests, SNMP_NOSUCHOBJECT);
+            }
             break;
 
         case MODE_GETNEXT:
@@ -68,8 +71,11 @@ multiplexer_helper_handler(
         case MODE_SET_FREE:
         case MODE_SET_UNDO:
             handler = methods->set_handler;
-            if (!handler)
-                return SNMP_ERR_NOTWRITABLE;
+            if (!handler) {
+                set_all_requests_error(reqinfo, requests, SNMP_ERR_NOTWRITABLE);
+                return SNMP_ERR_NOERROR;
+            }
+            break;
             
         /* XXX: process SETs specially, and possibly others */
         default:
@@ -82,5 +88,5 @@ multiplexer_helper_handler(
                  reqinfo->mode);
         return SNMP_ERR_GENERR;
     }
-    call_handler(handler, reginfo, reqinfo, requests);
+    return call_handler(handler, reginfo, reqinfo, requests);
 }
