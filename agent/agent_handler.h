@@ -56,6 +56,8 @@ typedef struct delegated_cache_s {
 /* handler API functions */
 int register_handler(handler_registration *reginfo);
 int inject_handler(handler_registration *reginfo, mib_handler *handler);
+mib_handler *find_handler_by_name(handler_registration *reginfo, char *name);
+void *find_handler_data_by_name(handler_registration *reginfo, char *name);
 int call_handlers(handler_registration *reginfo,
                   agent_request_info   *reqinfo,
                   request_info         *requests);
@@ -83,7 +85,7 @@ create_delegated_cache(mib_handler               *,
 inline request_parent_data *handler_create_parent_data(const char *, void *,
                                                        Free_Parent_Data *);
 void handler_add_parent_data(request_info *, request_parent_data *);
-void *handler_get_parent_data(request_info *, char *);
+void *handler_get_parent_data(request_info *, const char *);
 void free_parent_data_set(request_info *);  /* single */
 void free_parent_data_sets(request_info *); /* multiple */
 
