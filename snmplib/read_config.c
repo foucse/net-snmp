@@ -54,6 +54,7 @@ register_premib_handler(type, token, parser, releaser)
   ltmp = register_config_handler(type, token, parser, releaser);
   if (ltmp != NULL)
     ltmp->config_time = PREMIB_CONFIG;
+  return (ltmp);
 }
 
 struct config_line *
@@ -207,6 +208,7 @@ void read_config(filename, line_handler, when)
       /* check blank line or # comment */
       if ((cptr = skip_white(cptr)))
 	{
+          DEBUGP("%s:%d Parsing: %s\n", filename, linecount, line);
           copy_word(cptr,word);
           cptr = skip_not_white(cptr);
           cptr = skip_white(cptr);
@@ -382,9 +384,92 @@ char *skip_not_white(ptr)
   return (ptr);
 }
 
+char *skip_token(char *ptr)
+{
+  ptr = skip_white(ptr);
+  ptr = skip_not_white(ptr);
+  ptr = skip_white(ptr);
+  return (ptr);
+}
+
 void copy_word(from, to)
      char *from, *to;
 {
   while (*from != 0 && !isspace(*from)) *(to++) = *(from++);
   *to = 0;
+}
+
+
+/* read_config_save_octet_string(): saves an octet string as a length
+   followed by a string of hex */
+char *read_config_save_octet_string(char *saveto, u_char *str, int len) {
+  int i;
+  sprintf(saveto, "%d ", len);
+  saveto += strlen(saveto);
+  for(i = 0; i < len; i++) {
+    sprintf(saveto,"%02x", str[i]);
+    saveto = saveto + 2;
+  }
+  return saveto;
+}
+
+/* read_config_read_octet_string(): reads an octet string that was
+   saved by the read_config_save_octet_string() function */
+char *read_config_read_octet_string(char *readfrom, u_char **str, int *len) {
+  u_char *cptr=NULL;
+  u_int tmp;
+  int i;
+  
+  *len = atoi(readfrom);
+  if (*len > 0 && (str == NULL ||
+      (cptr = (u_char *)malloc(*len * sizeof(u_char))) == NULL))
+    return NULL;
+  *str = cptr;
+  readfrom = skip_token(readfrom);
+  for(i = 0; i < *len; i++) {
+    sscanf(readfrom,"%2x",&tmp);
+    *cptr++ = (u_char) tmp;
+    readfrom += 2;
+  }
+  readfrom = skip_white(readfrom);
+  return readfrom;
+}
+
+
+/* read_config_save_objid(): saves an objid as a numerical string */
+char *read_config_save_objid(char *saveto, oid *objid, int len) {
+  int i;
+  
+  /* in case len=0, this makes it easier to read it back in */
+  sprintf(saveto, "%d ", len);
+  saveto += strlen(saveto);
+  
+  for(i=0; i < len; i++) {
+    sprintf(saveto,".%d", objid[i]);
+    saveto += strlen(saveto);
+  }
+  return saveto;
+}
+
+/* read_config_read_objid(): reads an objid from a format saved by the above */
+char *read_config_read_objid(char *readfrom, oid **objid, int *len) {
+  u_int tmp;  /* oids are 'char's on some systems */
+  int i;
+  
+  *len = atoi(readfrom);
+  
+  if (*len > 0 &&
+      (objid == NULL || (*objid = malloc(*len * sizeof(oid))) == NULL))
+    return NULL;
+
+  readfrom = skip_token(readfrom);
+  for(i = 0; i < *len; i++) {
+    sscanf(readfrom,".%d",&tmp);
+    (*objid)[i] = tmp;
+    if (i != *len - 1)
+      readfrom = strchr(readfrom+1, '.'); /* no more dots */
+  }
+  if (*len > 0)
+    readfrom = skip_token(readfrom); /* we're staring at the last .%d */
+  return readfrom;
 }

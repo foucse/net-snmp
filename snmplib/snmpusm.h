@@ -38,5 +38,8 @@ struct usmUser *usm_clone_user(struct usmUser *from);
 struct usmUser *usm_create_initial_user();
 struct usmUser *usm_cloneFrom_user(struct usmUser *from, struct usmUser *to);
 struct usmUser *usm_remove_user(struct usmUser *user, struct usmUser *userList);
+char           *get_objid(char *line, oid **optr, int *len);
+void            usm_save_user(struct usmUser *user, char *token, char *type);
+struct usmUser *usm_read_user(char *line);
 
 #endif /* SNMPUSM_H */

@@ -23,6 +23,7 @@
 #include "snmp-tc.h"
 #include "snmpusm.h"
 #include "system.h"
+#include "read_config.h"
 
 /* misc protocol oids */
 static oid usmNoAuthProtocol[]      = { 1,3,6,1,6,3,10,1,1,1 };
@@ -78,7 +79,7 @@ struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList) {
     if (nptr->engineIDLen == user->engineIDLen &&
         memcmp(nptr->engineID, user->engineID, user->engineIDLen) == 0 &&
         strlen(nptr->name) == strlen(user->name) &&
-        strcmp(nptr->name, pptr->name) > 0)
+        strcmp(nptr->name, user->name) > 0)
       break;
   }
 
@@ -342,6 +343,7 @@ struct usmUser *usm_create_initial_user(void) {
     return usm_free_user(newUser);
   newUser->cloneFrom[0] = 0;
   newUser->cloneFrom[1] = 0;
+  newUser->cloneFromLen = 2;
 
   if (newUser->privProtocol)
     free(newUser->privProtocol);
@@ -366,3 +368,93 @@ struct usmUser *usm_create_initial_user(void) {
   return newUser;
 }
 
+/* usm_save_users(): saves a list of users to the persistent cache */
+void usm_save_users(struct usmUser *userList, char *token, char *type) {
+  struct usmUser *uptr;
+  for (uptr = userList; uptr != NULL; uptr = uptr->next) {
+    if (uptr->userStorageType == ST_NONVOLATILE)
+      usm_save_user(uptr, token, type);
+  }
+}
+
+/* usm_save_user(): saves a user to the persistent cache */
+void usm_save_user(struct usmUser *user, char *token, char *type) {
+  char line[4096];
+  char *cptr;
+  int i, tmp;
+
+  memset(line, 0, sizeof(line));
+  
+  sprintf(line, "%s %d %d ", token, user->userStatus, user->userStorageType);
+  cptr = &line[strlen(line)]; /* the NULL */
+  cptr = read_config_save_octet_string(cptr, user->engineID, user->engineIDLen);
+  *cptr++ = ' ';
+  /* XXX: makes the mistake of assuming the name doesn't contain a NULL */
+  cptr = read_config_save_octet_string(cptr, user->name,
+                                       (user->name == NULL) ? 0 :
+                                       strlen(user->name)+1);
+  *cptr++ = ' ';
+  cptr = read_config_save_octet_string(cptr, user->secName,
+                                       (user->secName == NULL) ? 0 :
+                                       strlen(user->secName)+1);
+  *cptr++ = ' ';
+  cptr = read_config_save_objid(cptr, user->cloneFrom, user->cloneFromLen);
+  *cptr++ = ' ';
+  cptr = read_config_save_objid(cptr, user->authProtocol,
+                                user->authProtocolLen);
+  *cptr++ = ' ';
+  cptr = read_config_save_octet_string(cptr, user->authKey, user->authKeyLen);
+  *cptr++ = ' ';
+  cptr = read_config_save_objid(cptr, user->privProtocol,
+                                user->privProtocolLen);
+  *cptr++ = ' ';
+  cptr = read_config_save_octet_string(cptr, user->privKey, user->privKeyLen);
+  *cptr++ = ' ';
+  cptr = read_config_save_octet_string(cptr, user->userPublicString,
+                                       (user->userPublicString == NULL) ? 0 :
+                                       strlen(user->userPublicString)+1);
+  read_config_store(type, line);
+}
+
+/* usm_parse_user(): reads in a line containing a saved user profile
+   and returns a pointer to a newly created struct usmUser. */
+struct usmUser *usm_read_user(char *line) {
+  struct usmUser *user;
+  int len;
+
+  user = usm_clone_user(NULL);
+  user->userStatus = atoi(line);
+  line = skip_token(line);
+  user->userStorageType = atoi(line);
+  line = skip_token(line);
+  line = read_config_read_octet_string(line, &user->engineID,
+                                       &user->engineIDLen);
+  line = read_config_read_octet_string(line, &user->name,
+                                       &len);
+  line = read_config_read_octet_string(line, &user->secName,
+                                       &len);
+  if (user->cloneFrom) {
+    free(user->cloneFrom);
+    user->cloneFromLen = 0;
+  }
+  line = read_config_read_objid(line, &user->cloneFrom, &user->cloneFromLen);
+  if (user->authProtocol) {
+    free(user->authProtocol);
+    user->authProtocolLen = 0;
+  }
+  line = read_config_read_objid(line, &user->authProtocol,
+                                &user->authProtocolLen);
+  line = read_config_read_octet_string(line, &user->authKey,
+                                       &user->authKeyLen);
+  if (user->privProtocol) {
+    free(user->privProtocol);
+    user->privProtocolLen = 0;
+  }
+  line = read_config_read_objid(line, &user->privProtocol,
+                                &user->privProtocolLen);
+  line = read_config_read_octet_string(line, &user->privKey,
+                                       &user->privKeyLen);
+  line = read_config_read_octet_string(line, &user->userPublicString,
+                                       &len);
+  return user;
+}
