@@ -62,14 +62,11 @@
 #include "agentx/client.h"
 #endif
 
-
-typedef struct subtree_context_cache_s {
-   char *context_name;
-   struct subtree *first_subtree;
-   struct subtree_context_cache_s *next;
-} subtree_context_cache;
-
 subtree_context_cache *context_subtrees = NULL;
+
+subtree_context_cache *get_top_context_cache(void) {
+    return context_subtrees;
+}
 
 struct subtree *
 find_first_subtree(const char *context_name) {

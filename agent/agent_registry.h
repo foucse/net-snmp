@@ -210,6 +210,17 @@ extern void (* external_signal_handler[NUM_EXTERNAL_SIGS])(int);
 int register_signal(int, void (*func)(int));
 int unregister_signal(int);
 
+/* translates a context name into a subtree structure pointer */
+
+typedef struct subtree_context_cache_s {
+   char *context_name;
+   struct subtree *first_subtree;
+   struct subtree_context_cache_s *next;
+} subtree_context_cache;
+
+struct subtree *find_first_subtree(const char *context_name);
+subtree_context_cache *get_top_context_cache(void);
+
 #ifdef __cplusplus
 };
 #endif
