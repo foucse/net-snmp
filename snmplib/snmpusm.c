@@ -40,11 +40,137 @@
 #define FALSE	0
 
 /*
+	Note, some of this file is designed to be read in tab stop 4.
+	 Functions doing this will be designated with this in a comment.
+*/
+
+/*
 	This is the seed for the salt (an arbitrary number - RFC2274,
 	Sect 8.1.1.1.)
 */
 
 static u_int salt_integer = 4985517;
+
+int    reportErrorOnUnknownID = 0; /* Should be configurable item */
+
+/* All of the usmStateReference functions are tab stop 4 */
+struct usmStateReference {
+	u_char *usr_name;
+	u_int usr_name_length;
+	u_char *usr_engine_id;
+	u_int usr_engine_id_length;
+	oid *usr_auth_protocol;
+	u_int usr_auth_protocol_length;
+	u_char *usr_auth_key;
+	u_int usr_auth_key_length;
+	oid *usr_priv_protocol;
+	u_int usr_priv_protocol_length;
+	u_char *usr_priv_key;
+	u_int usr_priv_key_length;
+	u_int usr_sec_level;
+};
+
+struct usmStateReference *
+usm_malloc_usmStateReference()
+{
+	struct usmStateReference *new = (struct usmStateReference *)
+		malloc (sizeof(struct usmStateReference));
+
+	if (new == NULL) return NULL;
+
+	memset (new, 0, sizeof(struct usmStateReference));
+}
+
+void
+usm_free_usmStateReference(struct usmStateReference *old)
+{
+	if (old->usr_name_length != 0) free (old->usr_name);
+	if (old->usr_engine_id_length != 0) free (old->usr_engine_id);
+	if (old->usr_auth_protocol_length != 0) free(old->usr_auth_protocol);
+	if (old->usr_auth_key_length != 0) free (old->usr_auth_key);
+	if (old->usr_priv_protocol_length != 0) free(old->usr_priv_protocol);
+	if (old->usr_priv_key_length != 0) free (old->usr_priv_key);
+	free (old);
+}
+
+/* A macro to ease the setting of the secStateRef parameters */
+#define MAKE_ENTRY(type,item,len,field,field_len) \
+	if (ref == NULL) return -1; \
+	if (ref->field != NULL) \
+		free (ref->field); \
+ \
+	if ((ref->field = type malloc (len)) == NULL) \
+	{ \
+		return -1; \
+	} \
+	memcpy (ref->field, item, len); \
+	ref->field_len = len; \
+ \
+	return 0
+
+int
+usm_set_usmStateReference_name (struct usmStateReference *ref,
+	u_char *name, u_int name_len)
+{
+	MAKE_ENTRY ((u_char*),name,name_len,usr_name,usr_name_length);
+}
+
+int
+usm_set_usmStateReference_engine_id (struct usmStateReference *ref,
+	u_char *engine_id, u_int engine_id_len)
+{
+	MAKE_ENTRY ((u_char*),engine_id,engine_id_len,
+		usr_engine_id,usr_engine_id_length);
+}
+
+int
+usm_set_usmStateReference_auth_protocol (struct usmStateReference *ref,
+	oid *auth_protocol, u_int auth_protocol_len)
+{
+	MAKE_ENTRY ((oid *),auth_protocol,auth_protocol_len,
+		usr_auth_protocol,usr_auth_protocol_length);
+}
+
+int
+usm_set_usmStateReference_auth_key (struct usmStateReference *ref,
+	u_char *auth_key, u_int auth_key_len)
+{
+	MAKE_ENTRY ((u_char*),auth_key,auth_key_len,
+		usr_auth_key,usr_auth_key_length);
+}
+
+int
+usm_set_usmStateReference_priv_protocol (struct usmStateReference *ref,
+	oid *priv_protocol, u_int priv_protocol_len)
+{
+	MAKE_ENTRY ((oid *),priv_protocol,priv_protocol_len,
+		usr_priv_protocol,usr_priv_protocol_length);
+}
+
+int
+usm_set_usmStateReference_priv_key (struct usmStateReference *ref,
+	u_char *priv_key, u_int priv_key_len)
+{
+	MAKE_ENTRY ((u_char*),priv_key,priv_key_len,
+		usr_priv_key,usr_priv_key_length);
+}
+
+int
+usm_set_usmStateReference_sec_level (struct usmStateReference *ref,
+	u_int sec_level)
+{
+	if (ref == NULL) return -1;
+	ref->usr_sec_level = sec_level;
+	return 0;
+}
+
+/*
+	This is a print routine that is solely included so that it can be
+	used in gdb.  Don't use it as a function, it will be pulled before
+	a real release of the code.
+
+	tab stop 4
+*/
 
 void
 emergency_print (u_char *field, u_int length)
@@ -62,9 +188,15 @@ emergency_print (u_char *field, u_int length)
 		start = stop;
 		stop = stop+25<length?stop+25:length;
 	}
-	fflush (0);
+	fflush (0); /* Only works on FreeBSD; core dumps on Sun OS's */
 }
 
+/*
+	This gives the number of bytes that the ASN.1 encoder (in asn1.c) will
+	use to encode a particular integer value.
+
+	tab stop 4
+*/
 int
 asn_predict_int_length (int type, long number, int len)
 {
@@ -86,6 +218,13 @@ asn_predict_int_length (int type, long number, int len)
 }
 
 
+/*
+	This gives the number of bytes that the ASN.1 encoder (in asn1.c) will
+	use to encode a particular integer value.  This is as broken as the
+	currently used encoder.
+
+	tab stop 4
+*/
 int
 asn_predict_length (int type, u_char *ptr, int u_char_len)
 {
@@ -102,6 +241,53 @@ asn_predict_length (int type, u_char *ptr, int u_char_len)
 		return 1+3+u_char_len;
 }
 
+/*
+	tab stop 4
+
+	This routine calculates the offsets into an outgoing message buffer
+	for the necessary values.  The outgoing buffer will generically
+	look like this:
+
+	SNMPv3 Message
+		SEQ len[11]
+			INT len version
+	Header
+			SEQ len
+				INT len MsgID
+				INT len msgMaxSize
+				OST len msgFlags (OST = OCTET STRING)
+				INT len msgSecurityModel
+	MsgSecurityParameters
+			[1] OST len[2]
+				SEQ len[3]
+					OST len msgAuthoritativeEngineID
+					INT len msgAuthoritativeEngineBoots
+					INT len msgAuthoritativeEngineTime
+					OST len msgUserName
+					OST len[4] [5] msgAuthenticationParameters
+					OST len[6] [7] msgPrivacyParameters
+	MsgData
+			[8] OST len[9] [10] encryptedPDU
+			or
+			[8,10] SEQUENCE len[9] scopedPDU
+		[12]
+
+	The bracketed points will be needed to be identified ([x] is an index
+	value, len[x] means a length value).  Here is a semantic guide to them:
+
+	[1] = globalDataLen (input)
+	[2] = otstlen
+	[3] = seq_len
+	[4] = msgAuthParmLen (may be 0 or 12)
+	[5] = authParamsOffset
+	[6] = msgPrivParmLen (may be 0 or 8)
+	[7] = privParamsOffset
+	[8] = globalDataLen + msgSecParmLen
+	[9] = datalen
+	[10] = dataOffset
+	[11] = theTotalLength - the length of the header itself
+	[12] = theTotalLength
+*/
 int
 usm_calc_offsets (
 	int globalDataLen,
@@ -109,8 +295,8 @@ usm_calc_offsets (
 	int secEngineIDLen,
 	int secNameLen,
 	int scopedPduLen,
-	long engineboots,
-	long enginetime,
+	long engineboots, /* asn1.c works in long, not int */
+	long enginetime, /* asn1.c works in long, not int */
 	int *theTotalLength,
 	int *authParamsOffset,
 	int *privParamsOffset,
@@ -308,6 +494,14 @@ for reference now. */
   return 0;
 }
 
+/*
+	tab stop 4
+
+	This defines the procedure for determining the initialization vector
+	for the CBC-DES encryption process.  See RFC 2274, 8.1.1.1. for the
+	details.
+*/
+
 int
 usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int prev_key_length)
 {
@@ -334,6 +528,12 @@ usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int prev_key_length)
 
 	return 0;
 }
+
+/*
+	tab stop 4
+
+	Generates an outgoing message.
+*/
 
 int
 usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize, 
@@ -399,10 +599,29 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 	long           boots_long;
 	long           time_long;
 
+	/* Indirection becuase secStateRef values override parameters */
+
+	u_char *theName = NULL;
+	u_int theNameLength = 0;
+	u_char *theEngineID = NULL;
+	u_int theEngineIDLength = 0;
+	oid *theAuthKey = NULL;
+	u_int theAuthKeyLength = 0;
+	u_char *theAuthProtocol = NULL;
+	u_int theAuthProtocolLength = 0;
+	oid *thePrivKey = NULL;
+	u_int thePrivKeyLength = 0;
+	u_char *thePrivProtocol = NULL;
+	u_int thePrivProtocolLength = 0;
+	u_int theSecLevel = 0; /*No defined const for bad value (other then err)*/
+
 	DEBUGP ("usm_generate_out_msg():%s,%d: USM processing begun\n",
 		__FILE__,__LINE__);
 
-	if (secStateRef != NULL) free (secStateRef);
+	if (secStateRef != NULL)
+	{
+		free (secStateRef);
+	}
 
 	/* Identify the user record */
 
@@ -426,11 +645,21 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 
 	/* Retrieve the engine information */
 
-	if (get_enginetime(secEngineID,secEngineIDLen,&boots_uint,&time_uint)==-1)
+	if (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
+		|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
 	{
-		DEBUGP ("usm_generate_out_msg():%s,%d: Failed to find engine data\n",
-			__FILE__,__LINE__);
-		return USM_ERR_GENERIC_ERROR;
+		if (get_enginetime (secEngineID, secEngineIDLen, &time_uint,
+			&boots_uint) == -1)
+		{
+			DEBUGP ("usm_generate_out_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Failed to find engine data");
+			return USM_ERR_GENERIC_ERROR;
+		}
+	}
+	else
+	{
+		boots_uint = 0;
+		time_uint = 0;
 	}
 
 	boots_long = boots_uint;
@@ -708,6 +937,12 @@ usm_process_in_msg_NULL (msgProcModel, maxMsgSize, secParams, secModel, secLevel
   return 0;
 }
 
+/*
+	tab stop 4
+
+	Extracts values from the security header and data portions of the
+	incoming buffer.
+*/
 int
 usm_parse_security_parameters (secParams, remaining, secEngineID,
 			secEngineIDLen, boots_uint, time_uint, secName, secNameLen,
@@ -737,6 +972,8 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 
 	long boots_long;
 	long time_long;
+
+	u_int origNameLen;
 
 	/* Eat the first octet header */
 
@@ -816,11 +1053,20 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 
 	/* Retrieve the secName */
 
+	origNameLen = *secNameLen;
+
 	if ((next_ptr = asn_parse_string (next_ptr, &remaining_bytes, &type_value,
 		secName, secNameLen)) == NULL)
 	{
 		/* RETURN parse error */ return -1;
 	}
+
+	if (origNameLen < *secNameLen + 1)
+	{
+		/* RETURN parse error, but it's really a parameter error */ return -1;
+	}
+
+	secName[*secNameLen++] = '\0';
 
 	if (type_value != (u_char) (ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR))
 	{
@@ -862,6 +1108,12 @@ usm_parse_security_parameters (secParams, remaining, secEngineID,
 	return 0;
 }
 
+/*
+	tab stop 4
+
+	Performs the incoming timeliness checking and setting.
+*/
+
 int
 usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 	time_uint, error)
@@ -902,7 +1154,8 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 			/* else */
 				/* Message is ok, but don't take time */
 
-	if (secEngineIDLen == myIDLength && memcmp (secEngineID, myID, myIDLength))
+	if (secEngineIDLen == myIDLength
+		&& memcmp (secEngineID, myID, myIDLength) == 0)
 	{
 		/* This is a local reference */
 
@@ -937,7 +1190,7 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 		u_int theirBoots, theirTime;
 		u_int time_difference;
 
-		if (get_enginetime(secEngineID,secEngineIDLen,&theirBoots,&theirTime)
+		if (get_enginetime(secEngineID,secEngineIDLen,&theirTime,&theirBoots)
 			!= SNMPERR_SUCCESS)
 		{
 			DEBUGP ("usm_check_and_update_timeliness():%s,%d: %s\n",
@@ -1006,6 +1259,9 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 	}
 }
 
+/*
+	tab stop 4
+*/
 int
 usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel, 
     wholeMsg, wholeMsgLen, secEngineID, secEngineIDLen, 
@@ -1044,7 +1300,6 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 	u_char *value_ptr;
 	u_char type_value;
 	u_char *end_of_overhead;
-	int    reportErrorOnUnknownID = 0; /* Should be configurable item */
 	int    error;
 
 	struct usmUser *user;
@@ -1154,10 +1409,14 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 
 	/* Perform the timeliness/time manager functions */
 
-	if (usm_check_and_update_timeliness (secEngineID, *secEngineIDLen,
-		boots_uint, time_uint, &error)==-1)
+	if (secLevel == SNMP_SEC_LEVEL_AUTHNOPRIV
+		|| secLevel == SNMP_SEC_LEVEL_AUTHPRIV)
 	{
-		return error;
+		if (usm_check_and_update_timeliness (secEngineID, *secEngineIDLen,
+			boots_uint, time_uint, &error)==-1)
+		{
+			return error;
+		}
 	}
 
 	/* If needed, decrypt the scoped PDU */
