@@ -52,6 +52,7 @@
 #include "snmp_client.h"
 #include "mib.h"
 #include "snmp.h"
+#include "keytools.h"
 
 #ifdef USE_V2PARTY_PROTOCOL
 #include "party.h"
@@ -66,6 +67,13 @@
 
 int random_access = 0;
 
+#define USM_AUTH_PROTO_MD5_LEN 10
+static oid usmHMACMD5AuthProtocol[]  = { 1,3,6,1,6,3,10,1,1,2 };
+#define USM_AUTH_PROTO_SHA_LEN 10
+static oid usmHMACSHA1AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,3 };
+#define USM_PRIV_PROTO_DES_LEN 10
+static oid usmDESPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,2 };
+
 void usage __P((void));
 
 void
@@ -73,7 +81,7 @@ snmp_parse_args_usage(outf)
   FILE *outf;
 {
   fprintf(outf,
-        "[-v 1|2c|2p|3] [-h] [-d] [-q] [-R] [-D] [-m <MIBS>] [-M <MIDDIRS>] [-p <P>] [-t <T>] [-r <R>] [-c <S> <D>] [-e <E>] [-n <N>] [-u <U>] [-l <L>] [-k|-K <K>] hostname> <community>|{<srcParty> <dstParty> <context>}");
+        "[-v 1|2c|2p|3] [-h] [-d] [-q] [-R] [-D] [-m <MIBS>] [-M <MIDDIRS>] [-p <P>] [-t <T>] [-r <R>] [-c <S> <D>] [-e <E>] [-n <N>] [-u <U>] [-l <L>] [-a <A>] [-A <P>] [-x <X>] [-X <P>] hostname> <community>|{<srcParty> <dstParty> <context>}");
 }
 
 void
@@ -101,8 +109,10 @@ snmp_parse_args_descriptions(outf)
   fprintf(outf, "  -n <N>\tcontext name (e.g., bridge1).\n");
   fprintf(outf, "  -u <U>\tsecurity name (e.g., bert).\n");
   fprintf(outf, "  -l <L>\tsecurity level (noAuthNoPriv|authNoPriv|authPriv).\n");
-  fprintf(outf, "  -k <K>\tpass phrase.\n");
-  fprintf(outf, "  -K <K>\tpass key\n");
+  fprintf(outf, "  -a <A>\tauthentication protocol (MD5|SHA)\n");
+  fprintf(outf, "  -A <P>\tauthentication protocol pass phrase.\n");
+  fprintf(outf, "  -x <X>\tprivacy protocol (DES).\n");
+  fprintf(outf, "  -X <P>\tprivacy protocol pass phrase\n");
 }
 #define BUF_SIZE 512
 int
@@ -352,12 +362,92 @@ snmp_parse_args(argc, argv, session, type)
 	
         break;
 
-      case 'k':
-	/* handle user password for v3 auth/priv */
+      case 'a':
+        if (argv[arg][2] != 0)
+          psz = &(argv[arg][2]);
+        else
+          psz = argv[++arg];
+        if( psz == NULL) {
+          fprintf(stderr,"Need authentication protocol value after -a flag. \n");
+          usage();
+          exit(1);
+        }
+        if (!strcmp(psz,"MD5")) {
+          session->securityAuthProto = usmHMACMD5AuthProtocol;
+          session->securityAuthProtoLen = USM_AUTH_PROTO_MD5_LEN;
+        } else if (!strcmp(psz,"SHA")) {
+          session->securityAuthProto = usmHMACSHA1AuthProtocol;
+          session->securityAuthProtoLen = USM_AUTH_PROTO_SHA_LEN;
+        } else {
+          fprintf(stderr,"Invalid authentication protocol specified after -a flag: %s\n", psz);
+          usage();
+          exit(1);
+        }
         break;
 
-      case 'K':
-	/* handle user key v3 auth/priv */
+      case 'x':
+        if (argv[arg][2] != 0)
+          psz = &(argv[arg][2]);
+        else
+          psz = argv[++arg];
+        if( psz == NULL) {
+          fprintf(stderr,"Need privacy protocol value after -x flag. \n");
+          usage();
+          exit(1);
+        }
+        if (!strcmp(psz,"DES")) {
+          session->securityPrivProto = usmDESPrivProtocol;
+          session->securityPrivProtoLen = USM_PRIV_PROTO_DES_LEN;
+        } else {
+          fprintf(stderr,"Invalid privacy protocol specified after -x flag: %s\n", psz);
+          usage();
+          exit(1);
+        }
+        break;
+
+      case 'A':
+        if (argv[arg][2] != 0)
+          psz = &(argv[arg][2]);
+        else
+          psz = argv[++arg];
+        if( psz == NULL) {
+          fprintf(stderr,"Need authentication pass phrase value after -A flag. \n");
+          usage();
+          exit(1);
+        }
+	session->securityAuthKeyLen = USM_AUTH_KU_LEN;
+	if (generate_Ku(session->securityAuthProto, 
+			session->securityAuthProtoLen,
+			psz, strlen(psz), 
+			session->securityAuthKey, 
+			&session->securityAuthKeyLen) != SNMPERR_SUCCESS) {
+          fprintf(stderr,"Error generating Ku from authentication pass phrase. \n");
+          usage();
+          exit(1);
+        }
+        break;
+
+      case 'X':
+        if (argv[arg][2] != 0)
+          psz = &(argv[arg][2]);
+        else
+          psz = argv[++arg];
+        if( psz == NULL) {
+          fprintf(stderr,"Need privacy pass phrase value after -X flag. \n");
+          usage();
+          exit(1);
+        }
+	session->securityPrivKeyLen = USM_PRIV_KU_LEN;
+	if (generate_Ku(session->securityPrivProto, 
+			session->securityPrivProtoLen,
+			psz, strlen(psz), 
+			session->securityPrivKey, 
+			&session->securityPrivKeyLen) != SNMPERR_SUCCESS) {
+          fprintf(stderr,"Error generating Ku from privacy pass phrase. \n");
+          usage();
+          exit(1);
+        }
+
         break;
 
       case 'h':
