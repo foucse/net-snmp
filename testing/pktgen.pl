@@ -3,6 +3,8 @@ use Getopt::Std;
 use Convert::BER(BER_CONSTRUCTOR,BER_CONTEXT);
 use SSLeay;
 use Socket;
+use OpenSSL;
+use Crypt::CBC;
 
 my $pktTmpl = 
 { TAG => snmpV3Msg,
@@ -489,7 +491,7 @@ sub pkt_gen_ku {
     my $pass = shift;
     my $len = length($pass);
 
-    print "pkt_gen_ku: called ($proto, $pass)\n";
+    print "pkt_gen_ku: called ($proto, $pass)\n" if $opt_D;
     return undef unless $len;
     
     $meg = 1048576;
@@ -612,34 +614,52 @@ sub pkt_encrypt_data {
     my $passphrase = shift;
     my $engine_id = shift;
     my $buf = $ber->buffer();
-    # $buf .= "\0" x (8 - length($buf) % 8) if length($buf) % 8;
-    print "pkt_encrypt_data: called [$priv_proto, $passphrase, ",
-    length($buf), join(" ", ", 0x", map {sprintf "%02X", $_;} unpack("C*", $buf)),"]\n";
+#    $buf .= "\0" x (8 - length($buf) % 8) if length($buf) % 8;
+    print "pkt_encrypt_data: called [$priv_proto, $passphrase, ", length($buf), 
+    join(" ",", 0x", map {sprintf "%02X",$_;} unpack("C*", $buf)),"]\n" if $opt_D; 
 
     my $ku = pkt_gen_ku($auth_proto,$passphrase);
     $engine_id = pkt_cvt_hex($engine_id) if $engine_id =~ /^\s*0[xX]/;
     my $kul = pkt_gen_kul($auth_proto,$ku,$engine_id);
 
     my $des_key = substr($kul,0,8);
-    my $pre_iv = substr($kul,8,8); # last 8, this may not be right for SHA
-#    my $salt = pack('NN',rand(0xffffffff),rand(0xffffffff));
-    my $salt = pack('NN',1,1);
-print join(" ", "salt = 0x", map {sprintf "%02X", $_;} unpack("C*", $salt)),"\n";
+    my $pre_iv = substr($kul,8,8); 
+    my $salt = pack('NN',rand()*0xffffffff,rand()*0xffffffff);
+    print join(" ", "salt = 0x", map {sprintf "%02X",$_;} unpack("C*",$salt)),"\n" 
+	if $opt_D;
+    pkt_push_post_process(sub {
+	my $ber = shift;
+	my $pos = pkt_find_field_pos($ber, 'msgPrivParam', $pktTmpl);
+	return unless defined $pos;
+	my $buffer = $ber->buffer();
+	substr($buffer,$pos+2,8) = $salt;
+	$ber->buffer($buffer);
+    });
+
     my $iv = $pre_iv ^ $salt;
-    my $cipher = new SSLeay::Cipher('des-cbc');
-    $cipher->init($des_key, $iv, 1);
+    my $cipher = new Crypt::CBC('DES',$des_key,$iv);
+    print "made new Cipher Crypt::CBC $cipher\n" if $opt_D;
+#    my $cipher = new OpenSSL::Cipher($priv_proto);
+#    $cipher->init($des_key, $iv, 1);
     my $oldbuf=$buf;
-    $buf = $cipher->update($buf);
-    $buf .= $cipher->final();
-    $cipher->init($des_key, $iv,0);
-    my $newbuf = $cipher->update($buf);
-    $newbuf .= $cipher->final();
-    print "pkt_encrypt_data: called [buflen => ", length($buf), "buf => ", 
+    $buf = $cipher->encrypt($buf);
+#    $buf = $cipher->update($buf);
+#    $buf .= $cipher->final();
+    my $cipher = new Crypt::CBC('DES',$des_key,$iv);
+    my $newbuf = $cipher->decrypt($buf);
+
+#    $cipher->init($des_key, $iv,0);
+#    my $newbuf = $cipher->update($buf);
+#    $newbuf .= $cipher->final();
+    print "pkt_encrypt_data: called [buflen => ", length($oldbuf),":",length($buf), 
+#    ", cipher block = ", $cipher->block_size(), 
+#    ", des key size = ", $cipher->key_length(), 
+    ", buf => ", 
     join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $buf)),", iv => ",
     join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $iv)),", key => ",
     join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $kul)),", oldbuf => ",
     join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $oldbuf)),", newbuf => ",
-    join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $newbuf)),"]\n";
+    join(" ", "0x", map {sprintf "%02X", $_;} unpack("C*", $newbuf)),"]\n" if $opt_D;
     $ber = new Convert::BER(STRING => $buf);
 }
 
