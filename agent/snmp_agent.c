@@ -123,7 +123,7 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     long            version;
     u_char          *engineID;
     int             engineIDLen;
-
+    struct usmUser  *userList = NULL, *user = NULL;
     static oid      unknownEngineID[] = {1,3,6,1,6,3,12,1,1,1};
     static long     ltmp;
     struct variable_list *vp, *ovp;
@@ -161,6 +161,19 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
             snmpv3_packet_build(pdu, out_data, out_length, NULL, 0);
             snmp_free_pdu(pdu);
             return 1;
+          }
+#ifdef USING_SNMPV3_USMUSER_MODULE
+          userList = usmUser_get_userList();
+#endif
+          user = usm_get_user(engineID, engineIDLen, pdu->securityName,
+                              userList);
+          if (user == NULL) {
+            ltmp = snmp_increment_statistic(STAT_USMSTATSUNKNOWNUSERNAMES);
+            return 0;
+          }
+          if (usm_check_secLevel(pdu->securityLevel, user)) {
+            ltmp = snmp_increment_statistic(STAT_USMSTATSUNSUPPORTEDSECLEVELS);
+            return 0;
           }
           free(engineID);
         } else {
