@@ -228,6 +228,10 @@ unsigned char *var_extensible_pass(struct variable *vp,
           long_ret = atoi(buf2);
           vp->type = ASN_COUNTER;
           return((unsigned char *) &long_ret);
+        } else if (!strncasecmp(buf,"octet",5)) {
+          *var_len = asc2bin(buf2);
+          vp->type = ASN_OCTET_STR;
+          return((unsigned char *) buf2);
         } else if (!strncasecmp(buf,"gauge",5)) {
           *var_len = sizeof(long_ret);
           long_ret = atoi(buf2);
