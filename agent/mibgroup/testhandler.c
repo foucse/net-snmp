@@ -135,7 +135,6 @@ init_testhandler(void) {
     table_set = create_table_data_set(table);
     
     /* set up what a row "should" look like */
-    row = create_table_data_row();
     table_set_add_default_row(table_set, 2, ASN_OCTET_STR, 1);
     table_set_add_default_row(table_set, 3, ASN_OCTET_STR, 1);
 
