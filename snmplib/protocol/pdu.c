@@ -69,7 +69,7 @@ void
 pdu_free(netsnmp_pdu *pdu)
 {
     if (pdu->community) {
-	cinfo_free(pdu->community);
+	comminfo_free(pdu->community);
 	pdu->community = NULL;
     }
 

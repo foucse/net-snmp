@@ -1,6 +1,6 @@
 /*******************************
  *
- *      community/cinfo.c
+ *      community/comminfo.c
  *
  *      Net-SNMP library - Community-based SNMP interface
  *
@@ -51,9 +51,9 @@ typedef u_long oid;
     *  when it is no longer required.
     */
 netsnmp_comminfo *
-cinfo_create(char *cstring, int len)
+comminfo_create(char *cstring, int len)
 {
-    netsnmp_comminfo *cinfo;
+    netsnmp_comminfo *info;
 
     if (NULL == cstring) {
 	/* XXX - Is this acceptable or not ? - say No for now */
@@ -68,16 +68,16 @@ cinfo_create(char *cstring, int len)
 		 *   appropriate existing one (if any).
 		 */
 
-    cinfo = (netsnmp_comminfo*) calloc(1, sizeof(netsnmp_comminfo));
+    info = (netsnmp_comminfo*) calloc(1, sizeof(netsnmp_comminfo));
 
-    if (NULL != cinfo) {
-	cinfo->ref_count++;
-	if (0 > cinfo_set(cinfo, cstring, len)) {
-	     free( cinfo );
-	     cinfo = NULL;
+    if (NULL != info) {
+	info->ref_count++;
+	if (0 > comminfo_set(info, cstring, len)) {
+	     free( info );
+	     info = NULL;
 	}
     }
-    return cinfo;
+    return info;
 }
 
 
@@ -90,9 +90,9 @@ cinfo_create(char *cstring, int len)
     *  when it is no longer required.
     */
 netsnmp_comminfo *
-cinfo_copy(netsnmp_comminfo *cinfo)
+comminfo_copy(netsnmp_comminfo *info)
 {
-    if (NULL == cinfo) {
+    if (NULL == info) {
 	return NULL;
     }
 
@@ -101,8 +101,8 @@ cinfo_copy(netsnmp_comminfo *cinfo)
 	 *  point to the same structure, keeping
 	 *  a count of the number of references.
 	 */
-    cinfo->ref_count++;
-    return cinfo;
+    info->ref_count++;
+    return info;
 }
 
 
@@ -114,7 +114,7 @@ cinfo_copy(netsnmp_comminfo *cinfo)
     *
     */
 int
-cinfo_set(netsnmp_comminfo *cinfo, char *cstring, int cstr_len)
+comminfo_set(netsnmp_comminfo *info, char *cstring, int cstr_len)
 {
 		/*
 		 * XXX - this can't cope with setting
@@ -122,37 +122,37 @@ cinfo_set(netsnmp_comminfo *cinfo, char *cstring, int cstr_len)
 		 *   Is this a problem?
 		 *
 		 * If so, this routine could return a
-		 *   pointer to the 'same' cinfo structure
+		 *   pointer to the 'same' comminfo structure
 		 *   (or NULL), and create a new one if
 		 *   necessary.
 		 */
-    if ((NULL == cinfo) || (NULL == cstring)) {
+    if ((NULL == info) || (NULL == cstring)) {
         return -1;
     }
 
 
-    if (cinfo->string && (0 == strcmp(cinfo->string, cstring))) {
+    if (info->string && (0 == strcmp(info->string, cstring))) {
 	return 0;	/* Already correct */
     }
-    if (1 != cinfo->ref_count) {
+    if (1 != info->ref_count) {
 	return -1;	/* Can't change this if someone else is using it */
     }
 
-    if (cinfo->string && (cinfo->string != cinfo->buf)) {
-	free(cinfo->string);	/* Free any previously alloc'ed memory */
-	cinfo->string = NULL;
+    if (info->string && (info->string != info->buf)) {
+	free(info->string);	/* Free any previously alloc'ed memory */
+	info->string = NULL;
     }
 
     if (NETSNMP_VALBUF_LEN > cstr_len+1) {
-	cinfo->string = cinfo->buf;	/* Use the internal buffer */
+	info->string = info->buf;	/* Use the internal buffer */
     } else {
-	cinfo->string = (u_char *)calloc(cstr_len+1, 1);
-	if (NULL == cinfo->string) {
+	info->string = (u_char *)calloc(cstr_len+1, 1);
+	if (NULL == info->string) {
 	    return -1;
 	}
     }
-    memcpy(cinfo->string, cstring, cstr_len);
-    cinfo->string[cstr_len] = '\0';
+    memcpy(info->string, cstring, cstr_len);
+    info->string[cstr_len] = '\0';
     return 0;
 }
 
@@ -165,21 +165,21 @@ cinfo_set(netsnmp_comminfo *cinfo, char *cstring, int cstr_len)
     *  once this routine has been called.
     */
 void
-cinfo_free(netsnmp_comminfo *cinfo)
+comminfo_free(netsnmp_comminfo *info)
 {
 
-    if (NULL == cinfo) {
+    if (NULL == info) {
 	return;
     }
-    if (0 < --(cinfo->ref_count)) {
+    if (0 < --(info->ref_count)) {
 	return;		/* Someone else is still using this */
     }
 
-    if (cinfo->string && (cinfo->string != cinfo->buf)) {
-	free(cinfo->string);	/* Free any alloc'ed memory */
+    if (info->string && (info->string != info->buf)) {
+	free(info->string);	/* Free any alloc'ed memory */
     }
-    cinfo->string = NULL;
-    free( cinfo );
+    info->string = NULL;
+    free( info );
     return;
 }
 
@@ -191,16 +191,16 @@ cinfo_free(netsnmp_comminfo *cinfo)
     *
     */
 int
-cinfo_bprint(netsnmp_buf *buf, netsnmp_comminfo *cinfo)
+comminfo_bprint(netsnmp_buf *buf, netsnmp_comminfo *info)
 {
     if (NULL == buf) {
 	return -1;
     }
-    if (NULL == cinfo) {
+    if (NULL == info) {
 	return 0;
     }
 
-    __B(buffer_append_string(buf, cinfo->string))
+    __B(buffer_append_string(buf, info->string))
     return 0;
 }
 
@@ -212,7 +212,7 @@ cinfo_bprint(netsnmp_buf *buf, netsnmp_comminfo *cinfo)
     *
     */
 char*
-cinfo_sprint(char *str_buf, int len, netsnmp_comminfo *cinfo)
+comminfo_sprint(char *str_buf, int len, netsnmp_comminfo *info)
 {
     netsnmp_buf    *buf;
     char           *cp = NULL;
@@ -221,7 +221,7 @@ cinfo_sprint(char *str_buf, int len, netsnmp_comminfo *cinfo)
     if (NULL == buf) {
         return NULL;
     }
-    if (0 == cinfo_bprint(buf, cinfo)) {
+    if (0 == comminfo_bprint(buf, info)) {
         cp = buffer_string(buf);
     }
     buffer_free(buf);
@@ -235,18 +235,18 @@ cinfo_sprint(char *str_buf, int len, netsnmp_comminfo *cinfo)
     *
     */
 void
-cinfo_fprint(FILE * fp, netsnmp_comminfo *cinfo)
+comminfo_fprint(FILE * fp, netsnmp_comminfo *info)
 {
     netsnmp_buf    *buf;
 
-    if (NULL == cinfo) {
+    if (NULL == info) {
         return;
     }
     buf = buffer_new(NULL, 0, NETSNMP_BUFFER_RESIZE);
     if (NULL == buf) {
         return;
     }
-    if (0 == cinfo_bprint(buf, cinfo)) {
+    if (0 == comminfo_bprint(buf, info)) {
         fprintf(fp, "%s", buf->string);
     }
     buffer_free(buf);
@@ -259,9 +259,9 @@ cinfo_fprint(FILE * fp, netsnmp_comminfo *cinfo)
     *
     */
 void
-cinfo_print(netsnmp_comminfo *cinfo)
+comminfo_print(netsnmp_comminfo *info)
 {
-    cinfo_fprint(stdout, cinfo);
+    comminfo_fprint(stdout, info);
 }
 
 
@@ -280,19 +280,19 @@ cinfo_print(netsnmp_comminfo *cinfo)
     *
     */
 int
-cinfo_encode(netsnmp_buf *buf, netsnmp_comminfo *cinfo)
+comminfo_encode(netsnmp_buf *buf, netsnmp_comminfo *info)
 {
     int cstr_len;
 
-    if ((NULL == buf) || (NULL == cinfo)) {
+    if ((NULL == buf) || (NULL == info)) {
 	return -1;
     }
-    if (cinfo->string) {
-	cstr_len = strlen(cinfo->string);
+    if (info->string) {
+	cstr_len = strlen(info->string);
     } else {
         cstr_len = 0;
     }
-    return encode_string(buf, ASN_OCTET_STR, cinfo->string, cstr_len);
+    return encode_string(buf, ASN_OCTET_STR, info->string, cstr_len);
 }
 
 

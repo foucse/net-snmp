@@ -80,7 +80,7 @@ community_create_pdu(int version, int command, char *cstring)
 	    pdu_free(pdu);
 	    return NULL;
 	}
-        pdu->community = cinfo_create( cstring, strlen(cstring));
+        pdu->community = comminfo_create( cstring, strlen(cstring));
 	if (NULL == pdu->community) {
 	    pdu_free(pdu);
 	    return NULL;
@@ -111,17 +111,17 @@ community_set_cstring(netsnmp_pdu *pdu, char *cstring, int len)
 	 *  If this fails, then release it, and start afresh.
 	 */
     if (pdu->community) {
-	if (0 == cinfo_set(pdu->community, cstring, len)) {
+	if (0 == comminfo_set(pdu->community, cstring, len)) {
 	    return 0;		/* Success */
 	}
-	cinfo_free(pdu->community);
+	comminfo_free(pdu->community);
 	pdu->community = NULL;
     }
 
 	/*
 	 * Create a new community info header structure
 	 */
-    pdu->community = cinfo_create( cstring, len );
+    pdu->community = comminfo_create( cstring, len );
     if (NULL == pdu->community) {
 	return -1;
     }
@@ -136,23 +136,23 @@ community_set_cstring(netsnmp_pdu *pdu, char *cstring, int len)
     *
     */
 int
-community_set_cinfo(netsnmp_pdu *pdu, netsnmp_comminfo *cinfo)
+community_set_comminfo(netsnmp_pdu *pdu, netsnmp_comminfo *info)
 {
-    if ((NULL == pdu) || (NULL == cinfo)) {
+    if ((NULL == pdu) || (NULL == info)) {
         return -1;
     }
 
     _CHECK_VERSION( pdu->version, -1 )
 
     if (pdu->community) {
-	if (pdu->community == cinfo) {
+	if (pdu->community == info) {
 	    return 0;		/* Already set correctly */
 	}
-	cinfo_free(pdu->community);
+	comminfo_free(pdu->community);
 	pdu->community = NULL;
     }
 	
-    pdu->community = cinfo_copy( cinfo );
+    pdu->community = comminfo_copy( info );
     if (NULL == pdu->community) {
 	return -1;
     }
@@ -206,7 +206,7 @@ community_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
     start_len= buf->cur_len;    /* Remember the length before we start */
 
     __B(encode_basic_pdu(buf, pdu))
-    __B(cinfo_encode(buf, pdu->community))
+    __B(comminfo_encode(buf, pdu->community))
     __B(encode_integer(buf, ASN_INTEGER, pdu->version))
     __B(encode_sequence(buf, (buf->cur_len - start_len)))
     return 0;
