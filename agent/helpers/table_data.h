@@ -34,6 +34,7 @@ typedef struct table_data_s {
 mib_handler *get_table_data_handler(table_data *table);
 void table_data_generate_index_oid(table_row *row);
 int table_data_add_row(table_data *table, table_row *row);
+int table_data_remove_row(table_data *table, table_row *row);
   
 table_row *table_data_get(table_data *table, struct variable_list *indexes);
     
