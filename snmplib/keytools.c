@@ -10,6 +10,7 @@
 
 
 
+
 /*
  * Simple hash function pointer, and the internal hash functions offered
  * by KMT.
@@ -51,8 +52,8 @@ extern int (*kmt_s_ripemd) __P((
  *	*kulen		Length of Ku buffer.
  *      
  * Returns:
- *	SNMPERR_SUCCESS			Success.
- *	SNMPERR_SC_GENERAL_FAILURE	All errors, including KMT errs.
+ *	SNMPERR_SUCCESS		Success.
+ *	SNMPERR_GENERR		All errors, including KMT errs.
  *
  *
  * Convert a passphrase into a master user key, Ku, according to the
@@ -167,8 +168,8 @@ generate_Ku_quit:
  *	*kullen		Length of Kul buffer (IN); Length of Kul key (OUT).
  *      
  * Returns:
- *	SNMPERR_SUCCESS			Success.
- *	SNMPERR_SC_GENERAL_FAILURE	All errors, including KMT errs.
+ *	SNMPERR_SUCCESS		Success.
+ *	SNMPERR_GENERR		All errors, including KMT errs.
  *
  *
  * Ku MUST be the proper length (currently fixed) for the given hashtype.
@@ -280,8 +281,8 @@ generate_kul_quit:
  *	*kcstring_len	Length of kcstring buffer.
  *      
  * Returns:
- *	SNMPERR_SUCCESS			Success.
- *	SNMPERR_SC_GENERAL_FAILURE	All errors, including KMT errs.
+ *	SNMPERR_SUCCESS		Success.
+ *	SNMPERR_GENERR		All errors, including KMT errs.
  *
  *
  * Uses oldkey and acquired random bytes to encode newkey into kcstring
@@ -435,8 +436,8 @@ encode_keychange_quit:
  *	*newkey_len	Length of newkey in bytes.
  *      
  * Returns:
- *	SNMPERR_SUCCESS			Success.
- *	SNMPERR_SC_GENERAL_FAILURE	All errors, including KMT errs.
+ *	SNMPERR_SUCCESS		Success.
+ *	SNMPERR_GENERR		All errors, including KMT errs.
  *
  *
  * Decodes a string of bits encoded according to the KeyChange TC described

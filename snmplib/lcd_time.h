@@ -13,12 +13,20 @@
 #define FALSE !(TRUE)
 #endif
 
+
+
+
 /*
  * Macros and definitions.
  */
-#define HASHLIST_SIZE	23
+#define ETIMELIST_SIZE	23
 
 #define SET_HASH_TRANSFORM(t)	kmt_hash = t;
+
+#define ENGINETIME_MAX	((2^31)-1)
+#define ENGINEBOOT_MAX	((2^31)-1)	/* XXX	Perhaps these two deserve
+					 *	a more conspicuous location?
+					 */
 
 
 typedef struct enginetime_struct {
@@ -31,9 +39,9 @@ typedef struct enginetime_struct {
 		 *   message within the previous time window.
 		 */
 
-	struct timeval	 lastReceivedEngineTime;
+	time_t		 lastReceivedEngineTime;
 		/* Timestamp made when engineTime/engineBoots was last
-		 *   updated.
+		 *   updated.  Measured in seconds.
 		 */
 
 	struct enginetime_struct	*next;
@@ -100,12 +108,13 @@ int	 set_enginetime __P((	u_char *engineID,	u_int engineID_len,
 				u_int   enginetime,	u_int engineboot
 			    ));
 
-int	 hash_engineID __P((	u_char *engineID,	u_int engineID_len));
-
 Enginetime
-	*traverse_enginetime_list __P((	Enginetime	*e,
-					u_char		*engineID,
+	 search_enginetime_list __P((	u_char		*engineID,
 					u_int		 engineID_len));
+
+int	 hash_engineID __P((u_char *engineID, u_int engineID_len));
+
+void	 dump_etimelist_entry __P((void));
 
 #endif /* _LCD_TIME_H */
 

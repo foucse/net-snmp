@@ -1,15 +1,20 @@
 /*
  * lcd_time.c
+ *
+ * XXX	Should etimelist entries with <0,0> time tuples be timed out?
  */
 
 #include "all_system.h"
 #include "all_general_local.h"
 
 
+
 /*
  * Global static hashlist to contain Enginetime entries.
+ *
+ * New records are prepended to the appropriate list at the hash index.
  */
-static Enginetime eidlist[HASHLIST_SIZE];
+static Enginetime etimelist[ETIMELIST_SIZE];
 
 
 
@@ -24,16 +29,15 @@ static Enginetime eidlist[HASHLIST_SIZE];
  *	*engineboot
  *      
  * Returns:
- *	SNMPERR_SUCCESS		Success.
+ *	SNMPERR_SUCCESS		Success -- when a record for engineID is found.
+ *	SNMPERR_GENERR		Otherwise.
  *
  *
  * Lookup engineID and return the recorded values for the
  * <enginetime, engineboot> tuple adjusted to reflect the estimated time
  * at the engine in question.
  *
- *
- * FIX	Check case of NULL or "" engineID (sez Ed).
- * FIX	Need to initialize eidlist?
+ * XXX	What if timediff wraps?  >shrug<
  */
 int
 get_enginetime(	u_char	*engineID,	
@@ -41,14 +45,53 @@ get_enginetime(	u_char	*engineID,
 		u_int	*enginetime,	
 		u_int	*engineboot)
 {
-	int		rval = SNMPERR_SUCCESS;
+	int		rval	 = SNMPERR_SUCCESS;
+	u_int		timediff = 0;
+	Enginetime	e	 = NULL;
 
-EM0(1, "UNIMPLEMENTED");	/* EM(1); /* */
+EM(1); /* */
+
+
+	/*
+	 * Sanity check.
+	 */
+	if ( !engineID || !enginetime || !engineboot || (engineID_len<=0) ) {
+		QUITFUN(SNMPERR_GENERR, get_enginetime_quit);
+	}
+
+
+	/*
+	 * Compute estimated current enginetime tuple at engineID if
+	 * a record is cached for it.
+	 */
+	*enginetime = *engineboot = 0;
+
+	if ( !(e = search_enginetime_list(engineID, engineID_len)) ) {
+		QUITFUN(SNMPERR_GENERR, get_enginetime_quit);
+	}
+
+	*enginetime = e->engineTime;
+	*engineboot = e->engineBoot;
+
+	timediff = (u_int) (time(NULL) - e->lastReceivedEngineTime);
+
+	if ( timediff > (ENGINETIME_MAX - *enginetime) ) {
+		*enginetime = (timediff - (ENGINETIME_MAX - *enginetime));
+
+		if (*engineboot < ENGINEBOOT_MAX) {
+			*engineboot += 1;
+		}
+
+	} else {
+		*enginetime += timediff;
+	}
+
 
 get_enginetime_quit:
-	return 0;
+	return rval;
 
 }  /* end get_enginetime() */
+
 
 
 
@@ -63,9 +106,11 @@ get_enginetime_quit:
  *      
  * Returns:
  *	SNMPERR_SUCCESS		Success.
+ *	SNMPERR_GENERR		Otherwise.
  *
- * Lookup engineID and record the given <enginetime, engineboot> tuple
- * and timestamp the change with the current time within the local engine.
+ *
+ * Lookup engineID and store the given <enginetime, engineboot> tuple
+ * and then stamp the record with a consistent source of local time.
  * If the engineID record does not exist, create one.
  *
  * XXX	"Current time within the local engine" == time(NULL)...
@@ -76,38 +121,114 @@ set_enginetime(	u_char	*engineID,
 		u_int  	 enginetime,
 		u_int	 engineboot)
 {
-	int		rval = SNMPERR_SUCCESS;
+	int		rval = SNMPERR_SUCCESS,
+			index;
+	Enginetime	e = NULL;
 
-EM0(1, "UNIMPLEMENTED");	/* EM(1); /* */
+EM(1); /* */
 
-write_enginetime_quit:
+
+	/*
+	 * Sanity check.
+	 */
+	if ( !engineID || (engineID_len <= 0) ) {
+		QUITFUN(SNMPERR_GENERR, set_enginetime_quit);
+	}
+
+
+	/*
+	 * Store the given <enginetime, engineboot> tuple in the record
+	 * for engineID.  Create a new record if necessary.
+	 */
+	if ( !(e = search_enginetime_list(engineID, engineID_len)) )
+	{
+		if ( (index = hash_engineID(engineID, engineID_len)) < 0 )
+		{
+			QUITFUN(SNMPERR_GENERR, set_enginetime_quit);
+		}
+
+		e = (Enginetime) SNMP_MALLOC(sizeof(enginetime));
+
+		e->next = etimelist[index];
+		e = etimelist[index];
+
+		e->engineID = (u_char *) SNMP_MALLOC(engineID_len);
+		memcpy(e->engineID, engineID, engineID_len);
+
+		e->engineID_len = engineID_len;
+	}
+
+	e->engineTime		  = enginetime;
+	e->engineBoot		  = engineboot;
+	e->lastReceivedEngineTime = time(NULL);
+
+	e = NULL;	/* Indicates a successful update. */
+
+
+set_enginetime_quit:
+	SNMP_FREE(e);
+
 	return rval;
 
-}  /* end write_enginetime() */
+}  /* end set_enginetime() */
 
 
 
 
 /*******************************************************************-o-******
- * traverse_enginetime_list
+ * search_enginetime_list
  *
  * Parameters:
+ *	*e		To keep pointer to engineID record if found.
+ *	*engineID
+ *	 engineID_len
  *      
  * Returns:
- *	SNMPERR_SUCCESS		Success.
+ *	Pointer to a etimelist record with engineID <engineID>  -OR-
+ *	NULL if no record exists.
+ *
+ *
+ * Search etimelist for an entry with engineID.
+ *
+ * ASSUMES that no engineID will have more than one record in the list.
  */
-Enginetime *
-traverse_enginetime_list(Enginetime *e, u_char *engineID, u_int engineID_len)
+Enginetime
+search_enginetime_list(u_char *engineID, u_int engineID_len)
 {
 	int		rval = SNMPERR_SUCCESS;
+	Enginetime	e    = NULL;
 
-EM0(1, "UNIMPLEMENTED");	/* EM(1); /* */
+EM(1); /* */
+
+	/*
+	 * Sanity check.
+	 */
+	if ( !engineID || (engineID_len<=0) ) {
+		QUITFUN(SNMPERR_GENERR, search_enginetime_list_quit);
+	}
 
 
-traverse_enginetime_list_quit:
-	return NULL;
+	/*
+	 * Find the entry for engineID if there be one.
+	 */
+	rval = hash_engineID(engineID, engineID_len);
+	if (index < 0) {
+		QUITFUN(rval, search_enginetime_list_quit);
+	}
+	e = etimelist[rval];
 
-}  /* end traverse_enginetime_list() */
+	while ( e &&
+		!memcmp(e->engineID, engineID,
+				MIN(engineID_len, e->engineID_len)) )
+	{
+		e = e->next;
+	}
+	
+
+search_enginetime_list_quit:
+	return e;
+
+}  /* end search_enginetime_list() */
 
 
 
@@ -121,53 +242,72 @@ traverse_enginetime_list_quit:
  *	 engineID_len
  *      
  * Returns:
- *	>1				eidlist index for this engineID.
- *	SNMPERR_SUCCESS			Success.
- *	SNMPERR_SC_GENERAL_FAILURE	Error.
+ *	>0			etimelist index for this engineID.
+ *	SNMPERR_GENERR		Error.
  *	
  * 
- * Use a traditional hash to build an index into the eidlist.  Method is 
- * to hash the engineID, then split the hash into longs and add them up.
- * Modulo the sum and add 1 to give the hash.  Calling environment will 
- * need to subtract one.  This last addition is only to avoid collusion with
- * the error code for success.
- *
+ * Use a cheap hash to build an index into the etimelist.  Method is 
+ * to hash the engineID, then split the hash into u_int's and add them up
+ * and modulo the size of the list.
  */
 int
 hash_engineID(u_char *engineID, u_int engineID_len)
 {
-	int		  rval		= SNMPERR_SUCCESS, 
+	int		  rval		= SNMPERR_GENERR,
 			  buf_len	= SNMP_MAXBUF;
-
 	u_int		  additive	= 0;
-
-	char		 *bufp,
+	u_int8_t	 *bufp,
 			  buf[SNMP_MAXBUF];
-
 	void		**context;
 
 EM(1); /* */
 
 
+	/*
+	 * Sanity check.
+	 */
+	if ( !engineID || (engineID_len <= 0) ) {
+		QUITFUN(SNMPERR_GENERR, hash_engineID_quit);
+	}
+
+
+	/*
+	 * Hash engineID into a list index.
+	 */
 	SET_HASH_TRANSFORM(kmt_s_md5);
 
+	bufp = (u_int8_t *) buf;
 	rval = kmt_hash(KMT_CRYPT_MODE_ALL, context,
 			engineID, engineID_len,
-			&buf, &buf_len);
+			&bufp, &buf_len);
 	QUITFUN(rval, hash_engineID_quit);
 
 	for ( bufp = buf; (bufp-buf) < buf_len; bufp += 4 ) {
 		additive += (u_int) bufp;
 	}
-	rval = (additive % HASHLIST_SIZE) + 1;
 
 
 hash_engineID_quit:
 	SNMP_FREE(context);
 	memset(buf, 0, SNMP_MAXBUF);
 
-	return rval;
+	return (rval < 0) ? rval : (additive % ETIMELIST_SIZE);
 
 }  /* end hash_engineID() */
 
+
+
+
+/*******************************************************************-o-******
+ * dump_etimelist_entry
+ *
+ * FIX	Need this?
+ */
+void
+dump_etimelist_entry(void)
+{
+
+EM0(1, "UNIMPLEMENTED");	/* EM(1); /* */
+
+}  /* end dump_etimelist_entry() */
 

@@ -242,7 +242,7 @@ shutdown_snmpv3(char *type)
 
 
 int
-snmpv3_get_engine_boots(void)
+snmpv3_local_snmpEngineBoots(void)
 {
   return engineBoots;
 }
@@ -266,10 +266,10 @@ snmpv3_generate_engineID(int *length)
 }
 
 
-/* snmpv3_get_engineTime(): return the number of seconds since the
+/* snmpv3_local_snmpEngineTime(): return the number of seconds since the
    snmpv3 engine last incremented engine_boots */
 int
-snmpv3_get_engineTime(void)
+snmpv3_local_snmpEngineTime(void)
 {
   struct timeval now;
 

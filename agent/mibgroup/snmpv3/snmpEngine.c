@@ -62,11 +62,11 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
       return (unsigned char *) engineID;
 
     case SNMPENGINEBOOTS:
-      long_ret = snmpv3_get_engine_boots();
+      long_ret = snmpv3_local_snmpEngineBoots();
       return (unsigned char *) &long_ret;
 
     case SNMPENGINETIME:
-      long_ret = snmpv3_get_engineTime();
+      long_ret = snmpv3_local_snmpEngineTime();
       return (unsigned char *) &long_ret;
 
     case SNMPENGINEMAXMESSAGESIZE:

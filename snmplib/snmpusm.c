@@ -295,7 +295,7 @@ usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int prev_key_length)
 		The salt integer is then incremented.
 	*/
 	int index;
-	int boots = snmpv3_get_engine_boots();
+	int boots = snmpv3_local_snmpEngineBoots();
 
 	if (iv_length == NULL || *iv_length != 8 || iv == NULL
 		|| prev_key_length != 16 || priv_key == NULL) return -1;
@@ -872,8 +872,8 @@ usm_check_and_update_timeliness (secEngineID, secEngineIDLen, boots_uint,
 		return -1;
 	}
 
-	myBoots = snmpv3_get_engine_boots();
-	myTime = snmpv3_get_engineTime();
+	myBoots = snmpv3_local_snmpEngineBoots();
+	myTime = snmpv3_local_snmpEngineTime();
 
 	/* If the time involved is local */
 		/* Make sure  message is inside the time window */

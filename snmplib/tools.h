@@ -43,10 +43,10 @@
  *	preprocessor in context.  Limited to a single error return value.
  *	Temporary hack at best.
  */
-#define QUITFUN(e, l)					\
-	if (e != SNMPERR_SUCCESS) {			\
-		rval = SNMPERR_SC_GENERAL_FAILURE;	\
-		goto l ;				\
+#define QUITFUN(e, l)			\
+	if (e != SNMPERR_SUCCESS) {	\
+		rval = SNMPERR_GENERR;	\
+		goto l ;		\
 	}
 
 

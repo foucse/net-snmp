@@ -20,6 +20,16 @@
 #include "all_general_local.h" /* */
 
 
+#ifdef QUITFUN
+#undef QUITFUN
+#define QUITFUN(e, l)					\
+	if (e != SNMPERR_SUCCESS) {			\
+		rval = SNMPERR_SC_GENERAL_FAILURE;	\
+		goto l ;				\
+	}
+#endif
+
+
 
 
 /*******************************************************************-o-******
