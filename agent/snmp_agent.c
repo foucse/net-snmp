@@ -1330,6 +1330,9 @@ add_varbind_to_cache(struct agent_snmp_session  *asp,
                 return SNMPERR_GENERR; /* shouldn't get here */
         }
     } else {
+        if (asp->pdu->command != SNMP_MSG_SET)
+            varbind_ptr->type = ASN_NULL;
+
         /* malloc the request structure */
         request = SNMP_MALLOC_TYPEDEF(request_info);
         if (request == NULL)
@@ -1783,9 +1786,9 @@ handle_pdu(struct agent_snmp_session  *asp) {
             /* increment the message type counter */
             snmp_increment_statistic(STAT_SNMPINGETREQUESTS);
 
-            /* make sure everything is of type ASN_NULL */
+            /* make sure everything is of type ASN_NULL
             snmp_reset_var_types(asp->pdu->variables, ASN_NULL);
-
+						 */
             /* check vacm ahead of time */
             check_acm(asp, SNMP_NOSUCHOBJECT);
                 
@@ -1805,9 +1808,9 @@ handle_pdu(struct agent_snmp_session  *asp) {
             /* loop through our mib tree till we find an
                appropriate response to return to the caller. */
 
-            /* make sure everything is of type ASN_NULL */
+            /* make sure everything is of type ASN_NULL
             snmp_reset_var_types(asp->pdu->variables, ASN_NULL);
-
+						*/
             /* first pass */
             status = handle_var_requests(asp);
             if (status != SNMP_ERR_NOERROR) {
