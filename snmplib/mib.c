@@ -845,7 +845,6 @@ sprint_counter64(buf, var, enums, hint, units)
 	sprint_by_type(buf, var, NULL, NULL, NULL);
 	return;
     }
-/* XXX */
     if (!quick_print){
 #ifdef OPAQUE_SPECIAL_TYPES
       if (var->type != ASN_COUNTER64) {
