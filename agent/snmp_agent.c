@@ -79,6 +79,7 @@ SOFTWARE.
 #if USING_MIBII_VACM_VARS_MODULE
 #include "mibgroup/mibII/vacm_vars.h"
 #endif
+#include "tools.h"
 
 static int create_identical __P((u_char *, u_char *, int, long, long, struct packet_info *, struct snmp_pdu *));
 static int parse_var_op_list __P((u_char *, int, u_char *, int, long *, struct packet_info *, int));
@@ -113,7 +114,8 @@ snmp_agent_make_report(u_char *out_data, int *out_length,
                        int error, oid *err_var, int err_var_len,
                        u_char *engineID, int engineIDLen) {
 
-  long ltmp;
+  static long ltmp;
+  char buf[SNMP_MAXBUF];
   
   /* unknown incoming security engineID, return ours and a varbind */
   /* free the current varbind */
@@ -130,8 +132,10 @@ snmp_agent_make_report(u_char *out_data, int *out_length,
   ltmp = snmp_get_statistic(error);
   /* return  the unknown engineID counter */
   snmp_pdu_add_variable(pdu, err_var, err_var_len,
-                        ASN_INTEGER, (u_char *) &ltmp, sizeof(ltmp));
+                        ASN_COUNTER, (u_char *) &ltmp, sizeof(ltmp));
   snmpv3_packet_build(pdu, out_data, out_length, NULL, 0);
+  sprint_objid(buf, err_var, err_var_len);
+  DEBUGP("sending report with:\n  %s = %d\n", buf, ltmp);
   snmp_free_pdu(pdu);
   return 1;
 }
@@ -162,11 +166,12 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     u_char          *engineID;
     int             engineIDLen;
     struct usmUser  *userList = NULL, *user = NULL;
-    static oid      unknownEngineID[] = {1,3,6,1,6,3,12,1,1,1};
-    static oid      notInTimeWindow[] = {1,3,6,1,6,3,12,1,1,2};
-    static oid      unknownUserName[] = {1,3,6,1,6,3,12,1,1,3};
-    static oid      wrongDigest[]     = {1,3,6,1,6,3,12,1,1,5};
-    static oid      decryptionError[] = {1,3,6,1,6,3,12,1,1,6};
+    static oid      unknownSecurityLevel[] = {1,3,6,1,6,3,12,1,1,1};
+    static oid      notInTimeWindow[]      = {1,3,6,1,6,3,12,1,1,2};
+    static oid      unknownUserName[]      = {1,3,6,1,6,3,12,1,1,3};
+    static oid      unknownEngineID[]      = {1,3,6,1,6,3,12,1,1,4};
+    static oid      wrongDigest[]          = {1,3,6,1,6,3,12,1,1,5};
+    static oid      decryptionError[]      = {1,3,6,1,6,3,12,1,1,6};
 #define ERROR_STAT_LENGTH 10
     static long     ltmp;
     struct variable_list *vp, *ovp;
@@ -182,8 +187,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
         if (version == SNMP_VERSION_3) {
           pdu = snmp_pdu_create(SNMP_MSG_RESPONSE);
           engineID = snmpv3_generate_engineID(&engineIDLen);
-          set_enginetime(engineID, engineIDLen, snmpv3_local_snmpEngineTime(),
-                         snmpv3_local_snmpEngineBoots());
+          set_enginetime(engineID, engineIDLen, snmpv3_local_snmpEngineBoots(),
+                         snmpv3_local_snmpEngineTime());
           if (snmpv3_parse(pdu, data, &length, &data) == -1) {
             ret_err = snmp_get_errno();
             DEBUGP("parse failed with: %d: %s\n", ret_err,
@@ -197,6 +202,12 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
           pi->packet_end = data + length;
           if (ret_err) {
             switch(ret_err) {
+              case SNMP_ERR_UNSUPPORTEDSECURITYLEVEL:
+                return snmp_agent_make_report(out_data, out_length, pdu,
+                                              STAT_USMSTATSUNSUPPORTEDSECLEVELS,
+                                              unknownSecurityLevel,
+                                              ERROR_STAT_LENGTH,
+                                              engineID, engineIDLen);
               case SNMP_ERR_UNKNOWNENGINEID:
                 return snmp_agent_make_report(out_data, out_length, pdu,
                                               STAT_USMSTATSUNKNOWNENGINEIDS,
