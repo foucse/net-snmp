@@ -46,9 +46,10 @@ CSRCS=	snmp_client.c               snmp_api.c snmp.c 		\
 	snmp_secmod.c @security_src_list@			\
 	mib/mib_api.c mib/mib_conf.c				\
 	mib/mib_dir.c mib/mib_module.c mib/mib_object.c		\
-	varbind/oid.c						\
+	varbind/oid.c varbind/value.c varbind/value_output.c	\
+	varbind/varbind.c varbind/vblist.c			\
 	utils/util_buffer.c utils/util_list.c			\
-	ucd/ucd_mib_api.c ucd/ucd_print_value.c
+	ucd/ucd_mib_api.c ucd/ucd_varbind.c
 
 OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	snmp_auth.o asn1.o md5.o snmp_parse_args.o	  	\
@@ -62,9 +63,10 @@ OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	snmp_secmod.o @security_obj_list@			\
 	mib/mib_api.o mib/mib_conf.o				\
 	mib/mib_dir.o mib/mib_module.o mib/mib_object.o		\
-	varbind/oid.o						\
+	varbind/oid.o varbind/value.o varbind/value_output.o	\
+	varbind/varbind.o varbind/vblist.o			\
 	utils/util_buffer.o utils/util_list.o			\
-	ucd/ucd_mib_api.o ucd/ucd_print_value.o
+	ucd/ucd_mib_api.o ucd/ucd_varbind.o
 
 LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	snmp_auth.lo asn1.lo md5.lo snmp_parse_args.lo		\
@@ -78,9 +80,10 @@ LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
         snmp_secmod.lo @security_lobj_list@			\
 	mib/mib_api.lo mib/mib_conf.lo				\
 	mib/mib_dir.lo mib/mib_module.lo mib/mib_object.lo	\
-	varbind/oid.lo						\
+	varbind/oid.lo varbind/value.lo varbind/value_output.lo	\
+	varbind/varbind.lo varbind/vblist.lo			\
 	utils/util_buffer.lo utils/util_list.lo			\
-	ucd/ucd_mib_api.lo ucd/ucd_print_value.lo
+	ucd/ucd_mib_api.lo ucd/ucd_varbind.lo
 
 # just in case someone wants to remove libtool, change this to OBJS.
 TOBJS=$(LOBJS)

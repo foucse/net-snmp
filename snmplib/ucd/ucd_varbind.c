@@ -147,6 +147,24 @@ netsnmp_varbind var_convert_ucd2net_varbind( struct variable_list *v )
     return vb;
 }
 
+netsnmp_varbind var_convert_ucd2net_vblist( struct variable_list *var )
+{
+    netsnmp_varbind varbind, vblist;
+    struct variable_list *v;
+
+    vblist = NULL;
+    for ( v = var; v!=NULL; v=v->next_variable ) {
+	varbind = var_convert_ucd2net_varbind( v );
+	if ( vblist == NULL ) {
+	    vblist=varbind;
+	}
+	else {
+	    (void)vblist_add_varbind( vblist, varbind );
+	}
+    }
+    return vblist;
+}
+
 
 
 netsnmp_mib mib_find_by_oid( netsnmp_oid o );
@@ -210,6 +228,25 @@ void fprint_objid (FILE *fp, oid *objid, int objidlen)
 void print_objid (oid *objid, int objidlen)
 {
     fprint_objid( stdout, objid, objidlen);
+}
+
+char *sprint_variable_list (char *buf, oid *objid, int objidlen, struct variable_list *var)
+{
+    char val_buf[SPRINT_MAX_LEN];
+    netsnmp_varbind vblist;
+    char *cp;
+
+
+    memset( val_buf, 0, SPRINT_MAX_LEN );
+    vblist = var_convert_ucd2net_vblist( var );
+    cp = vblist_sprint( val_buf, SPRINT_MAX_LEN, vblist );
+    if ( cp ) {
+	strcpy( buf, cp );
+	cp = buf;
+    }
+    /* vblist_free( vblist ); */
+
+    return cp;
 }
 
 char *sprint_variable (char *buf, oid *objid, int objidlen, struct variable_list *var)

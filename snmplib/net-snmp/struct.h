@@ -48,11 +48,20 @@ typedef struct netsnmp_value_t {
 } *netsnmp_value;
 
 
-typedef struct netsnmp_varbind_t {
+typedef struct netsnmp_varbind_t *netsnmp_varbind;
+typedef struct netsnmp_pdu_t     *netsnmp_pdu;
+
+struct netsnmp_varbind_t {
+    netsnmp_varbind	prev, next;
+    netsnmp_pdu 	pdu;
     netsnmp_oid		oid;
     netsnmp_value	value;
-} *netsnmp_varbind;
+};
 
-
+struct netsnmp_pdu_t {
+		/* Placeholders.... */
+    int			errindex;
+    netsnmp_varbind	varbind_list;
+};
 
 #endif /* _NET_SNMP_STRUCT_H */

@@ -58,4 +58,17 @@ char *var_sprint_varbind( char *str_buf, int len, netsnmp_varbind varbind );
 void  var_fprint_varbind( FILE *fp,               netsnmp_varbind varbind );
 void  var_print_varbind(                          netsnmp_varbind varbind );
 
+
+	/* Varbind-list-related routines */
+
+int             vblist_add_varbind(     netsnmp_varbind vblist, netsnmp_varbind varbind );
+netsnmp_varbind vblist_return_varbind(  netsnmp_varbind vblist, int idx                 );
+netsnmp_varbind vblist_extract_varbind( netsnmp_varbind vblist, int idx                 );
+void            vblist_free(            netsnmp_varbind vblist                          );
+
+int   vblist_bprint( netsnmp_buf buf,        netsnmp_varbind vblist );
+char *vblist_sprint( char *str_buf, int len, netsnmp_varbind vblist );
+void  vblist_fprint( FILE *fp,               netsnmp_varbind vblist );
+void  vblist_print(                          netsnmp_varbind vblist );
+
 #endif /* _NET_SNMP_VAR_API_H */
