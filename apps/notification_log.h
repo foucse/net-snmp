@@ -1,5 +1,7 @@
 #ifndef NOTIFICATION_LOG_H
 #define NOTIFICATION_LOG_H
+#include "agent_handler.h"
+
 /*
  * function declarations 
  */
