@@ -297,3 +297,22 @@ pdu_print(netsnmp_pdu *pdu)
                 /** @package protocol_internals */
 
 
+int
+snmp_pdu_parse(struct snmp_pdu *pdu, u_char  *data, size_t *length)
+{
+    netsnmp_pdu *p;
+    netsnmp_buf* buf;
+
+    buf = buffer_new(data, *length, NETSNMP_BUFFER_NOFREE);
+    buf->cur_len = buf->max_len;
+
+    p = decode_pdu(buf);
+    if (NULL == pdu) {
+        buffer_free(buf);
+        return-1;	/* XXX ??? */
+    }
+    pdu = ucd_revert_pdu( p );	/* XXX - not quite right */
+    data = buf->string;
+    *length = buf->cur_len;
+    return 0;		/* XXX ?? */
+}

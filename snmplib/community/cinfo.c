@@ -297,6 +297,28 @@ comminfo_encode(netsnmp_buf *buf, netsnmp_comminfo *info)
 }
 
 
+netsnmp_comminfo*
+comminfo_decode(netsnmp_buf *buf)
+{
+    netsnmp_buf      *seq      = NULL;
+    netsnmp_buf      *str      = NULL;
+    netsnmp_comminfo *comminfo = NULL;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+    str = decode_string(buf, NULL);
+    if (NULL == str) {
+        return NULL;
+    }
+    comminfo = comminfo_create(str->string, str->cur_len);
+    buffer_free(str);
+    return comminfo;
+}
+
 
 /*******************************************************************-o-******
  * snmp_comstr_parse

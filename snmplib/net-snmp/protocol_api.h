@@ -35,4 +35,9 @@ int encode_varbind(  netsnmp_buf *buf, netsnmp_varbind *vb);
 int encode_vblist(   netsnmp_buf *buf, netsnmp_varbind *vblist);
 int encode_basic_pdu(netsnmp_buf *buf, netsnmp_pdu     *pdu);
 
+netsnmp_value*   decode_value(    netsnmp_buf *buf);
+netsnmp_varbind* decode_varbind(  netsnmp_buf *buf);
+netsnmp_varbind* decode_vblist(   netsnmp_buf *buf);
+netsnmp_pdu*     decode_basic_pdu(netsnmp_buf *buf, netsnmp_pdu *p);
+
 #endif /* _NET_SNMP_PROTOCOL_API_H */

@@ -45,7 +45,7 @@
     *
     */
 int
-var_set_value(netsnmp_value *value, char *val, int len, int type)
+var_set_value(netsnmp_value *value, char *val, int len)
 {
     if (value == NULL) {
         return -1;
@@ -80,7 +80,6 @@ var_set_value(netsnmp_value *value, char *val, int len, int type)
         value->val.string = value->valbuf;
     }
 
-    value->type = type;
     value->len = len;
     memcpy(value->val.string, val, len);
     return 0;
@@ -96,13 +95,13 @@ var_set_value(netsnmp_value *value, char *val, int len, int type)
     *  when it is not longer required.
     */
 netsnmp_value*
-var_create_value(void)
+var_create_value(int type)
 {
     netsnmp_value   *value;
 
     value = (netsnmp_value*) calloc(1, sizeof(netsnmp_value));
     if (NULL != value) {
-        value->type = ASN_NULL;
+        value->type = type;
     }
     return value;
 }
@@ -121,9 +120,9 @@ var_create_set_value(char *val, int len, int type)
 {
     netsnmp_value   *value;
 
-    value = var_create_value();
+    value = var_create_value(type);
 
-    if (0 > var_set_value(value, val, len, type)) {
+    if (0 > var_set_value(value, val, len)) {
         if (NULL != value) {
             free(value);
         }

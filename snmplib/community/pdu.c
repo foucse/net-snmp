@@ -215,6 +215,90 @@ community_encode_pdu(netsnmp_buf *buf, netsnmp_pdu *pdu)
 }
 
 
+   /**
+    *  Decode the payload of a community-based SNMP PDU
+    *   (i.e. community-information, and the core PDU)
+    *   from the given input buffer.
+    *  Basically, this routine assumes that the SNMP version
+    *   identifier has been decoded, and picks up after that.
+    *
+    *  blah, blah, returns pointer, blah, release memory, blah blah
+    */
+netsnmp_pdu*
+community_decode_pdu(netsnmp_buf *buf)
+{
+    netsnmp_pdu *pdu = NULL;
+    netsnmp_comminfo *comminfo = NULL;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+    comminfo = comminfo_decode(buf);
+    if (NULL == comminfo) {
+        return NULL;
+    }
+    pdu = decode_basic_pdu(buf, NULL);
+    if (NULL == pdu) {
+        return NULL;
+    }
+    pdu->community = comminfo;
+    return pdu;
+}
+
+
+   /**
+    *  Parse a community-based SNMP PDU from the given input buffer.
+    *
+    *  blah, blah, returns pointer, blah, release memory, blah blah
+    */
+netsnmp_pdu*
+community_parse_pdu(netsnmp_buf *buf)
+{
+    netsnmp_buf *seq  = NULL;
+    netsnmp_pdu *pdu = NULL;
+    long version;
+
+    if ((NULL == buf)          ||
+        (NULL == buf->string)  ||
+        (0    == buf->cur_len)) {
+        return NULL;
+    }
+
+    seq = decode_sequence(buf);
+    if (NULL == seq) {
+        return NULL;
+    }
+    if (NULL == decode_integer(seq, &version)) {
+        buffer_free(seq);
+        return NULL;
+    }
+
+		/*
+		 * XXX
+		 *   Need to handle SNMPv1 Traps specially
+		 *   ?? Look ahead at the 'command' value,
+		 *   ?? or push this into 'community_decode_pdu'
+		 *	and check for version mismatch later?
+		 */
+    pdu = community_decode_pdu(seq);
+    if (NULL == pdu) {
+        buffer_free(seq);
+        return NULL;
+    }
+    if (0 != seq->cur_len) {
+        pdu_free(pdu);
+        buffer_free(seq);
+        return NULL;
+    }
+
+    pdu->version = version;
+    buffer_free(seq);
+
+    return pdu;
+}
 
 
 int

@@ -89,7 +89,7 @@ var_create_varbind(void)
 
     if (NULL != varbind) {
         varbind->oid   = oid_create();
-        varbind->value = var_create_value();
+        varbind->value = var_create_value(ASN_NULL);
 
         if ((NULL == varbind->oid) || (NULL == varbind->value)) {
 

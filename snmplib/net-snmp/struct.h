@@ -121,12 +121,12 @@ struct netsnmp_user_s {
 
 struct netsnmp_pdu_s {
           /* Incomplete, and subject to change.... */
-    int                  version;
-    int                  command;
-    int                  errindex;
-    int                  errstatus;
-    int                  request;
-    int                  flags;
+    long                 version;
+    long                 command;
+    long                 errindex;
+    long                 errstatus;
+    long                 request;
+    long                 flags;
     netsnmp_varbind     *varbind_list;
     netsnmp_comminfo    *community;
     netsnmp_v3info      *v3info;

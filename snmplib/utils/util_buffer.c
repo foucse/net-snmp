@@ -302,6 +302,31 @@ buffer_string(netsnmp_buf *buf)
     }
 }
 
+
+int
+buffer_set_string(netsnmp_buf *buf, char *string, int len)
+{
+    if ((NULL == buf)    ||
+        (NULL == string) ||
+        (0    == len)) {
+        return -1;
+    }
+
+    if (!(buf->flags & NETSNMP_BUFFER_NOFREE)) {
+        free(buf->string);
+    }
+ 
+    buf->string = string;	/* XXX - or make a copy? */
+    if ((NULL == len) && ('\0' != *string)) {
+        buf->max_len = strlen(string);
+    } else {
+        buf->max_len = len;
+    }
+    buf->cur_len = buf->max_len;
+    return 0;
+}
+
+
         /**
          *
          * Creates a copy of a buffer structure.

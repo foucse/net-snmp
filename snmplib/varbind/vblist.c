@@ -48,7 +48,7 @@ vblist_add_varbind(netsnmp_varbind *vblist, netsnmp_varbind *varbind)
 {
     netsnmp_varbind *vb;
 
-    if ((NULL == varbind) && (NULL == vblist)) {
+    if ((NULL == varbind) || (NULL == vblist)) {
         return -1;
     }
 

@@ -652,13 +652,13 @@ encode_oid(netsnmp_buf *buf, netsnmp_oid *oid)
     else {
 	    /*
 	     * Otherwise work backwards, encoding the other subidentifiers,
-	     *  ending up with the first two (combined into one octet).
+	     *  ending up with the first two (combined into one subid).
 	     */
 	for (i = oid->len; 2<i; i--) {
 	    __B(encode_subid(buf, oid->name[i-1]))
 	}
 	n = oid->name[0]*40 + oid->name[1];
-	__B(buffer_append_char(buf, (u_char)n))
+	__B(encode_subid(buf, n))
     }
 
     __B( encode_asn1_header(buf, ASN_OBJECT_ID, (buf->cur_len - start_len)))

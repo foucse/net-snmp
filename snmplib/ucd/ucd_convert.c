@@ -89,7 +89,7 @@ ucd_convert_value( struct variable_list *v )
 {
     netsnmp_value *val;
 
-    val = (netsnmp_value*)calloc(1, sizeof( netsnmp_value ));
+    val = var_create_value(v->type);
     if (NULL == val) {
 	return NULL;
     }
@@ -107,14 +107,13 @@ ucd_convert_value( struct variable_list *v )
 	    return NULL;
 	}
         val->len     = sizeof( netsnmp_oid );
-        val->type    = v->type;
 	return val;
     }
 
 	/*
 	 * Other types can just use a copy of the UCD raw data
 	 */
-    if (0 > var_set_value(val, v->val.string, v->val_len, v->type)) {
+    if (0 > var_set_value(val, v->val.string, v->val_len)) {
 	free( val );
 	return NULL;
     }

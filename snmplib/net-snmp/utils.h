@@ -38,6 +38,7 @@ int          buffer_append_oid(    netsnmp_buf *buf, netsnmp_oid *oid       );
 char*        buffer_string(        netsnmp_buf *buf                         );
 int          buffer_compare(       netsnmp_buf *one, netsnmp_buf *two       );
 netsnmp_buf* buffer_copy(          netsnmp_buf *buf                         );
+int          buffer_set_string(    netsnmp_buf *buf, char *string, int len  );
 void         buffer_free(          netsnmp_buf *buf                         );
 
         /*
