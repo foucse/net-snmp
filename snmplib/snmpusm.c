@@ -53,6 +53,13 @@ static u_int salt_integer = 4985517;
 
 int    reportErrorOnUnknownID = 0; /* Should be configurable item */
 
+void
+set_reportErrorOnUnknownID (value)
+int value;
+{
+	reportErrorOnUnknownID = value;
+}
+
 /* All of the usmStateReference functions are tab stop 4 */
 struct usmStateReference {
 	u_char *usr_name;
@@ -82,7 +89,8 @@ usm_malloc_usmStateReference()
 }
 
 void
-usm_free_usmStateReference(struct usmStateReference *old)
+usm_free_usmStateReference(old)
+struct usmStateReference *old;
 {
 	if (old->usr_name_length != 0) free (old->usr_name);
 	if (old->usr_engine_id_length != 0) free (old->usr_engine_id);
@@ -109,55 +117,68 @@ usm_free_usmStateReference(struct usmStateReference *old)
 	return 0
 
 int
-usm_set_usmStateReference_name (struct usmStateReference *ref,
-	u_char *name, u_int name_len)
+usm_set_usmStateReference_name (ref, name, name_len)
+	struct usmStateReference *ref;
+	u_char *name;
+	u_int name_len;
 {
 	MAKE_ENTRY ((u_char*),name,name_len,usr_name,usr_name_length);
 }
 
 int
-usm_set_usmStateReference_engine_id (struct usmStateReference *ref,
-	u_char *engine_id, u_int engine_id_len)
+usm_set_usmStateReference_engine_id (ref, engine_id, engine_id_len)
+	struct usmStateReference *ref;
+	u_char *engine_id;
+	u_int engine_id_len;
 {
 	MAKE_ENTRY ((u_char*),engine_id,engine_id_len,
 		usr_engine_id,usr_engine_id_length);
 }
 
 int
-usm_set_usmStateReference_auth_protocol (struct usmStateReference *ref,
-	oid *auth_protocol, u_int auth_protocol_len)
+usm_set_usmStateReference_auth_protocol (ref, auth_protocol, auth_protocol_len)
+	struct usmStateReference *ref;
+	oid *auth_protocol;
+	u_int auth_protocol_len;
 {
 	MAKE_ENTRY ((oid *),auth_protocol,auth_protocol_len,
 		usr_auth_protocol,usr_auth_protocol_length);
 }
 
 int
-usm_set_usmStateReference_auth_key (struct usmStateReference *ref,
-	u_char *auth_key, u_int auth_key_len)
+usm_set_usmStateReference_auth_key (ref, auth_key, auth_key_len)
+	struct usmStateReference *ref;
+	u_char *auth_key;
+	u_int auth_key_len;
 {
 	MAKE_ENTRY ((u_char*),auth_key,auth_key_len,
 		usr_auth_key,usr_auth_key_length);
 }
 
 int
-usm_set_usmStateReference_priv_protocol (struct usmStateReference *ref,
-	oid *priv_protocol, u_int priv_protocol_len)
+usm_set_usmStateReference_priv_protocol (ref, priv_protocol, priv_protocol_len)
+	struct usmStateReference *ref;
+	oid *priv_protocol;
+	u_int priv_protocol_len;
 {
 	MAKE_ENTRY ((oid *),priv_protocol,priv_protocol_len,
 		usr_priv_protocol,usr_priv_protocol_length);
 }
 
 int
-usm_set_usmStateReference_priv_key (struct usmStateReference *ref,
-	u_char *priv_key, u_int priv_key_len)
+usm_set_usmStateReference_priv_key (ref, priv_key, priv_key_len)
+	struct usmStateReference *ref;
+	u_char *priv_key;
+	u_int priv_key_len;
 {
 	MAKE_ENTRY ((u_char*),priv_key,priv_key_len,
 		usr_priv_key,usr_priv_key_length);
 }
 
 int
-usm_set_usmStateReference_sec_level (struct usmStateReference *ref,
-	u_int sec_level)
+usm_set_usmStateReference_sec_level (ref, sec_level)
+	struct usmStateReference *ref;
+	u_int sec_level;
 {
 	if (ref == NULL) return -1;
 	ref->usr_sec_level = sec_level;
@@ -1304,11 +1325,22 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 
 	struct usmUser *user;
 
-	/* Make sure the *secParms is an OCTET STRING */
-	/* Extract the user name, engine ID, and security level */
-
 	DEBUGP ("usm_process_in_msg():%s,%d: USM processing begun\n",
 		__FILE__,__LINE__);
+
+	if (secStateRef)
+	{
+		*secStateRef = usm_malloc_usmStateReference();
+		if (*secStateRef == NULL)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: Out of memory\n",
+				__FILE__,__LINE__);
+			return USM_ERR_GENERIC_ERROR;
+		}
+	}
+
+	/* Make sure the *secParms is an OCTET STRING */
+	/* Extract the user name, engine ID, and security level */
 
 	if (usm_parse_security_parameters (secParams, remaining,
 		secEngineID, secEngineIDLen, &boots_uint, &time_uint, secName,
@@ -1323,6 +1355,33 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 			return USM_ERR_GENERIC_ERROR;
 
 		return USM_ERR_PARSE_ERROR;
+	}
+
+	if (secStateRef)
+	{
+		/* Cache the name, engine ID, and security level, per step 2 (s3.2) */
+		if (usm_set_usmStateReference_name (*secStateRef, secName, *secNameLen)
+			==-1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache name");
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (usm_set_usmStateReference_engine_id (*secStateRef, secEngineID,
+			*secEngineIDLen) == -1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache engine id");
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (usm_set_usmStateReference_sec_level (*secStateRef, secLevel) == -1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache security level");
+			return USM_ERR_GENERIC_ERROR;
+		}
 	}
 	
 	/* Locate the engine ID record */
@@ -1500,10 +1559,44 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 	*maxSizeResponse = maxMsgSize - (int)
 				((u_long)end_of_overhead - (u_long)wholeMsg);
 
-	/* Steps 10-11, don't know why */
+	/* Steps 10-11  user is already set */
 
 	if (secStateRef)
-		*secStateRef = NULL;
+	{
+		/* Cache the keys and protocol oids, per step 11 (s3.2) */
+
+		if (usm_set_usmStateReference_auth_protocol (*secStateRef,
+			user->authProtocol, user->authProtocolLen) ==-1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache authentication protocol");
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (usm_set_usmStateReference_auth_key (*secStateRef,
+			user->authKey, user->authKeyLen) == -1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache authentiation key");
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (usm_set_usmStateReference_priv_protocol (*secStateRef,
+			user->privProtocol, user->privProtocolLen) ==-1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache privacy protocol");
+			return USM_ERR_GENERIC_ERROR;
+		}
+
+		if (usm_set_usmStateReference_priv_key (*secStateRef,
+			user->privKey, user->privKeyLen) == -1)
+		{
+			DEBUGP ("usm_process_in_msg():%s,%d: %s\n",
+				__FILE__,__LINE__, "Couldn't cache privacy key");
+			return USM_ERR_GENERIC_ERROR;
+		}
+	}
 
 	DEBUGP ("usm_process_in_msg():%s,%d: USM processing completed\n",
 		__FILE__,__LINE__);
