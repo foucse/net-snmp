@@ -251,7 +251,6 @@ init_snmp()
 #endif
   init_kmem("/dev/kmem"); 
   init_routes();
-  init_wes();
 }
 
 #define CMUMIB 1, 3, 6, 1, 4, 1, 3
@@ -642,12 +641,7 @@ struct variable2 eventnotifytab_variables[] = {
         {EVENTNOTIFYTABSTATUS, INTEGER, RWRITE, var_eventnotifytab, 1, {4 }},
 };
 
-#include "wes/wes.h"
-#include "wes/wes_vars.h"
 struct subtree subtrees[] = {
-  {{WESMIB, 1}, 7, (struct variable *)wes_proc_variables,
-   sizeof(wes_proc_variables)/sizeof(*wes_proc_variables),
-   sizeof(*wes_proc_variables)},
     {{MIB, 1}, 7, (struct variable *)system_variables,
 	 sizeof(system_variables)/sizeof(*system_variables),
 	 sizeof(*system_variables)},
@@ -927,8 +921,11 @@ char sysContact[128] = "support@ece.ucdavis.edu";
 char sysName[128] = "Unknown";
 char sysLocation[128] = "UCDavis Electrical Engineering Department";
 
-
+#ifdef hpux
+oid version_id[] = {1, 3, 6, 1, 4, 1, 11, 2, 3, 2, 5};
+#else
 oid version_id[] = {1, 3, 6, 1, 4, 1, 3, 1, 1};
+#endif
 
 u_long
 sysUpTime(){
