@@ -79,6 +79,6 @@ char *strdup __P((char *));
 int setenv __P((char *, char *, int));
 #endif
  
-int calculate_time_diff(struct timeval, struct timeval);
+int calculate_time_diff(struct timeval *, struct timeval *);
 
 #endif /* SNMP_SYSTEM_H */
