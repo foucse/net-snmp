@@ -45,7 +45,7 @@ free_zero(void *buf, u_long size)
 char *
 malloc_random(int *size)
 {
-	int	rval	= SNMPERR_SUCCESS;
+	int	 rval	= SNMPERR_SUCCESS;
 	char	*buf	= (char *) malloc_zero(*size);
 
 #ifdef							HAVE_LIBKMT

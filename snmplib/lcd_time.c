@@ -38,7 +38,7 @@ static Enginetime etimelist[ETIMELIST_SIZE];
  * <enginetime, engineboot> tuple adjusted to reflect the estimated time
  * at the engine in question.
  *
- * Special case: if engineID is NULL or "" or if engineID_len is 0 then
+ * Special case: if engineID is NULL or if engineID_len is 0 then
  * the time tuple is returned immediately as zero.
  *
  * XXX	What if timediff wraps?  >shrug<
@@ -71,7 +71,7 @@ EM(-1); /* */
 	*enginetime = *engineboot = 0;
 
 	if ( !engineID || (engineID_len<=0) ) {
-	        QUITFUN(SNMPERR_GENERR, get_enginetime_quit);
+		return rval;
 	}
 
 	if ( !(e = search_enginetime_list(engineID, engineID_len)) ) {
@@ -121,6 +121,9 @@ get_enginetime_quit:
  * and then stamp the record with a consistent source of local time.
  * If the engineID record does not exist, create one.
  *
+ * Special case: engineID is NULL or engineID_len is 0 defines an engineID
+ * that is "always set."
+ *
  * XXX	"Current time within the local engine" == time(NULL)...
  */
 int
@@ -140,7 +143,7 @@ EM(-1); /* */
 	 * Sanity check.
 	 */
 	if ( !engineID || (engineID_len <= 0) ) {
-		QUITFUN(SNMPERR_GENERR, set_enginetime_quit);
+		return rval;
 	}
 
 
