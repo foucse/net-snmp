@@ -398,6 +398,7 @@ AC_PATH_PROG(UNAMEPROG,uname)
 AC_DEFINE_UNQUOTED(UNAMEPROG,"$UNAMEPROG")
 
 AC_C_CONST
+AC_C_INLINE
 
 dnl get version number.
 AC_MSG_CHECKING(for ucd-snmp version number)
@@ -2092,6 +2093,7 @@ AC_OUTPUT([
  Makefile:Makefile.top:Makefile.in
  snmplib/Makefile:Makefile.top:snmplib/Makefile.in 
  agent/Makefile:Makefile.top:agent/Makefile.in
+ agent/helpers/Makefile:Makefile.top:agent/helpers/Makefile.in
  apps/Makefile:Makefile.top:apps/Makefile.in
  apps/snmpnetstat/Makefile:Makefile.top:apps/snmpnetstat/Makefile.in
  agent/mibgroup/Makefile:Makefile.top:agent/mibgroup/Makefile.in
