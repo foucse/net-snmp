@@ -39,15 +39,18 @@ init_testdelayed(void) {
 
 }
 
-int sleeptime = 1;
+u_long sleeptime = 1;
 
 void
 return_delayed_response(unsigned int clientreg, void *clientarg) {
     delegated_cache *cache = (delegated_cache *) clientarg;
     request_info              *requests = cache->requests;
+    agent_request_info        *reqinfo  = cache->reqinfo;
+    struct agent_snmp_session *asp      = reqinfo->asp;
     int cmp;
     
-    DEBUGMSGTL(("testdelayed", "continuing delayed request\n"));
+    DEBUGMSGTL(("testdelayed", "continuing delayed request, mode = %d\n",
+                cache->reqinfo->mode));
 
     if (!cache) {
         snmp_log(LOG_ERR,"illegal call to return delayed response\n");
@@ -105,6 +108,39 @@ return_delayed_response(unsigned int clientreg, void *clientarg) {
                 requests->requestvb->type = ASN_NULL;
             }
             break;
+
+        case MODE_SET_RESERVE1:
+            /* check type */
+            if (requests->requestvb->type != ASN_INTEGER) {
+                asp->status = SNMP_ERR_WRONGTYPE;
+                return;
+            }
+            break;
+
+        case MODE_SET_RESERVE2:
+            /* store old info for undo later */
+            memdup((u_char **) &requests->state_reference,
+                   (u_char *) &sleeptime, sizeof(sleeptime));
+            if (requests->state_reference == NULL) {
+                asp->status = SNMP_ERR_RESOURCEUNAVAILABLE;
+                return;
+            }
+            break;
+
+        case MODE_SET_ACTION:
+            /* update current */
+            sleeptime = *(requests->requestvb->val.integer);
+            DEBUGMSGTL(("testhandler","updated accesses -> %d\n", accesses));
+            break;
+            
+        case MODE_SET_UNDO:
+            sleeptime = *((u_long *) requests->state_reference);
+            /* fall through */
+
+        case MODE_SET_COMMIT:
+        case MODE_SET_FREE:
+            SNMP_FREE(requests->state_reference);
+            break;
     }
     accesses++;
 }
@@ -131,18 +167,6 @@ my_test_delayed_handler(
                                                        NULL));
             break;
 
-        case MODE_SET_RESERVE1:
-            /* check type */
-            if (requests->requestvb->type != ASN_INTEGER)
-                return SNMP_ERR_WRONGTYPE;
-            break;
-
-        case MODE_SET_COMMIT:
-            /* update sleep time */
-            /* XXX: check name */            
-            sleeptime = *(requests->requestvb->val.integer);
-            break;
-            
     }
 
     return SNMP_ERR_NOERROR;

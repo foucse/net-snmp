@@ -232,11 +232,44 @@ my_test_instance_handler(
 
     static u_long accesses = 0;
 
-    DEBUGMSGTL(("testhandler", "Got request:\n"));
+    DEBUGMSGTL(("testhandler", "Got instance request:\n"));
 
-    snmp_set_var_typed_value(requests->requestvb, ASN_INTEGER,
-                             (u_char *) &accesses,
-                             sizeof(accesses));
-    accesses++;
+    switch(reqinfo->mode) {
+        case MODE_GET:
+            accesses++;
+            snmp_set_var_typed_value(requests->requestvb, ASN_UNSIGNED,
+                                     (u_char *) &accesses,
+                                     sizeof(accesses));
+            break;
+
+        case MODE_SET_RESERVE1:
+            if (requests->requestvb->type != ASN_UNSIGNED)
+                return SNMP_ERR_WRONGTYPE;
+            break;
+
+        case MODE_SET_RESERVE2:
+            /* store old info for undo later */
+            memdup((u_char **) &requests->state_reference,
+                   (u_char *) &accesses, sizeof(accesses));
+            if (requests->state_reference == NULL)
+                return SNMP_ERR_RESOURCEUNAVAILABLE;
+            break;
+
+        case MODE_SET_ACTION:
+            /* update current */
+            accesses = *(requests->requestvb->val.integer);
+            DEBUGMSGTL(("testhandler","updated accesses -> %d\n", accesses));
+            break;
+            
+        case MODE_SET_UNDO:
+            accesses = *((u_long *) requests->state_reference);
+            /* fall through */
+
+        case MODE_SET_COMMIT:
+        case MODE_SET_FREE:
+            SNMP_FREE(requests->state_reference);
+            break;
+    }
+    
     return SNMP_ERR_NOERROR;
 }

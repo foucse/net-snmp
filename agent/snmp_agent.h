@@ -56,6 +56,7 @@ typedef struct tree_cache_s {
 #define MODE_GET              SNMP_MSG_GET
 #define MODE_GETNEXT          SNMP_MSG_GETNEXT
 #define MODE_GETBULK          SNMP_MSG_GETBULK
+#define MODE_SET_BEGIN        -1
 #define MODE_SET_RESERVE1     RESERVE1
 #define MODE_SET_RESERVE2     RESERVE2
 #define MODE_SET_ACTION       ACTION

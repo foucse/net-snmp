@@ -144,6 +144,7 @@ int handle_pdu(struct agent_snmp_session  *asp);
 int wrap_up_request(struct agent_snmp_session *asp, int status);
 int check_delayed_request(struct agent_snmp_session  *asp);
 int handle_getnext_loop(struct agent_snmp_session  *asp);
+int handle_set_loop(struct agent_snmp_session  *asp);
 
 static void dump_var (
     oid *var_name,
@@ -1606,6 +1607,11 @@ check_delayed_request(struct agent_snmp_session  *asp) {
         case SNMP_MSG_GETBULK:
             /* WWW */
             break;
+        case SNMP_MSG_SET:
+            handle_set_loop(asp);
+            if (asp->mode != FINISHED_SUCCESS && asp->mode != FINISHED_FAILURE)
+                return SNMP_ERR_NOERROR;
+            break;
     }
     if ( asp->outstanding_requests != NULL ) {
 	asp->status = status;
@@ -1672,6 +1678,97 @@ handle_getnext_loop(struct agent_snmp_session  *asp) {
 }
 
 int
+handle_set(struct agent_snmp_session  *asp) {
+    int status;
+    /*
+     * SETS require 3-4 passes through the var_op_list.
+     * The first two
+     * passes verify that all types, lengths, and values are valid
+     * and may reserve resources and the third does the set and a
+     * fourth executes any actions.  Then the identical GET RESPONSE
+     * packet is returned.
+     * If either of the first two passes returns an error, another
+     * pass is made so that any reserved resources can be freed.
+     * If the third pass returns an error, another pass is
+     * made so that
+     * any changes can be reversed.
+     * If the fourth pass (or any of the error handling passes)
+     * return an error, we'd rather not know about it!
+     */
+    switch (asp->mode) {
+        case MODE_SET_BEGIN:
+            snmp_increment_statistic(STAT_SNMPINSETREQUESTS);
+            asp->rw      = WRITE; /* WWW: still needed? */
+            asp->mode = MODE_SET_RESERVE1;
+            asp->status = SNMP_ERR_NOERROR;
+            break;
+            
+        case MODE_SET_RESERVE1:
+
+            if ( asp->status != SNMP_ERR_NOERROR )
+                asp->mode = MODE_SET_FREE;
+            else
+                asp->mode = MODE_SET_RESERVE2;
+            break;
+
+        case MODE_SET_RESERVE2:
+            if ( asp->status != SNMP_ERR_NOERROR )
+                asp->mode = MODE_SET_FREE;
+            else
+                asp->mode = MODE_SET_ACTION;
+            break;
+
+        case MODE_SET_ACTION:
+            if ( asp->status != SNMP_ERR_NOERROR )
+                asp->mode = MODE_SET_UNDO;
+            else
+                asp->mode = MODE_SET_COMMIT;
+            break;
+
+        case MODE_SET_COMMIT:
+            if ( asp->status != SNMP_ERR_NOERROR ) {
+                asp->status    = SNMP_ERR_COMMITFAILED;
+                asp->mode = FINISHED_FAILURE;
+            }
+            else
+                asp->mode = FINISHED_SUCCESS;
+            break;
+
+        case MODE_SET_UNDO:
+            if (asp->status != SNMP_ERR_NOERROR )
+                asp->status = SNMP_ERR_UNDOFAILED;
+
+            asp->mode = FINISHED_FAILURE;
+            break;
+
+        case MODE_SET_FREE:
+            asp->mode = FINISHED_FAILURE;
+            break;
+    }
+    
+    if (asp->mode != FINISHED_SUCCESS && asp->mode != FINISHED_FAILURE) {
+        DEBUGMSGTL(("agent_set","doing set mode = %d\n",asp->mode));
+        status = handle_var_requests( asp );
+        if (status != SNMP_ERR_NOERROR && asp->status == SNMP_ERR_NOERROR)
+            asp->status = status;
+        DEBUGMSGTL(("agent_set","did set mode = %d, status = %d\n",
+                    asp->mode, asp->status));
+    }
+    return asp->status;
+}
+
+int
+handle_set_loop(struct agent_snmp_session  *asp) {
+    while(asp->mode != FINISHED_FAILURE && asp->mode != FINISHED_SUCCESS) {
+        handle_set(asp);
+        if (find_varbind_of_type(asp->pdu->variables, ASN_PRIV_DELEGATED)
+            != NULL)
+            return SNMP_ERR_NOERROR;
+    }
+    return asp->status;
+}
+
+int
 handle_pdu(struct agent_snmp_session  *asp) {
     int status;
 
@@ -1725,75 +1822,9 @@ handle_pdu(struct agent_snmp_session  *asp) {
             if (check_acm(asp, SNMP_NOSUCHOBJECT))
                 return SNMP_ERR_NOTWRITABLE;
 
-            asp->mode = MODE_SET_RESERVE1;
-            /*
-                 * SETS require 3-4 passes through the var_op_list.
-                 * The first two
-                 * passes verify that all types, lengths, and values are valid
-                 * and may reserve resources and the third does the set and a
-                 * fourth executes any actions.  Then the identical GET RESPONSE
-                 * packet is returned.
-                 * If either of the first two passes returns an error, another
-                 * pass is made so that any reserved resources can be freed.
-                 * If the third pass returns an error, another pass is
-                 * made so that
-                 * any changes can be reversed.
-                 * If the fourth pass (or any of the error handling passes)
-                 * return an error, we'd rather not know about it!
-                 */
-            if ( asp->mode == MODE_SET_RESERVE1 ) {
-                snmp_increment_statistic(STAT_SNMPINSETREQUESTS);
-                asp->rw      = WRITE;
-
-                status = handle_var_requests( asp );
-
-                if ( status != SNMP_ERR_NOERROR )
-                    asp->mode = MODE_SET_FREE;
-                else
-                    asp->mode = MODE_SET_RESERVE2;
-            }
-
-            if ( asp->mode == MODE_SET_RESERVE2 ) {
-                status = handle_var_requests( asp );
-
-                if ( status != SNMP_ERR_NOERROR )
-                    asp->mode = MODE_SET_FREE;
-                else
-                    asp->mode = MODE_SET_ACTION;
-            }
-
-            if ( asp->mode == MODE_SET_ACTION ) {
-                status = handle_var_requests( asp );
-
-                if ( status != SNMP_ERR_NOERROR )
-                    asp->mode = MODE_SET_UNDO;
-                else
-                    asp->mode = MODE_SET_COMMIT;
-            }
-
-            if ( asp->mode == MODE_SET_COMMIT ) {
-                status = handle_var_requests( asp );
-
-                if ( status != SNMP_ERR_NOERROR ) {
-                    status    = SNMP_ERR_COMMITFAILED;
-                    asp->mode = FINISHED_FAILURE;
-                }
-                else
-                    asp->mode = FINISHED_SUCCESS;
-            }
-
-            if ( asp->mode == MODE_SET_UNDO ) {
-                if (handle_var_requests( asp ) != SNMP_ERR_NOERROR )
-                    status = SNMP_ERR_UNDOFAILED;
-
-                asp->mode = FINISHED_FAILURE;
-                break;
-            }
-
-            if ( asp->mode == MODE_SET_FREE ) {
-                (void) handle_var_requests( asp );
-                break;
-            }
+            asp->mode = MODE_SET_BEGIN;
+            status = handle_set_loop(asp);
+            
             break;
 
         case SNMP_MSG_GETBULK:
