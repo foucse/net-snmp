@@ -830,7 +830,13 @@ void   snmp_sess_perror     (const char *prog_string, struct snmp_session *ss);
 #define  STAT_SNMP_STATS_START               STAT_SNMPINPKTS
 #define  STAT_SNMP_STATS_END                 STAT_SNMPOUTTRAPS
 
-#define  MAX_STATS                           41
+/* target mib counters */
+#define  STAT_SNMPUNAVAILABLECONTEXTS	     41
+#define  STAT_SNMPUNKNOWNCONTEXTS	     42
+#define  STAT_TARGET_STATS_START             STAT_SNMPUNAVAILABLECONTEXTS
+#define  STAT_TARGET_STATS_END               STAT_SNMPUNKNOWNCONTEXTS
+
+#define  MAX_STATS                           43
 
 #ifdef __cplusplus
 }
