@@ -90,6 +90,10 @@ oid_array *extract_array_context(request_info *);
 
 NodeHandler table_array_helper_handler;
 
+const oid_array_header*
+table_array_get_by_index(handler_registration *reginfo,
+                         oid_array_header * hdr);
+
 #ifdef __cplusplus
 };
 #endif
