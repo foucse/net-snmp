@@ -82,10 +82,11 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
   u_char type;
 
   /* build header for secParams OCTET STRING, zero length at the moment */
-  oct_hdr_e = asn_build_header(secParams, &asn_len, 
-			(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR), 0);
+  oct_hdr_e = asn_build_string(secParams, &asn_len, 
+                            (u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+			       NULL, 0);
   /* build header for secParams SEQUENCE, zero length at the moment */
-  seq_hdr_e = asn_build_header(oct_hdr_e, &asn_len, 
+  seq_hdr_e = asn_build_sequence(oct_hdr_e, &asn_len, 
 			(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
   /* build msgAuthoritativeEngineID */
   cp = asn_build_string(seq_hdr_e, &asn_len,
@@ -104,11 +105,13 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 			(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
 			secName, secNameLen);
   /* build msgAuthenticationParameters */
-  cp = asn_build_header(cp, &asn_len, 
-			(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
+  cp = asn_build_string(cp, &asn_len, 
+			(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+			NULL, 0);
   /* build msgPrivacyParameters */
-  cp = asn_build_header(cp, &asn_len, 
-			(u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
+  cp = asn_build_string(cp, &asn_len, 
+			(u_char)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),
+			NULL, 0);
   /* update OCTET STRING header with real length */
   tmp_len = asn_len;
   asn_build_header(secParams, &tmp_len, 
@@ -116,7 +119,7 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
 		   cp - oct_hdr_e);
   /* update SEQUENCE header with real length */
   tmp_len = asn_len;
-  asn_build_header(oct_hdr_e, &tmp_len, 
+  asn_build_sequence(oct_hdr_e, &tmp_len, 
 		   (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), cp - seq_hdr_e);
 
   *secParamsLen = cp - secParams; /* entire len of secParams OCTET STRING */
@@ -128,8 +131,8 @@ usm_generate_out_msg (msgProcModel, globalData, globalDataLen, maxMsgSize,
   /* update sequence header for wholeMsg */
   tmp_len = globalDataLen;
   msg_hdr_e = asn_parse_header(globalData, &tmp_len, &type);
-  asn_build_header(globalData, &tmp_len,
-		   (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), cp - msg_hdr_e);
+  asn_build_sequence(globalData, &tmp_len,
+		     (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR), cp - msg_hdr_e);
 
   *wholeMsgLen = globalDataLen + *secParamsLen + scopedPduLen;
   *wholeMsg = globalData;
