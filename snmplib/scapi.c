@@ -45,7 +45,8 @@
   Returns either the length or SNMPERR_GENERR for an unknown hashing type.
 */
 int
-sc_get_properlength(oid *hashtype, u_int hashtype_len) {
+sc_get_properlength(oid *hashtype, u_int hashtype_len)
+{
   /*
    * Determine transform type hash length.
    */
@@ -157,10 +158,12 @@ sc_shutdown(void)
 #ifdef HAVE_LIBKMT
 	kmt_close();
 #else
-#ifdef USE_INTERNAL_MD5
-#else
-	rval = SNMPERR_SC_NOT_CONFIGURED;
-#endif
+
+#	ifdef USE_INTERNAL_MD5
+		/* EMPTY */
+#	else
+		rval = SNMPERR_SC_NOT_CONFIGURED;
+#	endif
 #endif
 
 	return rval;
@@ -186,6 +189,7 @@ sc_random(u_char *buf, u_int *buflen)
 #if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 {
 	int		rval = SNMPERR_SUCCESS;
+
 #ifdef USE_INTERNAL_MD5
         int i;
         int rndval;
@@ -194,7 +198,7 @@ sc_random(u_char *buf, u_int *buflen)
 
 EM(-1); /* */
 
-#ifdef HAVE_LIBKMT
+#ifdef	HAVE_LIBKMT
 	rval = kmt_random(buf, *buflen);
 	if (rval < 0) {
 		rval = SNMPERR_SC_GENERAL_FAILURE;
@@ -202,8 +206,8 @@ EM(-1); /* */
 		*buflen = rval;
 		rval = SNMPERR_SUCCESS;
 	}
-#else /* USE_INTERNAL_MD5 */
-        
+
+#else	/* USE_INTERNAL_MD5 */
         /* fill the buffer with random integers.  Note that random()
            is defined in config.h and may not be truly the random()
            system call if something better existed */
@@ -217,7 +221,7 @@ EM(-1); /* */
         memcpy(ucp, &rndval, *buflen%sizeof(rndval));
 
         rval = SNMPERR_SUCCESS;
-#endif /* !HAVE_LIBKMT == USE_INTERNAL_MD5 */
+#endif	/* !HAVE_LIBKMT == USE_INTERNAL_MD5 */
 
 	return rval;
 
@@ -270,24 +274,24 @@ sc_generate_keyed_hash(	oid	*authtype,	int    authtypelen,
 
 	u_int8_t	 buf[SNMP_MAXBUF_SMALL],
 			*bufp = buf;
-
 #ifdef HAVE_LIBKMT
 	KMT_KEY_LIST	*kmtkeylist	= NULL;
 #endif
-
-#ifdef SNMP_TESTING_CODE
-        int i;
-#endif /* SNMP_TESTING_CODE */
 
 EM(-1); /* */
 
 
 #ifdef SNMP_TESTING_CODE
-        DEBUGP("gener key: ");
+{
+	int i;
+	DEBUGP("sc_generate_keyed_hash(): key=0x");
         for(i=0; i< keylen; i++)
-          DEBUGP("%02x",key[i]);
+          DEBUGP("%02x", key[i] & 0xff);
+	DEBUGP(" (%d)\n", keylen);
         DEBUGP("\n");
+}
 #endif /* SNMP_TESTING_CODE */
+
 	/*
 	 * Sanity check.
 	 */
@@ -346,8 +350,14 @@ EM(-1); /* */
 #endif /* ! HAVE_LIBKMT */
 
 #ifdef SNMP_TESTING_CODE
-	sprint_hexstring(buf, MAC, *maclen);
-        DEBUGP("hash: %s\n", buf);
+{
+	char    *s;
+	int      len = binary_to_hex(MAC, *maclen, &s);
+
+	DEBUGP("Full v3 message hash: %s\n", s);
+	SNMP_ZERO(s, len);
+	SNMP_FREE(s);
+}
 #endif
         
 sc_generate_keyed_hash_quit:
@@ -362,6 +372,7 @@ sc_generate_keyed_hash_quit:
 #else
 _SCAPI_NOT_CONFIGURED
 #endif							/* HAVE_LIBKMT */
+
 
 /* sc_hash(): a generic wrapper around whatever hashing package we are using.
 
@@ -384,7 +395,8 @@ _SCAPI_NOT_CONFIGURED
 #if defined(HAVE_LIBKMT) || defined(USE_INTERNAL_MD5)
 int
 sc_hash(oid *hashtype, int hashtypelen, u_char *buf, int buf_len,
-        u_char *MAC, u_int *MAC_len) {
+        u_char *MAC, u_int *MAC_len)
+{
 
   int   rval       = SNMPERR_SUCCESS;
 
@@ -424,6 +436,8 @@ sc_hash(oid *hashtype, int hashtypelen, u_char *buf, int buf_len,
 _SCAPI_NOT_CONFIGURED
 #endif /* !defined(HAVE_LIBKMT) && !defined(USE_INTERNAL_MD5) */
 
+
+
 /*******************************************************************-o-******
  * sc_check_keyed_hash
  *
@@ -459,19 +473,20 @@ sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
 
 	u_int8_t	 buf[SNMP_MAXBUF_SMALL];
 
-#ifdef SNMP_TESTING_CODE
- int i;
-#endif /* SNMP_TESTING_CODE */
-
 EM(-1); /* */
 
 
 #ifdef SNMP_TESTING_CODE
- DEBUGP("check key: ");
+{
+ int i;
+ DEBUGP("sc_check_keyed_hash():    key=0x");
  for(i=0; i< keylen; i++)
-   DEBUGP("%02x",key[i]);
+   DEBUGP("%02x", key[i] & 0xff);
+ DEBUGP(" (%d)\n", keylen);
  DEBUGP("\n");
+}
 #endif /* SNMP_TESTING_CODE */
+
 	/*
 	 * Sanity check.
 	 */
@@ -546,13 +561,7 @@ sc_encrypt(	oid    *privtype,	int    privtypelen,
 		u_char *iv,		u_int  ivlen,
 		u_char *plaintext,	u_int  ptlen,
 		u_char *ciphertext,	u_int *ctlen)
-#if defined(USE_INTERNAL_MD5)
-{
-  DEBUGPL(("Asked to encrypt something and I don't know how to\n"));
-  return SNMPERR_SC_NOT_CONFIGURED;
-}
-#else
-#ifdef HAVE_LIBKMT
+#ifdef								HAVE_LIBKMT
 {
 	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
@@ -561,19 +570,6 @@ sc_encrypt(	oid    *privtype,	int    privtypelen,
 
 	KMT_KEY_LIST	*kmtkeylist = NULL;
 
-#ifdef SNMP_TESTING_CODE
-        char buf[4096];
-
-	sprint_hexstring(buf, iv, ivlen);
-        DEBUGP("encrypt: IV: %s/ ", buf);
-	sprint_hexstring(buf, key, keylen);
-        DEBUGP("%s\n", buf);
-
-	sprint_hexstring(buf, plaintext, 16);
-        DEBUGP("encrypt: string: %s\n", buf);
-#endif /* SNMP_TESTING_CODE */
-        
-
 EM(-1); /* */
 
 
@@ -581,7 +577,7 @@ EM(-1); /* */
 	 * Sanity check.
 	 */
 #if	!defined(SCAPI_AUTHPRIV)
-	return SNMPERR_SC_NOT_CONFIGURED;
+		return SNMPERR_SC_NOT_CONFIGURED;
 #endif
 
 	if ( !privtype || !key || !iv || !plaintext || !ciphertext || !ctlen
@@ -590,6 +586,21 @@ EM(-1); /* */
 	{
 		QUITFUN(SNMPERR_GENERR, sc_encrypt_quit);
 	}
+
+
+#ifdef SNMP_TESTING_CODE
+{
+        char buf[SNMP_MAXBUF];
+
+	sprint_hexstring(buf, iv, ivlen);
+        DEBUGP("encrypt: IV: %s/ ", buf);
+	sprint_hexstring(buf, key, keylen);
+        DEBUGP("%s\n", buf);
+
+	sprint_hexstring(buf, plaintext, 16);
+        DEBUGP("encrypt: string: %s\n", buf);
+}
+#endif /* SNMP_TESTING_CODE */
 
 
 	/*
@@ -633,9 +644,17 @@ sc_encrypt_quit:
 }  /* end sc_encrypt() */
 
 #else
-_SCAPI_NOT_CONFIGURED
-#endif /* HAVE_LIBKMT */
-#endif /* USE_INTERNAL_MD5 */
+#	if USE_INTERNAL_MD5
+	{
+		DEBUGPL(("Encrypt function not defined.\n"));
+		return SNMPERR_SC_GENERAL_FAILURE;
+	}
+
+#	else
+		_SCAPI_NOT_CONFIGURED
+
+#	endif /* USE_INTERNAL_MD5 */
+#endif							/* HAVE_LIBKMT */
 
 
 
@@ -670,13 +689,7 @@ sc_decrypt(	oid    *privtype,	int    privtypelen,
 		u_char *iv,		u_int  ivlen,
 		u_char *ciphertext,	u_int  ctlen,
 		u_char *plaintext,	u_int *ptlen)
-#if defined(USE_INTERNAL_MD5)
-{
-  DEBUGPL(("Asked to decrypt something and I don't know how to\n"));
-  return SNMPERR_SC_NOT_CONFIGURED;
-}
-#else
-#ifdef HAVE_LIBKMT
+#ifdef								HAVE_LIBKMT
 {
 	int		rval	= SNMPERR_SUCCESS;
 	u_int		transform,
@@ -685,16 +698,6 @@ sc_decrypt(	oid    *privtype,	int    privtypelen,
 
 	KMT_KEY_LIST	*kmtkeylist = NULL;
 
-#ifdef SNMP_TESTING_CODE
-        char buf[4096];
-
-	sprint_hexstring(buf, iv, ivlen);
-        DEBUGP("decrypt: IV: %s/ ", buf);
-	sprint_hexstring(buf, key, keylen);
-        DEBUGP("%s\n", buf);
-#endif /* SNMP_TESTING_CODE */
-
-
 EM(-1); /* */
 
 
@@ -702,7 +705,7 @@ EM(-1); /* */
 	 * Sanity check.
 	 */
 #if	!defined(SCAPI_AUTHPRIV)
-	return SNMPERR_SC_NOT_CONFIGURED;
+		return SNMPERR_SC_NOT_CONFIGURED;
 #endif
 
 	if ( !privtype || !key || !iv || !plaintext || !ciphertext || !ptlen
@@ -711,6 +714,18 @@ EM(-1); /* */
 	{
 		QUITFUN(SNMPERR_GENERR, sc_decrypt_quit);
 	}
+
+
+#ifdef SNMP_TESTING_CODE
+{
+        char buf[SNMP_MAXBUF];
+
+	sprint_hexstring(buf, iv, ivlen);
+        DEBUGP("decrypt: IV: %s/ ", buf);
+	sprint_hexstring(buf, key, keylen);
+        DEBUGP("%s\n", buf);
+}
+#endif /* SNMP_TESTING_CODE */
 
 
 	/*
@@ -754,11 +769,18 @@ sc_decrypt_quit:
 
 }  /* end sc_decrypt() */
 
-
 #else
-_SCAPI_NOT_CONFIGURED
-#endif /* HAVE_LIBKMT */
-#endif							/* USE_INTERNAL_MD5 */
+#	if USE_INTERNAL_MD5
+	{
+		DEBUGPL(("Decryption function not defined.\n"));
+		return SNMPERR_SC_GENERAL_FAILURE;
+	}
+
+#	else
+		_SCAPI_NOT_CONFIGURED
+
+#	endif /* USE_INTERNAL_MD5 */
+#endif							/* HAVE_LIBKMT */
 
 	
 

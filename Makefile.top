@@ -24,6 +24,8 @@ man5dir		= $(mandir)/man5
 man8dir		= $(mandir)/man8
 snmplibdir	= $(datadir)/snmp
 mibdir		= $(snmplibdir)/mibs
+persistentdir	= @PERSISTENT_DIRECTORY@
+
 
 #
 # Programs

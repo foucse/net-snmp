@@ -305,7 +305,8 @@ unsigned int count;
 
 /* MDchecksum(data, len, MD5): do a checksum on an arbirtrary amount of data */
 void
-MDchecksum(u_char *data, int len, u_char *mac, int maclen) {
+MDchecksum(u_char *data, int len, u_char *mac, int maclen)
+{
   MDstruct md;
   MDstruct *MD = &md;
   
@@ -326,7 +327,8 @@ MDchecksum(u_char *data, int len, u_char *mac, int maclen) {
    of data, and prepended with a secret in the standard fashion */
 int
 MDsign(u_char *data, int len, u_char *mac, int maclen,
-       u_char *secret, int secretlen) {
+       u_char *secret, int secretlen)
+{
 #define HASHKEYLEN 64
 
   MDstruct MD;
@@ -385,7 +387,8 @@ MDsign(u_char *data, int len, u_char *mac, int maclen,
 }
 
 void
-MDget(MDstruct *MD, u_char *buf, int buflen) {
+MDget(MDstruct *MD, u_char *buf, int buflen)
+{
   int i, j;
   
   /* copy the checksum to the outgoing data (all of it that is requested). */

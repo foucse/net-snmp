@@ -12,9 +12,9 @@
 /*
  * General.
  */
-#define USM_MAX_ID_LENGTH		1024
-#define USM_MAX_SALT_LENGTH		64
-#define USM_MAX_KEYEDHASH_LENGTH	128
+#define USM_MAX_ID_LENGTH		1024		/* In bytes. */
+#define USM_MAX_SALT_LENGTH		64		/* In BITS. */
+#define USM_MAX_KEYEDHASH_LENGTH	128		/* In BITS. */
 
 #define USM_TIME_WINDOW			150
 
@@ -89,6 +89,84 @@ struct usmUser {
 /*
  * Prototypes.
  */
+void	usm_set_reportErrorOnUnknownID __P((int value));
+
+struct usmStateReference *
+	usm_malloc_usmStateReference __P((void));
+
+void	usm_free_usmStateReference __P((void *old));
+
+int	usm_set_usmStateReference_name __P((
+		struct usmStateReference	*ref,
+		u_char				*name,
+		u_int				 name_len));
+
+int	usm_set_usmStateReference_engine_id __P((
+		struct usmStateReference	*ref,
+		u_char				*engine_id,
+		u_int				 engine_id_len));
+
+int	usm_set_usmStateReference_auth_protocol __P((
+		struct usmStateReference *ref,
+		oid *auth_protocol,
+		u_int auth_protocol_len));
+
+int	usm_set_usmStateReference_auth_key __P((
+		struct usmStateReference *ref,
+		u_char *auth_key,
+		u_int auth_key_len));
+
+int	usm_set_usmStateReference_priv_protocol __P((
+		struct usmStateReference *ref,
+		oid *priv_protocol,
+		u_int priv_protocol_len));
+
+int	usm_set_usmStateReference_priv_key __P((
+		struct usmStateReference *ref,
+		u_char *priv_key,
+		u_int priv_key_len));
+
+int	usm_set_usmStateReference_sec_level __P((
+		struct usmStateReference *ref,
+		u_int sec_level));
+
+#ifdef SNMP_TESTING_CODE
+void	emergency_print __P((u_char *field, u_int length));
+#endif
+
+int	asn_predict_int_length __P((int type, long number, int len));
+
+int	asn_predict_length __P((int type, u_char *ptr, int u_char_len));
+
+int	usm_set_salt __P((
+		u_char		*iv,
+		int		*iv_length,
+		u_char		*priv_salt,
+		int		 priv_salt_length,
+		u_char		*msgSalt ));
+
+int	usm_parse_security_parameters __P((
+		u_char  *secParams,
+		u_int    remaining,
+		u_char  *secEngineID,
+		int     *secEngineIDLen,
+		u_int   *boots_uint,
+		u_int   *time_uint,
+		u_char  *secName,
+		int     *secNameLen,
+		u_char  *signature,
+		u_int   *signature_length,
+		u_char  *salt,
+		u_int   *salt_length,
+		u_char **data_ptr));
+
+int	usm_check_and_update_timeliness __P((
+		u_char *secEngineID,
+		int     secEngineIDLen,
+		u_int   boots_uint,
+		u_int   time_uint,
+		int    *error));
+
 void usm_set_reportErrorOnUnknownID __P((int value));
 void usm_free_usmStateReference __P((void *old));
 

@@ -26,8 +26,8 @@ static Enginetime etimelist[ETIMELIST_SIZE];
  * Parameters:
  *	*engineID
  *	 engineID_len
- *	*enginetime
  *	*engineboot
+ *	*enginetime
  *      
  * Returns:
  *	SNMPERR_SUCCESS		Success -- when a record for engineID is found.
@@ -121,8 +121,8 @@ get_enginetime_quit:
  * Parameters:
  *	*engineID
  *	 engineID_len
- *	 enginetime
  *	 engineboot
+ *	 enginetime
  *      
  * Returns:
  *	SNMPERR_SUCCESS		Success.

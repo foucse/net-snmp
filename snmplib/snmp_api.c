@@ -1042,7 +1042,7 @@ free_request_list(rp)
 	rp = rp->next_request;
 	if (orp->pdu != NULL)
 	    snmp_free_pdu(orp->pdu);
-	free((char *)orp);
+	free((void *)orp);
     }
 }
 
@@ -2797,9 +2797,9 @@ snmp_free_pdu(pdu)
     vp = pdu->variables;
     while(vp){
 	if (vp->name && vp->name != vp->name_loc)
-	    free((char *)vp->name);
+	    SNMP_FREE((char *)vp->name);
 	if (vp->val.string && vp->val.string != vp->buf)
-	    free((char *)vp->val.string);
+	    SNMP_FREE((char *)vp->val.string);
 	ovp = vp;
 	vp = vp->next_variable;
 	free((char *)ovp);
@@ -2807,7 +2807,10 @@ snmp_free_pdu(pdu)
     _snmp_free(pdu->enterprise);
     _snmp_free(pdu->community);
     _snmp_free(pdu->contextEngineID);
-    _snmp_free(pdu->securityEngineID);
+    /* _snmp_free(pdu->securityEngineID);	/* */
+	/*  FIX	securityEngineID is being free'd twice in snmp{get,walk}.
+	 *	But, where is the first time... ?
+	 */
     _snmp_free(pdu->contextName);
     _snmp_free(pdu->securityName);
     if (pdu->srcParty && pdu->srcParty != pdu->srcPartyBuf) 
@@ -2816,7 +2819,8 @@ snmp_free_pdu(pdu)
       free((char *)pdu->dstParty);
     if (pdu->context && pdu->context != pdu->contextBuf) 
       free((char *)pdu->context);
-    free((char *)pdu);
+
+    SNMP_FREE((char *)pdu);
 }
 
 /*
@@ -3209,7 +3213,7 @@ snmp_sess_timeout(sessp)
     		if (isp->requestsEnd == rp)
     		    isp->requestsEnd = orp;
     	    }
-    	    snmp_free_pdu(rp->pdu);
+    	    snmp_free_pdu(rp->pdu);	/* FIX  rp is already free'd! */
     	    freeme = rp;
     	    continue;	/* don't update orp below */
     	} else {

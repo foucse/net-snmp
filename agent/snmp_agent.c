@@ -1,6 +1,7 @@
 /*
- * Simple Network Management Protocol (RFC 1067).
+ * snmp_agent.c
  *
+ * Simple Network Management Protocol (RFC 1067).
  */
 /***********************************************************
 	Copyright 1988, 1989 by Carnegie Mellon University
@@ -146,8 +147,11 @@ handle_snmp_packet(int operation, struct snmp_session *session, int reqid,
 	while ( asp->end->next_variable != NULL )
 	    asp->end = asp->end->next_variable;
 	
+    /* FIX -- surely this is undesired?
+     */
     asp->next = agent_session_list;
     agent_session_list = asp;
+    /* */
 
     handle_next_pass( asp );
     return 1;
@@ -370,6 +374,10 @@ handle_var_list( asp )
         
     count = 0;
     varbind_ptr = asp->start;
+    if ( !varbind_ptr ) {
+	return SNMP_ERR_NOERROR;
+    }
+
     while (1) {
     
 statp_loop:

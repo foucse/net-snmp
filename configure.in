@@ -1016,7 +1016,7 @@ AC_CHECK_STRUCT_FOR([
 
 dnl Check ifnet entries using macro defined in aclocal.m4.
 dnl
-dnl XXX  Broken on FreeBSD wehre these are #define'd in <net/if.h>
+dnl XXX  Broken on FreeBSD where these are #define'd in <net/if.h>
 dnl
 AC_CHECK_IFNET_FOR(if_baudrate)
 AC_CHECK_IFNET_FOR(if_speed)
@@ -1221,6 +1221,8 @@ AC_PROMPT_USER(PERSISTENT_DIRECTORY,[
 data in the form of a configuration file.
 
 Location to write persistent information],$defaultstore,1)
+
+AC_SUBST(PERSISTENT_DIRECTORY)
 
 AC_OUTPUT([
  Makefile:Makefile.top:Makefile.in

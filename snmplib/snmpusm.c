@@ -21,8 +21,8 @@ static u_int    dummy_etime, dummy_eboot;	/* For ISENGINEKNOWN(). */
 /*
  * Globals.
  */
-static u_int salt_integer = 4985517;
-	/* Seed for the salt (an arbitrary number - RFC2274, Sect 8.1.1.1.)
+static u_int salt_integer;
+	/* 1/2 of seed for the salt.   Cf. RFC2274, Sect 8.1.1.1.
 	 */
 
 int reportErrorOnUnknownID = 0;
@@ -230,8 +230,6 @@ emergency_print (u_char *field, u_int length)
  *	Number of bytes necessary to store the ASN.1 encoded value of 'number'.
  *
  *
- *	tab stop 4
- *
  *	This gives the number of bytes that the ASN.1 encoder (in asn1.c) will
  *	use to encode a particular integer value.
  *
@@ -278,8 +276,6 @@ EM(-1);
  *		1		For the ASN.1 type.
  *		<n>		# of bytes to store length of data.
  *		<u_char_len>	Length of data associated with ASN.1 type.
- *
- *	tab stop 4
  *
  *	This gives the number of bytes that the ASN.1 encoder (in asn1.c) will
  *	use to encode a particular integer value.  This is as broken as the
@@ -515,59 +511,72 @@ EM(-1);
  * usm_set_salt
  *
  * Parameters:
- *	*iv
- *	*iv_length
- *	*priv_key
- *	 priv_key_length
+ *	*iv		  (O)   Buffer to contain IV.
+ *	*iv_length	  (O)   Length of iv.
+ *	*priv_salt	  (I)   Salt portion of private key.
+ *	 priv_salt_length (I)   Length of priv_salt.
+ *	*msgSalt	  (I/O) Pointer salt portion of outgoing msg buffer.
  *      
  * Returns:
  *	0	On success,
  *	-1	Otherwise.
  *
- *	This defines the procedure for determining the initialization vector
- *	for the DES-CBC encryption process.  See RFC 2274, 8.1.1.1. for the
- *	details.
+ *	Determine the initialization vector for the DES-CBC encryption.
+ *	(Cf. RFC 2274, 8.1.1.1.)
  *
- *	The salt is defined to be the concatenation of the boots
- *	and the salt integer.  The result of the concatenation is
- *	then XORed with the last 8 bytes of the key.  The salt
- *	integer is then incremented.
- *
- *
- * FIX  Sanity check against the USM RFC...
+ *	iv is defined as the concatenation of engineBoots and the
+ *		salt integer.
+ *	The salt integer is incremented.
+ *	The resulting salt is copied into the msgSalt buffer.
+ *	The result of the concatenation is then XORed with the salt
+ *		portion of the private key (last 8 bytes).
+ *	The IV result is returned individually for further use.
  */
 int
-usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int priv_key_length,
-              u_char *salt, int *salt_length)
+usm_set_salt (	u_char		*iv,
+		int		*iv_length,
+		u_char		*priv_salt,
+		int		 priv_salt_length,
+		u_char		*msgSalt)
 {
-	int index;
 	int propersize_salt     = BYTESIZE(USM_MAX_SALT_LENGTH);
-	int propersize_keyhash  = 2 * BYTESIZE(USM_MAX_SALT_LENGTH); /* FIX? */
-
-        /* the following two values should be encoded in network byte order */
-	int net_boots 		= htonl(snmpv3_local_snmpEngineBoots());
-        int net_salt_int	= htonl(salt_integer);
+	int net_boots;
+        int net_salt_int;
+		/* net_* should be encoded in network byte order.  XXX  Why?
+		 */
+	int index;
 
 EM(-1);
 
-	if ( iv_length == NULL || *iv_length != propersize_salt ||
-             iv == NULL ||
-             salt_length == NULL || *salt_length != propersize_salt ||
-             salt == NULL ||
-             priv_key_length < propersize_keyhash || priv_key == NULL)
-          return -1;
 
-	memcpy (iv, &net_boots, sizeof(int));
-	memcpy (&iv[sizeof(int)], &net_salt_int, sizeof(int));
-        memcpy (salt, iv, propersize_salt);
-	salt_integer++;
+	/*
+	 * Sanity check.
+	 */
+	if ( !iv || !iv_length || !priv_salt || !msgSalt
+		|| (*iv_length != propersize_salt)
+             	|| (priv_salt_length < propersize_salt) )
+	{
+        	return -1;
+	}
+
+
+	net_boots 	= htonl(snmpv3_local_snmpEngineBoots());
+        net_salt_int	= htonl(salt_integer);
+
+	salt_integer += 1;
+
+	memcpy(iv,			&net_boots,	propersize_salt/2);
+	memcpy(iv+(propersize_salt/2), &net_salt_int,	propersize_salt/2);
+
+	memcpy(msgSalt, iv, propersize_salt);
+
 
 	/* 
-	 * XOR the iv with the last (propersize_keyhash/2) bytes
-	 * of the priv_key.
+	 * Turn the salt into an IV: XOR <boots, salt_int> with salt
+	 * portion of priv_key.
 	 */
-	for (index = 0; index < (propersize_keyhash/2); index++)
-		iv[index] ^= priv_key[(propersize_keyhash/2)+index];
+	for (index = 0; index < propersize_salt; index++)
+		iv[index] ^= priv_salt[index];
 
 
 	return 0;
@@ -869,14 +878,16 @@ EM(-1);
 	 */
 	if (theSecLevel == SNMP_SEC_LEVEL_AUTHPRIV)
 	{
-		int encrypted_length	= theTotalLength - dataOffset;
-		int salt_length		= msgPrivParmLen;
-		int iv_length	= BYTESIZE(USM_MAX_SALT_LENGTH);
-                u_char iv[BYTESIZE(USM_MAX_SALT_LENGTH)];
+		int	encrypted_length = theTotalLength - dataOffset,
+			salt_length	 = BYTESIZE(USM_MAX_SALT_LENGTH);
+                u_char	salt[BYTESIZE(USM_MAX_SALT_LENGTH)];
 
-		if (usm_set_salt (iv, &iv_length,
-			thePrivKey, thePrivKeyLength,
-                        &ptr[privParamsOffset], &salt_length) == -1)
+		/* XXX  Hardwired to seek into a 1DES private key!
+		 */
+		if ( usm_set_salt(	salt,		&salt_length,
+					thePrivKey+8,	thePrivKeyLength-8,
+                        		&ptr[privParamsOffset])
+						== -1 )
 		{
 			DEBUGPL (("Can't set DES-CBC salt.\n"));
 			if (secStateRef)
@@ -884,10 +895,10 @@ EM(-1);
 			return USM_ERR_GENERIC_ERROR;
 		}
 
-		if ( sc_encrypt (
+		if ( sc_encrypt(
 			 thePrivProtocol,	 thePrivProtocolLength,
 			 thePrivKey,		 thePrivKeyLength,
-                         iv,			 iv_length,
+                         salt,			 salt_length,
 			 scopedPdu,		 scopedPduLen,
 			&ptr[dataOffset],	&encrypted_length)
 							!= SNMP_ERR_NOERROR )
@@ -902,8 +913,8 @@ EM(-1);
 		if ( ISDF(CRYPTED_CHUNK) ) {
 			dump_chunk("This data was encrypted:",
 					scopedPdu, scopedPduLen);
-			dump_chunk("IV + Encrypted form:",
-					iv, iv_length);
+			dump_chunk("salt + Encrypted form:",
+					salt, salt_length);
 			dump_chunk(NULL,
 					&ptr[dataOffset], encrypted_length);
 			dump_chunk("*wholeMsg:",
@@ -916,7 +927,7 @@ EM(-1);
 
 
 		/* 
-		 * XXX  Sanity check for IV length should be moved up
+		 * XXX  Sanity check for salt length should be moved up
 		 *	under usm_calc_offsets() or tossed.
 		 */
 		if ( (encrypted_length != (theTotalLength - dataOffset))
@@ -1894,15 +1905,18 @@ EM(-1);
 
 
 
-/*
+/* 
  * initializations for the USM.
  *
  * Should be called after the configuration files have been read.
+ *
+ * Set "arbitrary" portion of salt to a random number.
  */
-
 void
 init_usm_post_config(void)
 {
+  u_int	salt_integer_len = sizeof(salt_integer);
+
   initialUser = usm_create_initial_user("initial", usmHMACMD5AuthProtocol,
                                         USM_LENGTH_OID_TRANSFORM,
                                         usmDESPrivProtocol,
@@ -1912,6 +1926,13 @@ init_usm_post_config(void)
   initialUser->engineID = NULL;
   initialUser->engineIDLen = 0;
 
+  if ( sc_random((char *) &salt_integer, &salt_integer_len) != SNMPERR_SUCCESS )
+  {
+	DEBUGPL(("sc_random() failed: using time() as salt.\n"));
+	salt_integer	 = (u_int) time(NULL);
+	salt_integer_len = sizeof(salt_integer);
+  }
+
   noNameUser = usm_create_initial_user("", usmHMACMD5AuthProtocol,
                                         USM_LENGTH_OID_TRANSFORM,
                                         usmDESPrivProtocol,
@@ -1920,7 +1941,8 @@ init_usm_post_config(void)
     free(noNameUser->engineID);
   noNameUser->engineID = NULL;
   noNameUser->engineIDLen = 0;
-}
+
+}  /* end init_usm_post_config() */
  
 
 /* 
@@ -2568,7 +2590,8 @@ usm_set_password(char *token, char *line)
 
 /* uses the rest of LINE to configure USER's password of type TOKEN */
 void
-usm_set_user_password(struct usmUser *user, char *token, char *line) {
+usm_set_user_password(struct usmUser *user, char *token, char *line)
+{
   char		 *cp = line;
   char		  nameBuf[SNMP_MAXBUF];
   u_char	 *engineID = user->engineID;

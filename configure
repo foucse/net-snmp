@@ -8015,6 +8015,8 @@ EOF
 fi
 
 
+
+
 trap '' 1 2 15
 cat > confcache <<\EOF
 # This file is a shell script that caches the results of configure
@@ -8200,6 +8202,7 @@ s%@mibgroup_list_o@%$mibgroup_list_o%g
 s%@trap_list_o@%$trap_list_o%g
 s%@ALLOCA@%$ALLOCA%g
 s%@LIBOBJS@%$LIBOBJS%g
+s%@PERSISTENT_DIRECTORY@%$PERSISTENT_DIRECTORY%g
 
 CEOF
 EOF

@@ -105,11 +105,8 @@ write_engineBoots(action, var_val, var_val_type, var_val_len, statP, name, name_
   /* variables we may use later */
   static long long_ret;
   int size, bigsize=SNMP_MAXBUF_MEDIUM;
-  char buf[SNMP_MAXBUF_MEDIUM];
   u_char engineIDBuf[SNMP_MAXBUF_MEDIUM];
   int engineIDBufLen = 0;
-  u_int boots_uint = 0;
-  u_int time_uint = 0;
 
   if (var_val_type != ASN_INTEGER){
       DEBUGP("write to engineBoots not ASN_INTEGER\n");
@@ -150,11 +147,8 @@ write_engineTime(action, var_val, var_val_type, var_val_len, statP, name, name_l
   /* variables we may use later */
   static long long_ret;
   int size, bigsize=SNMP_MAXBUF_MEDIUM;
-  char buf[SNMP_MAXBUF_MEDIUM];
   u_char engineIDBuf[SNMP_MAXBUF_MEDIUM];
   int engineIDBufLen = 0;
-  u_int boots_uint = 0;
-  u_int time_uint = 0;
 
   if (var_val_type != ASN_INTEGER){
       DEBUGP("write to engineTime not ASN_INTEGER\n");

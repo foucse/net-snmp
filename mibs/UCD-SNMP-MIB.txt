@@ -41,7 +41,7 @@ IMPORTS
 	DisplayString
 	    FROM RFC1213-MIB
 	TruthValue
-	    FROM SNMPV2-TC
+	    FROM SNMPv2-TC
 	TRAP-TYPE
 	    FROM RFC-1215;
 
