@@ -3223,7 +3223,7 @@ _sess_async_send(void *sessp,
 	}
       snmp_res_unlock(MT_LIBRARY_ID, MT_LIB_SESSION);
     }
-    else
+    else if (reqid)
         snmp_free_pdu(pdu);  /* free v1 or v2 TRAP PDU */
 
     return reqid;
