@@ -107,7 +107,8 @@ table_data_get_from_oid(table_data *table,
 }
 
 /** Creates a table_data handler and returns it */
-mib_handler *get_table_data_handler(table_data *table)
+mib_handler *
+get_table_data_handler(table_data *table)
 {
     mib_handler *ret = NULL;
   
@@ -166,7 +167,7 @@ table_data_helper_handler(
     int result, regresult;
     
     for(request = requests; request; request = request->next) {
-        if (request->processed || request->requestvb->type != ASN_NULL)
+        if (request->processed)
             continue;
 
         table_info = extract_table_info(request);
@@ -177,6 +178,8 @@ table_data_helper_handler(
         switch(reqinfo->mode) {
             case MODE_GETNEXT:
             case MODE_GETBULK: /* XXXWWW */
+                if (request->requestvb->type != ASN_NULL)
+                    continue;
                 /* loop through data till we find the next row */
                 result = snmp_oid_compare(request->requestvb->name,
                                           request->requestvb->name_length,
@@ -245,6 +248,8 @@ table_data_helper_handler(
                 break;
 
             case MODE_GET:
+                if (request->requestvb->type != ASN_NULL)
+                    continue;
                 /* find the row in question */
                 if (request->requestvb->name_length <
                     (reginfo->rootoid_len + 3)) {  /* table.entry.column... */
@@ -274,13 +279,21 @@ table_data_helper_handler(
                     (row =
                      table_data_get_from_oid(table,
                                              request->requestvb->name +
-                                             reginfo->rootoid_len + 3,
+                                             reginfo->rootoid_len + 2,
                                              request->requestvb->name_length -
-                                             reginfo->rootoid_len +
-                                             3))) {
+                                             reginfo->rootoid_len -
+                                             2))) {
                     handler_add_parent_data(request, handler_create_parent_data(TABLE_DATA_NAME, row, NULL));
                 }
                 break;
+
+            case MODE_SET_RESERVE2:
+            case MODE_SET_ACTION:
+            case MODE_SET_COMMIT:
+            case MODE_SET_FREE:
+            case MODE_SET_UNDO:
+                valid_request = 1;
+
         }
     }
 
