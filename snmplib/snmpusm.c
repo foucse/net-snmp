@@ -5,6 +5,9 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#if HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
 #if HAVE_STRING_H
 #include <string.h>
 #else
@@ -15,7 +18,14 @@
 #include "snmpv3.h"
 #include "snmp-tc.h"
 #include "snmpusm.h"
+#include "system.h"
 
+/* misc protocol oids */
+static oid usmNoAuthProtocol[]      = { 1,3,6,1,6,3,10,1,1,1 };
+static oid usmNoPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,1 };
+static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
+static oid usmDESPrivProtocol[]     = { 1,3,6,1,6,3,10,1,2,2 };
+  
 /* usm_get_user(): Returns a user from userList based on the engineID,
    engineIDLen and name of the requested user. */
    
@@ -25,7 +35,7 @@ struct usmUser *usm_get_user(char *engineID, int engineIDLen, char *name,
   for (ptr = userList; ptr != NULL; ptr = ptr->next) {
     if (ptr->engineIDLen == engineIDLen &&
         memcmp(ptr->engineID, engineID, engineIDLen) == 0 &&
-        strcmp(ptr->name, name))
+        !strcmp(ptr->name, name))
       return ptr;
   }
   return NULL;
@@ -50,22 +60,22 @@ struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList) {
   for (nptr = userList, pptr = NULL; nptr != NULL;
        pptr = nptr, nptr = nptr->next) {
     if (nptr->engineIDLen > user->engineIDLen)
-      continue;
+      break;
 
     if (nptr->engineIDLen == user->engineIDLen &&
         memcmp(nptr->engineID, user->engineID, user->engineIDLen) > 0)
-      continue;
+      break;
     
     if (nptr->engineIDLen == user->engineIDLen &&
         memcmp(nptr->engineID, user->engineID, user->engineIDLen) == 0 &&
         strlen(nptr->name) > strlen(user->name))
-      continue;
+      break;
 
     if (nptr->engineIDLen == user->engineIDLen &&
         memcmp(nptr->engineID, user->engineID, user->engineIDLen) == 0 &&
         strlen(nptr->name) == strlen(user->name) &&
         strcmp(nptr->name, pptr->name) > 0)
-      continue;
+      break;
   }
 
   /* nptr should now point to the user that we need to add ourselves
@@ -76,10 +86,12 @@ struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList) {
   user->next = nptr;
 
   /* change the next's prev pointer */
-  user->next->prev = user;
+  if (user->next)
+    user->next->prev = user;
 
   /* change the prev's next pointer */
-  user->prev->next = user;
+  if (user->prev)
+    user->prev->next = user;
   
   /* rewind to the head of the list and return it (since the new head
      could be us, we need to notify the above routine who the head now is. */
@@ -137,10 +149,24 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
     return NULL;
   memset(newUser, 0, sizeof(struct usmUser));  /* initialize everything to 0 */
   
-/* leave everything un-initialized if they didn't give us a user to
-   clone from */
-  if (from == NULL)
-    return; 
+/* leave everything initialized to devault values if they didn't give
+   us a user to clone from */
+  if (from == NULL) {
+    if ((newUser->authProtocol =
+         snmp_duplicate_objid(usmNoAuthProtocol,
+                              sizeof(usmNoAuthProtocol)/sizeof(oid))) == NULL)
+      return usm_free_user(newUser);
+    newUser->authProtocolLen = sizeof(usmNoAuthProtocol)/sizeof(oid);
+
+    if ((newUser->privProtocol =
+         snmp_duplicate_objid(usmNoPrivProtocol,
+                              sizeof(usmNoPrivProtocol)/sizeof(oid))) == NULL)
+      return usm_free_user(newUser);
+    newUser->privProtocolLen = sizeof(usmNoPrivProtocol)/sizeof(oid);
+
+    newUser->userStorageType = ST_NONVOLATILE;
+    return newUser;
+  }
   
   /* copy the engineID & it's length */
   if (from->engineIDLen > 0) {
@@ -216,9 +242,6 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
 /* create_initial_user: creates an initial user, filled with the
    defaults defined in the USM document. */
 
-static oid usmDESPrivProtocol[] = { 1,3,6,1,6,3,10,1,2,2 };
-static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
-  
 struct usmUser *usm_create_initial_user(void) {
   struct usmUser *newUser  = usm_clone_user(NULL);
 
@@ -237,12 +260,16 @@ struct usmUser *usm_create_initial_user(void) {
   newUser->cloneFrom[0] = 0;
   newUser->cloneFrom[1] = 0;
 
+  if (newUser->privProtocol)
+    free(newUser->privProtocol);
   if ((newUser->privProtocol = (oid *) malloc(sizeof(usmDESPrivProtocol)))
       == NULL)
     return usm_free_user(newUser);
   newUser->privProtocolLen = sizeof(usmDESPrivProtocol)/sizeof(oid);
   memcpy(newUser->privProtocol, usmDESPrivProtocol, sizeof(usmDESPrivProtocol));
 
+  if (newUser->authProtocol)
+    free(newUser->authProtocol);
   if ((newUser->authProtocol = (oid *) malloc(sizeof(usmHMACMD5AuthProtocol)))
       == NULL)
     return usm_free_user(newUser);
