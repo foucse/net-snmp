@@ -13,10 +13,6 @@
  */
 #define ETIMELIST_SIZE	23
 
-/* XXX	Perhaps these two deserve a more conspicuous location?
- */
-#define ENGINETIME_MAX	2147483647	/* ((2^31)-1) */
-#define ENGINEBOOT_MAX	2147483647	/* ((2^31)-1) */
 
 
 typedef struct enginetime_struct {
@@ -69,9 +65,10 @@ typedef struct enginetime_struct {
  *		SNMPERR_SUCCESS	If engineID already exists in the EngineID List;
  *		SNMPERR_GENERR	Otherwise -and- invokes ENSURE_ENGINE_RECORD()
  *					to add an entry to the EngineID List.
+ *
+ * XXX  Requres the following declaration in modules calling ISENGINEKNOWN():
+ *	static u_int	dummy_etime, dummy_eboot;
  */
-static u_int	dummy_etime, dummy_eboot;
-
 #define ISENGINEKNOWN(e, e_l)					\
 	( (get_enginetime(e, e_l,				\
 		&dummy_eboot, &dummy_etime, TRUE) == SNMPERR_SUCCESS)	\

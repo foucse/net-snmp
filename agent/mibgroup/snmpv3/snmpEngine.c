@@ -44,9 +44,7 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
   /* variables we may use later */
   static long long_ret;
   static unsigned char engineID[SNMP_MAXBUF];
-  static oid objid[30];
-  static struct counter64 c64;
-  struct timeval now;
+
 
   *write_method = 0;           /* assume it isnt writable for the time being */
   *var_len = sizeof(long_ret); /* assume an integer and change later if not */

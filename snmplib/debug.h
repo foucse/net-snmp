@@ -9,6 +9,7 @@
 
 
 
+
 /* ------------------------------------ -o- 
  * Debugging flags.
  *
@@ -24,10 +25,12 @@
 					 *   sc_internal_kmtlookup().	*/
 #define DEBUG_RANDOMZEROS	0x08	/* Use only zero bits for random
 					 *   delta portion of KeyChange TC. */
+#define DEBUG_CRYPTED_CHUNK	0x10	/* Dump {de,en}crypted scopedPdu's  */
 
 static u_int snmp_debug =	DF(ON) | DF(EM)		/* */
-				/* | DF(KMTDUMP1)	   */
-				/* | DF(RANDOMZEROS)	   */
+				/* | DF(KMTDUMP1)	*/
+				/* | DF(RANDOMZEROS)	*/
+				/* | DF(CRYPTED_CHUNK)	*/
 	;
 
 
@@ -83,8 +86,17 @@ static u_int snmp_debug =	DF(ON) | DF(EM)		/* */
 
 /* ------------------------------------ -o- 
  * FIX	Another KMT broken API problem...
+ * FIX	Get rid of the include's, at least...
  */
 #ifdef								HAVE_LIBKMT
+
+#ifdef HAVE_KMT_H
+#       include <kmt.h>
+#endif
+#ifdef HAVE_KMT_ALGS_H
+#       include <kmt_algs.h>
+#endif
+
 void	kmt_s_dump_keylist(KMT_KEY_LIST *keylist, char *name);
 
 #define	kmt_dump_keylist	kmt_s_dump_keylist

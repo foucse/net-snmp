@@ -7,7 +7,7 @@
  * material itself.  This assumes that if two entities configure the same
  * key, there is no state that carries over in the cache for that key
  * from use to use.  Partial hashes/crypts are not allowed, and IVs must
- * be reset each time.  XXX -- tragic error?
+ * be reset each time.
  *
  * Functions specific to KMT, per se, are listed at the end of the file.
  *
@@ -18,6 +18,8 @@
 
 #include "all_system.h"
 #include "all_general_local.h" /* */
+
+#include "transform_oids.h"
 
 
 #ifdef QUITFUN
@@ -410,7 +412,7 @@ EM(-1); /* */
 				kmt_keylist_key(kmtkeylist), NULL,
 				plaintext, ptlen,
 				&ciphertext, ctlen,
-				&iv);
+				 iv);
 	QUITFUN(rval, sc_encrypt_quit);
 
 
@@ -514,7 +516,7 @@ EM(-1); /* */
 				kmt_keylist_key(kmtkeylist), NULL,
 				ciphertext, ctlen,
 				&plaintext, ptlen,
-				&iv);
+				 iv);
 	QUITFUN(rval, sc_decrypt_quit);
 
 

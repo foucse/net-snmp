@@ -1,3 +1,11 @@
+/*
+ * snmp_api.h - API for access to snmp.
+ *
+ * Caution: when using this library in a multi-threaded application,
+ * the values of global variables "snmp_errno" and "snmp_detail"
+ * cannot be reliably determined.  Suggest using snmp_error()
+ * to obtain the library error codes.
+ */
 
 #ifndef SNMP_API_H
 #define SNMP_API_H
@@ -23,14 +31,7 @@ WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 ******************************************************************/
-/*
- * snmp_api.h - API for access to snmp.
- *
- * Caution: when using this library in a multi-threaded application,
- * the values of global variables "snmp_errno" and "snmp_detail"
- * cannot be reliably determined.  Suggest using snmp_error()
- * to obtain the library error codes.
- */
+
 
 struct variable_list;
 struct timeval;
@@ -97,11 +98,11 @@ struct snmp_session {
     int	    securityNameLen;  /* Length of securityName. */
     oid     *securityAuthProto; /* auth protocol oid */
     int     securityAuthProtoLen; /* Length of auth protocol oid */
-    u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol */
+    u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol XXX */
     int     securityAuthKeyLen; /* Length of Ku for auth protocol */
     oid     *securityPrivProto; /* priv protocol oid */
     int     securityPrivProtoLen; /* Length of priv protocol oid */
-    u_char  securityPrivKey[USM_PRIV_KU_LEN];  /* Ku for privacy protocol */
+    u_char  securityPrivKey[USM_PRIV_KU_LEN];  /* Ku for privacy protocol XXX */
     int     securityPrivKeyLen; /* Length of Ku for priv protocol */
     int	    securityModel;
     int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
@@ -145,7 +146,7 @@ typedef int (*snmp_callback) __P((int, struct snmp_session *, int, struct snmp_p
 #define SNMP_DEFAULT_ENTERPRISE_LENGTH	0
 #define SNMP_DEFAULT_TIME	    0
 #define SNMP_DEFAULT_VERSION	    -1
-#define SNMP_MAX_MSG_SIZE           1200 /* this is provisional */
+#define SNMP_MAX_MSG_SIZE           (2 * 1024) /* XXX  this is provisional */
 #define SNMP_MAX_ENG_SIZE     256
 #define SNMP_MAX_SEC_NAME_SIZE     256
 #define SNMP_MAX_SEC_NAME_SIZE     256
@@ -160,43 +161,54 @@ extern void snmp_set_detail __P((char *));
 /*
  * Error return values.
  *
+ * SNMPERR_SUCCESS is the non-PDU "success" code.
+ *
  * XXX	These should be merged with SNMP_ERR_* defines and confined
  *	to values < 0.  ???
  */
-#define SNMPERR_SUCCESS			(0)  /* XXX  Non-PDU "success" code. */
-#define SNMPERR_GENERR			(-1)
-#define SNMPERR_BAD_LOCPORT		(-2)
-#define SNMPERR_BAD_ADDRESS		(-3)
-#define SNMPERR_BAD_SESSION		(-4)
-#define SNMPERR_TOO_LONG		(-5)
-#define SNMPERR_NO_SOCKET		(-6)
-#define SNMPERR_V2_IN_V1		(-7)
-#define SNMPERR_V1_IN_V2		(-8)
-#define SNMPERR_BAD_REPEATERS		(-9)
-#define SNMPERR_BAD_REPETITIONS		(-10)
-#define SNMPERR_BAD_ASN1_BUILD		(-11)
-#define SNMPERR_BAD_SENDTO		(-12)
-#define SNMPERR_BAD_PARSE		(-13)
-#define SNMPERR_BAD_VERSION		(-14)
-#define SNMPERR_BAD_SRC_PARTY		(-15)
-#define SNMPERR_BAD_DST_PARTY		(-16)
-#define SNMPERR_BAD_CONTEXT		(-17)
-#define SNMPERR_BAD_COMMUNITY		(-18)
-#define SNMPERR_NOAUTH_DESPRIV		(-19)
-#define SNMPERR_BAD_ACL			(-20)
-#define SNMPERR_BAD_PARTY		(-21)
-#define SNMPERR_ABORT			(-22)
-#define SNMPERR_UNKNOWN_PDU		(-23)
-#define SNMPERR_TIMEOUT 		(-24)
-#define SNMPERR_BAD_RECVFROM 		(-25)
-#define SNMPERR_BAD_ENG_ID 		(-26)
-#define SNMPERR_BAD_SEC_NAME 		(-27)
-#define SNMPERR_BAD_SEC_LEVEL 		(-28)
-#define SNMPERR_SC_GENERAL_FAILURE	(-29)
-#define SNMPERR_SC_NOT_CONFIGURED	(-30)
-#define SNMPERR_KT_NOT_AVAILABLE	(-31)
+#define SNMPERR_SUCCESS				(0)  
+#define SNMPERR_GENERR				(-1)
+#define SNMPERR_BAD_LOCPORT			(-2)
+#define SNMPERR_BAD_ADDRESS			(-3)
+#define SNMPERR_BAD_SESSION			(-4)
+#define SNMPERR_TOO_LONG			(-5)
+#define SNMPERR_NO_SOCKET			(-6)
+#define SNMPERR_V2_IN_V1			(-7)
+#define SNMPERR_V1_IN_V2			(-8)
+#define SNMPERR_BAD_REPEATERS			(-9)
+#define SNMPERR_BAD_REPETITIONS			(-10)
+#define SNMPERR_BAD_ASN1_BUILD			(-11)
+#define SNMPERR_BAD_SENDTO			(-12)
+#define SNMPERR_BAD_PARSE			(-13)
+#define SNMPERR_BAD_VERSION			(-14)
+#define SNMPERR_BAD_SRC_PARTY			(-15)
+#define SNMPERR_BAD_DST_PARTY			(-16)
+#define SNMPERR_BAD_CONTEXT			(-17)
+#define SNMPERR_BAD_COMMUNITY			(-18)
+#define SNMPERR_NOAUTH_DESPRIV			(-19)
+#define SNMPERR_BAD_ACL				(-20)
+#define SNMPERR_BAD_PARTY			(-21)
+#define SNMPERR_ABORT				(-22)
+#define SNMPERR_UNKNOWN_PDU			(-23)
+#define SNMPERR_TIMEOUT 			(-24)
+#define SNMPERR_BAD_RECVFROM 			(-25)
+#define SNMPERR_BAD_ENG_ID 			(-26)
+#define SNMPERR_BAD_SEC_NAME 			(-27)
+#define SNMPERR_BAD_SEC_LEVEL 			(-28)
+#define SNMPERR_SC_GENERAL_FAILURE		(-29)
+#define SNMPERR_SC_NOT_CONFIGURED		(-30)
+#define SNMPERR_KT_NOT_AVAILABLE		(-31)
+#define SNMPERR_USM_GENERICERROR		(-32)
+#define SNMPERR_USM_UNKNOWNSECURITYNAME		(-33)
+#define SNMPERR_USM_UNSUPPORTEDSECURITYLEVEL	(-34)
+#define SNMPERR_USM_ENCRYPTIONERROR		(-35)
+#define SNMPERR_USM_AUTHENTICATIONFAILURE	(-36)
+#define SNMPERR_USM_PARSEERROR			(-37)
+#define SNMPERR_USM_UNKNOWNENGINEID		(-38)
+#define SNMPERR_USM_NOTINTIMEWINDOW		(-39)
+#define SNMPERR_USM_DECRYPTIONERROR		(-40)
 
-#define SNMPERR_MAX			(-31)
+#define SNMPERR_MAX			(-40)
 
 #define non_repeaters	errstat
 #define max_repetitions errindex
@@ -225,6 +237,8 @@ struct variable_list {
     int usedBuf;
 };
 
+
+
 /*
  * struct snmp_session *snmp_open(session)
  *	struct snmp_session *session;
@@ -237,6 +251,8 @@ struct variable_list {
  */
 struct snmp_session *snmp_open __P((struct snmp_session *));
 
+
+
 /*
  * int snmp_close(session)
  *     struct snmp_session *session;
@@ -246,6 +262,7 @@ struct snmp_session *snmp_open __P((struct snmp_session *));
  * the session.  Returns 0 on error, 1 otherwise.
  */
 int snmp_close __P((struct snmp_session *));
+
 
 
 /*
@@ -262,6 +279,8 @@ int snmp_close __P((struct snmp_session *));
  * The pdu is freed by snmp_send() unless a failure occured.
  */
 int snmp_send __P((struct snmp_session *, struct snmp_pdu *));
+
+
 
 /*
  * int snmp_async_send(session, pdu, callback, cb_data)
@@ -282,6 +301,7 @@ int snmp_send __P((struct snmp_session *, struct snmp_pdu *));
 int snmp_async_send __P((struct snmp_session *, struct snmp_pdu *,
                          snmp_callback, void *));
 
+
 /*
  * void snmp_read(fdset)
  *     fd_set  *fdset;
@@ -295,6 +315,7 @@ int snmp_async_send __P((struct snmp_session *, struct snmp_pdu *,
 void snmp_read __P((fd_set *));
 
 
+
 /*
  * void
  * snmp_free_pdu(pdu)
@@ -306,6 +327,9 @@ void snmp_free_pdu __P((struct snmp_pdu *));
 
 void snmp_free_var __P((struct variable_list *));
 void snmp_free_varbind(struct variable_list *var);
+
+
+
 
 /*
  * int snmp_select_info(numfds, fdset, timeout, block)
@@ -326,25 +350,28 @@ void snmp_free_varbind(struct variable_list *var);
  * If a timeout is received, snmp_timeout should be called to check if the
  * timeout was for SNMP.  (snmp_timeout is idempotent)
  *
- * Block is 1 if the select is requested to block indefinitely, rather than time out.
- * If block is input as 1, the timeout value will be treated as undefined, but it must
- * be available for setting in snmp_select_info.  On return, if block is true, the value
- * of timeout will be undefined.
+ * Block is 1 if the select is requested to block indefinitely, rather than
+ * time out.  If block is input as 1, the timeout value will be treated as
+ * undefined, but it must be available for setting in snmp_select_info.  On
+ * return, if block is true, the value of timeout will be undefined.
  *
- * snmp_select_info returns the number of open sockets.  (i.e. The number of sessions open)
+ * snmp_select_info returns the number of open sockets.  (i.e. The number
+ * of sessions open)
  */
 int snmp_select_info __P((int *, fd_set *, struct timeval *, int *));
+
+
 
 /*
  * void snmp_timeout();
  *
- * snmp_timeout should be called whenever the timeout from snmp_select_info expires,
- * but it is idempotent, so snmp_timeout can be polled (probably a cpu expensive
- * proposition).  snmp_timeout checks to see if any of the sessions have an
- * outstanding request that has timed out.  If it finds one (or more), and that
- * pdu has more retries available, a new packet is formed from the pdu and is
- * resent.  If there are no more retries available, the callback for the session
- * is used to alert the user of the timeout.
+ * snmp_timeout should be called whenever the timeout from snmp_select_info
+ * expires, but it is idempotent, so snmp_timeout can be polled (probably a
+ * cpu expensive proposition).  snmp_timeout checks to see if any of the
+ * sessions have an outstanding request that has timed out.  If it finds one
+ * (or more), and that pdu has more retries available, a new packet is formed
+ * from the pdu and is resent.  If there are no more retries available, the
+ * callback for the session is used to alert the user of the timeout.
  */
 void snmp_timeout __P((void));
 
@@ -363,6 +390,8 @@ void snmp_timeout __P((void));
  * set to NULL(0).
  */
 
+
+
 /*
  * This routine must be supplied by the application:
  *
@@ -377,6 +406,7 @@ void snmp_timeout __P((void));
  * Any data in the pdu must be copied because it will be freed elsewhere.
  * Operations are defined below:
  */
+
 #define RECEIVED_MESSAGE   1
 #define TIMED_OUT	   2
 
@@ -426,12 +456,15 @@ extern int snmp_dump_packet;
 extern int quick_print;
 #endif
 
+
 /*
  * snmp_error - return error data
  * Inputs :  address of errno, address of snmp_errno, address of string
  * Caller must free the string returned after use.
  */
 void snmp_error __P((struct snmp_session *, int *, int *, char **));
+
+
 
 /*
  * single session API.

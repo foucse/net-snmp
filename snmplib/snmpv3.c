@@ -47,6 +47,9 @@
 #include "read_config.h"
 #include "scapi.h"
 #include "tools.h"
+#include "debug.h"
+
+#include "transform_oids.h"
 
 static int		 engineBoots	   = 1;
 static unsigned char	*engineID	   = NULL;
@@ -69,6 +72,17 @@ static oid	*defaultPrivType	= NULL;
 static int	 defaultPrivTypeLen	= 0;
 int		defaultSecurityLevel	= 0;
 
+
+/*******************************************************************-o-******
+ * snmpv3_secName_conf
+ *
+ * Parameters:
+ *	*word
+ *	*cptr
+ *
+ * Line syntax:
+ *	defSecurityName <name>
+ */
 void
 snmpv3_secName_conf(char *word, char *cptr)
 {
@@ -83,6 +97,7 @@ get_default_secName(void)
 {
   return defaultSecName;
 }
+
 
 void
 snmpv3_passphrase_conf(char *word, char *cptr)
@@ -156,6 +171,18 @@ get_default_privtype(int *len)
   return defaultPrivType;
 }
 
+
+
+/*******************************************************************-o-******
+ * snmpv3_context_conf
+ *
+ * Parameters:
+ *	*word
+ *	*cptr
+ *	
+ * Line syntax:
+ *	defContext <context>
+ */
 void
 snmpv3_context_conf(char *word, char *cptr)
 {
@@ -171,6 +198,17 @@ get_default_context(void)
   return defaultContext;
 }
 
+
+/*******************************************************************-o-******
+ * snmpv3_secLevel_conf
+ *
+ * Parameters:
+ *	*word
+ *	*cptr
+ *
+ * Line syntax:
+ *	defSecurityLevel "noAuthNoPriv" | "authNoPriv" | "authPriv"
+ */
 void
 snmpv3_secLevel_conf(char *word, char *cptr)
 {
@@ -202,79 +240,129 @@ get_default_secLevel(void)
  * setup_engineID
  *
  * Parameters:
- *	*text	Printable (?) text to be plugged into the snmpEngineID.
+ *	**eidp
+ *	 *text	Printable (?) text to be plugged into the snmpEngineID.
  *
- * XXX	Does the TC require a minimum length of 12?
- * XXX	Is text a NULL-terminated printable string?
+ * Return:
+ *	Length of allocated engineID string in bytes,  -OR-
+ *	-1 on error.
+ *
+ *
+ * Create an snmpEngineID using text and the local IP address.  If eidp
+ * is defined, use it to return a pointer to the newly allocated data.
+ * Otherwise, use the result to define engineID defined in this module.
+ *
+ * Line syntax:
+ *	engineID <text> | NULL
+ *
+ * XXX	Should text be treated as a NULL-terminated printable string?
  * XXX	What if a node has multiple interfaces?
  * XXX	What if multiple engines all choose the same address?  There must
  *	  be some additional enumeration.  (Static counter?)
  */
-void
-setup_engineID(char *text)
+int
+setup_engineID(char **eidp, char *text)
 {
-  int netid = htonl(ENTERPRISE_NUMBER);
-  char buf[SNMP_MAXBUF_SMALL];
+  int		  enterpriseid	= htonl(ENTERPRISE_NUMBER),
+		  len,
+		  localsetup	= (eidp) ? 0 : 1;
+			/* Use local engineID if *eidp == NULL.  */
+  char		  buf[SNMP_MAXBUF_SMALL],
+		 *bufp = NULL;
   struct hostent *hent;
-  
-  if (engineID)
-    free(engineID);
+ 
+EM(-1);
 
-  
+  /*
+   * Determine length of the engineID string.
+   */
   if (text) {
-    engineIDLength = 5+strlen(text)+1; /* 5 leading bytes + text + null char. */
+    len = 5+strlen(text)+1;	/* 5 leading bytes+text+null char. */
+
   } else {
-    engineIDLength = 5 + 4;  /* 5 leading bytes + four byte IPv4 address */
+    len = 5 + 4;		/* 5 leading bytes + four byte IPv4 address */
     gethostname(buf, SNMP_MAXBUF_SMALL);
     hent = gethostbyname(buf);
 #ifdef AF_INET6
     if (hent && hent->h_addrtype == AF_INET6)
-      engineIDLength += 12;	/* 16 bytes total for IPv6 address. */
+      len += 12;		/* 16 bytes total for IPv6 address. */
 #endif
   }  /* endif -- text (1) */
 
 
-  if ((engineID = (char *) malloc(engineIDLength)) == NULL) {
-    /* malloc failed */
+  /*
+   * Allocate memory and store enterprise ID.
+   */
+  if ((bufp = (char *) malloc(len)) == NULL) {
     perror("malloc");
-    return;
+    return -1;
+  }
+
+  memcpy(bufp, &enterpriseid, sizeof(enterpriseid)); /* XXX Must be 4 bytes! */
+  bufp[0] |= 0x80;
+  
+
+  /*
+   * Store the given text  -OR-   the first found IP address.
+   */
+  if (text) {
+    bufp[4] = 4;
+    sprintf(bufp+5,text);
+
+  } else {
+    bufp[4] = 1;
+    gethostname(buf, SNMP_MAXBUF_SMALL);
+    hent = gethostbyname(buf);
+
+    if (hent && hent->h_addrtype == AF_INET) {
+      memcpy(bufp+5, hent->h_addr_list[0], hent->h_length);
+
+#ifdef AF_INET6
+    } else if (hent && hent->h_addrtype == AF_INET6) {
+      bufp[4] = 2;
+      memcpy(bufp+5, hent->h_addr_list[0], hent->h_length);
+#endif
+
+    } else {		/* Unknown address type.  Default to 127.0.0.1. */
+      bufp[5] = 127;
+      bufp[6] = 0;
+      bufp[7] = 0;
+      bufp[8] = 1;
+    }
+  }  /* endif -- text (2) */
+
+
+  /*
+   * Pass the string back to the calling environment, or use it for
+   * our local engineID.
+   */
+  if (localsetup) {
+	SNMP_FREE(engineID);
+	engineID	= bufp;
+	engineIDLength	= len;
+
+  } else {
+	*eidp = bufp;
   }
 
 
-  memcpy(engineID, &netid, sizeof(netid)); /* XXX this had better be 4 bytes */
-  engineID[0] |= 0x80;
-  
-  if (text) {
-    engineID[4] = 4;
-    sprintf(engineID+5,text);
-
-  } else {
-    engineID[4] = 1;
-    gethostname(buf, SNMP_MAXBUF_SMALL);
-    hent = gethostbyname(buf);
-#ifdef AF_INET6
-    if (hent && hent->h_addrtype == AF_INET6) {
-      engineID[4] = 2;
-      memcpy(engineID+5, hent->h_addr_list[0], hent->h_length);
-    } else
-#endif
-
-    if (hent && hent->h_addrtype == AF_INET) {
-      memcpy(engineID+5, hent->h_addr_list[0], hent->h_length);
-
-    } else {
-      /* sigh...  unknown address type.  Default to 127.0.0.1 */
-      engineID[5] = 127;
-      engineID[6] = 0;
-      engineID[7] = 0;
-      engineID[8] = 1;
-    }
-  }  /* endif -- text (2) */
+  return len;
 
 }  /* end setup_engineID() */
 
 
 
+
+/*******************************************************************-o-******
+ * engineBoots_conf
+ *
+ * Parameters:
+ *	*word
+ *	*cptr
+ *
+ * Line syntax:
+ *	engineBoots <num_boots>
+ */
 void
 engineBoots_conf(char *word, char *cptr)
 {
@@ -297,7 +385,7 @@ engineBoots_conf(char *word, char *cptr)
 void
 engineID_conf(char *word, char *cptr)
 {
-  setup_engineID(cptr);
+  setup_engineID(NULL, cptr);
   DEBUGP("initialized engineID with: %s\n",cptr);
 }
 
@@ -326,7 +414,7 @@ oldengineID_conf(char *word, char *cptr)
 void
 init_snmpv3(char *type) {
   gettimeofday(&snmpv3starttime, NULL);
-  setup_engineID(NULL);
+  setup_engineID(NULL, NULL);
   /* handle engineID setup before everything else which may depend on it */
   register_premib_handler(type,"engineID", engineID_conf, NULL);
   register_premib_handler(type,"oldEngineID", oldengineID_conf, NULL);
@@ -439,6 +527,8 @@ snmpv3_local_snmpEngineBoots(void)
  *
  *
  * Store engineID in buf; return the length.
+ *
+ * XXX  Combine this with snmpv3_generate_engineID()?
  */
 int
 snmpv3_get_engineID(char *buf, int buflen)

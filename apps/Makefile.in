@@ -1,9 +1,14 @@
 #
 # Makefile for snmpget, snmpwalk, snmpbulkwalk, snmptest, snmptranslate,
-# snmptrapd, snmptable, snmpset, snmpgetnext
+# snmptrapd, snmptable, snmpset, snmpgetnext, and other utilities.
 #
 
-TARG		= snmpwalk snmpbulkwalk snmptest snmptranslate snmpget snmpset snmpgetnext snmptrap snmpstatus snmpdelta snmptable
+TARG		= snmpget snmpgetnext snmpset				\
+			snmpwalk snmpbulkwalk snmptable			\
+			snmptrap					\
+			snmptranslate snmpstatus snmpdelta snmptest	\
+			encode_keychange
+
 SBINTARG	= snmptrapd
 SUBDIRS		= snmpnetstat
 TRAPSPECIAL	= @trap_list_o@
@@ -60,6 +65,9 @@ snmpset:    snmpset.o $(PARSEOBJS) $(USELIBS)
 
 snmpgetnext:    snmpgetnext.o $(PARSEOBJS) $(USELIBS)
 	${CC} -o $@ snmpgetnext.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+
+encode_keychange:    encode_keychange.o $(PARSEOBJS) $(USELIBS)
+	${CC} -o $@ encode_keychange.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
 
 
 clean:
@@ -194,3 +202,4 @@ snmpwalk.o: ../s/sysv.h ../s/generic.h ../m/generic.h
 snmpwalk.o: ./../snmplib/asn1.h ./../snmplib/snmp_api.h
 snmpwalk.o: ./../snmplib/snmp_client.h ./../snmplib/mib.h ./../snmplib/snmp.h
 snmpwalk.o: ./../snmplib/snmp_impl.h ./../snmplib/system.h snmp_parse_args.h
+encode_keychange.o: ./../snmplib/tools.h

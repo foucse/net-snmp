@@ -146,18 +146,8 @@ SOFTWARE.
 /* in SNMPv2c, SNMPv2u, SNMPv2*, and SNMPv3 PDUs */
 #define SNMP_ERR_INCONSISTENTNAME	(18)
 
-/* in SNMPv3 PDUs handled by auth/priv module (USM at start) */
-#define SNMP_ERR_GENERICERROR		(19)
-#define SNMP_ERR_UNKNOWNSECURITYNAME	(20)
-#define SNMP_ERR_UNSUPPORTEDSECURITYLEVEL	(21) /* Sorry, it's long. */
-#define SNMP_ERR_ENCRYPTIONERROR	(22)
-#define SNMP_ERR_AUTHENTICATIONFAILURE	(23)
-#define SNMP_ERR_PARSEERROR		(24)
-#define SNMP_ERR_UNKNOWNENGINEID	(25)
-#define SNMP_ERR_NOTINTIMEWINDOW	(26)
-#define SNMP_ERR_DECRYPTIONERROR	(27)
+#define MAX_SNMP_ERR	18
 
-#define MAX_SNMP_ERR 27
 
 /* values of the generic-trap field in trap PDUs */
 #define SNMP_TRAP_COLDSTART		(0)

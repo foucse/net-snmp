@@ -105,6 +105,7 @@ _CRTIMP extern int errno;
 int
 snmp_synch_input __P((int, struct snmp_session *, int, struct snmp_pdu *, void *));
 
+
 struct snmp_pdu *
 snmp_pdu_create(command)
     int command;
@@ -113,21 +114,26 @@ snmp_pdu_create(command)
 
     pdu = (struct snmp_pdu *)malloc(sizeof(struct snmp_pdu));
     memset(pdu, 0, sizeof(struct snmp_pdu));
-    pdu->version = SNMP_DEFAULT_VERSION;
-    pdu->command = command;
-    pdu->errstat = SNMP_DEFAULT_ERRSTAT;
-    pdu->errindex = SNMP_DEFAULT_ERRINDEX;
+
+    pdu->version		 = SNMP_DEFAULT_VERSION;
+    pdu->command		 = command;
+    pdu->errstat		 = SNMP_DEFAULT_ERRSTAT;
+    pdu->errindex		 = SNMP_DEFAULT_ERRINDEX;
     pdu->address.sin_addr.s_addr = SNMP_DEFAULT_ADDRESS;
-    pdu->securityNameLen = -1;
-    pdu->contextNameLen = -1;
+    pdu->securityNameLen	 = -1;
+    pdu->contextNameLen		 = -1;
+
     return pdu;
-}
+
+}  /* end snmp_pdu_create() */
+
 
 /*
  * Add a null variable with the requested name to the end of the list of
  * variables for this pdu.
  */
-struct variable_list* snmp_add_null_var(pdu, name, name_length)
+struct variable_list *
+snmp_add_null_var(pdu, name, name_length)
     struct snmp_pdu *pdu;
     oid *name;
     int name_length;
@@ -150,8 +156,12 @@ struct variable_list* snmp_add_null_var(pdu, name, name_length)
     vars->type = ASN_NULL;
     vars->val.string = NULL;
     vars->val_len = 0;
+
     return vars;
-}
+
+}  /* end snmp_add_null_var() */
+
+
 
 int
 snmp_synch_input(op, session, reqid, pdu, magic)
@@ -165,23 +175,31 @@ snmp_synch_input(op, session, reqid, pdu, magic)
 
     if (reqid != state->reqid)
 	return 0;
-    if (pdu->command != SNMP_MSG_REPORT) state->waiting = 0;
+
+    if (pdu->command != SNMP_MSG_REPORT)
+      state->waiting = 0;
+
     if (op == RECEIVED_MESSAGE && (pdu->command == SNMP_MSG_REPORT ||
-				   pdu->command == SNMP_MSG_RESPONSE)) {
-      /* clone the pdu to return to snmp_synch_response*/
-      state->pdu = snmp_clone_pdu(pdu);
-      state->status = STAT_SUCCESS;
-      snmp_errno = 0;  /* XX all OK when msg received ? */
-      session->s_snmp_errno = 0;
+				   pdu->command == SNMP_MSG_RESPONSE))
+    {
+        /* clone the pdu to return to snmp_synch_response*/
+        state->pdu		 = snmp_clone_pdu(pdu);
+        state->status		 = STAT_SUCCESS;
+        snmp_errno		 = 0;  /* XXX all OK when msg received ? */
+        session->s_snmp_errno	 = 0;
+
     } else if (op == TIMED_OUT){
-	state->pdu = NULL;
-	state->status = STAT_TIMEOUT;
-	snmp_errno = SNMPERR_TIMEOUT;
-	session->s_snmp_errno = SNMPERR_TIMEOUT;
+	state->pdu		 = NULL;
+	state->status		 = STAT_TIMEOUT;
+	snmp_errno		 = SNMPERR_TIMEOUT;
+	session->s_snmp_errno	 = SNMPERR_TIMEOUT;
     }
 
     return 1;
-}
+
+}  /* end snmp_synch_input() */
+
+
 
 /*
  * If there was an error in the input pdu, creates a clone of the pdu

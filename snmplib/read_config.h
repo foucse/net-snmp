@@ -1,5 +1,5 @@
 /*
- *  read_config: reads configuration files for extensible sections.
+ *  read_config.h: reads configuration files for extensible sections.
  *
  */
 #ifndef READ_CONFIG_H

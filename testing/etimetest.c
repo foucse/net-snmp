@@ -16,6 +16,9 @@ static char *rcsid = "$Id$";	/* */
 #include "all_system.h"
 #include "all_general_local.h"
 
+static u_int    dummy_etime, dummy_eboot;       /* For ISENGINEKNOWN(). */
+
+
 #include <stdlib.h>
 
 extern char     *optarg;
@@ -294,12 +297,16 @@ EM(-1); /* */
 	}
 
 
-	rval = set_enginetime("BB", 2, 20, 2, TRUE);
+#ifdef FIXmissingargument
+	rval = set_enginetime("BB", 2, 20, 2);
 	FAILED(rval, "set_enginetime()");
 
 
-	rval = set_enginetime("CCC", 3, 90127, 31, TRUE);
+	rval = set_enginetime("CCC", 3, 90127, 31);
 	FAILED(rval, "set_enginetime()");
+#else
+	FAILED(SNMPERR_GENERR, "FIX  update set_enginetime() args...");
+#endif
 
 
 	SUCCESS("Check of empty list, and two additions.");
@@ -351,8 +358,13 @@ EM(-1); /* */
 	OUTPUT("Retrieve data from real/stubbed records, update real/stubbed.");
 
 
-	rval = get_enginetime("BB", 2, &etime, &eboot, TRUE);
+
+#ifdef FIXmissingargument
+	rval = get_enginetime("BB", 2, &etime, &eboot);
 	FAILED(rval, "get_enginetime().");
+#else
+	FAILED(SNMPERR_GENERR, "FIX3  update set_enginetime() args...");
+#endif
 
 	fprintf(stdout, "BB = <%d,%d>\n", etime, eboot);
 	if ( (etime < 20) || (eboot < 2) ) {
@@ -361,8 +373,12 @@ EM(-1); /* */
 	}
 
 
-	rval = get_enginetime("DDDD", 4, &etime, &eboot, TRUE);
+#ifdef FIXmissingargument
+	rval = get_enginetime("DDDD", 4, &etime, &eboot);
 	FAILED(rval, "get_enginetime().");
+#else
+	FAILED(SNMPERR_GENERR, "FIX3  update set_enginetime() args...");
+#endif
 
 	fprintf(stdout, "DDDD = <%d,%d>\n", etime, eboot);
 	if ( (etime < sleeptime) || (eboot != 0) ) {
@@ -371,12 +387,16 @@ EM(-1); /* */
 	}
 
 
-	rval = set_enginetime("CCC", 3, 10000, 234, TRUE);
+#ifdef FIXmissingargument
+	rval = set_enginetime("CCC", 3, 10000, 234);
 	FAILED(rval, "set_enginetime().");
 
 
-	rval = set_enginetime("EEEEE", 5, 55555, 9876, TRUE);
+	rval = set_enginetime("EEEEE", 5, 55555, 9876);
 	FAILED(rval, "set_enginetime().");
+#else
+	FAILED(SNMPERR_GENERR, "FIX2  update set_enginetime() args...");
+#endif
 
 
 	SUCCESS("Retrieval and updates.");

@@ -23,6 +23,7 @@
 #include "tools.h"
 
 #include "usmUser.h"
+#include "transform_oids.h"
 
 
 /* needed for the write_ functions to find the start of the index */
@@ -33,23 +34,53 @@ static unsigned int usmUserSpinLock=0;
 
 
 
-void init_usmUser(void) {
+void
+init_usmUser(void)
+{
   snmpd_register_config_handler("usmUser",
                                 usm_parse_config_usmUser, NULL);
 }
 
-void shutdown_usmUser(void) {
+
+void
+shutdown_usmUser(void)
+{
   /* save the user base */
   usm_save_users("usmUser", "snmpd");
 }
   
-/* given a user's information, generate the index OID for it */
-oid * usm_generate_OID(oid *prefix, int prefixLen, struct usmUser *uptr,
-                       int *length) {
+
+
+
+
+/*******************************************************************-o-******
+ * usm_generate_OID
+ *
+ * Parameters:
+ *	*prefix		(I) OID prefix to the usmUser table entry.
+ *	 prefixLen	(I)
+ *	*uptr		(I) Pointer to a user in the user list.
+ *	*length		(O) Length of generated index OID.
+ *      
+ * Returns:
+ *	Pointer to the OID index for the user (uptr)  -OR-
+ *	NULL on failure.
+ *
+ *
+ * Generate the index OID for a given usmUser name.  'length' is set to
+ * the length of the index OID.
+ *
+ * Index OID format is:
+ *
+ *    <...prefix>.<engineID_length>.<engineID>.<user_name_length>.<user_name>
+ */
+oid *
+usm_generate_OID(oid *prefix, int prefixLen, struct usmUser *uptr,
+                       int *length)
+{
   oid *indexOid;
   int i;
 
-  /* reference oid encoded as engineIDLen.engineID.nameLen.name */
   *length = 2 + uptr->engineIDLen + strlen(uptr->name) + prefixLen;
   indexOid = (oid *) malloc(*length * sizeof(oid));
   if (indexOid) {
@@ -64,7 +95,11 @@ oid * usm_generate_OID(oid *prefix, int prefixLen, struct usmUser *uptr,
       indexOid[prefixLen + uptr->engineIDLen + 2 + i] = (oid) uptr->name[i];
   }
   return indexOid;
-}
+
+}  /* end usm_generate_OID() */
+
+
+
 
 /* usm_parse_oid(): parses an index to the usmTable to break it down into
    a engineID component and a name component.  The results are stored in:
@@ -91,12 +126,12 @@ usm_parse_oid(oid *oidIndex, int oidLen,
     DEBUGP("parse_oid: null oid or zero length oid passed in\n");
     return 1;
   }
-  engineIDL = *oidIndex;  /* initial engineID length */
+  engineIDL = *oidIndex;		/* initial engineID length */
   if (oidLen < engineIDL + 2) {
     DEBUGP("parse_oid: invalid oid length: less than the engineIDLen\n");
     return 1;
   }
-  nameL = oidIndex[engineIDL+1];  /* the initial name length */
+  nameL = oidIndex[engineIDL+1];	/* the initial name length */
   if (oidLen != engineIDL + nameL + 2) {
     DEBUGP("parse_oid: invalid oid length: length is not exact\n");
     return 1;
@@ -130,11 +165,27 @@ usm_parse_oid(oid *oidIndex, int oidLen,
   name[0][nameL] = 0;
 
   return 0;
-}
 
-/* usm_parse_user(): takes an (full) oid and returns a pointer to the
-   user in question if it exists. */
+}  /* end usm_parse_oid() */
 
+
+
+
+
+/*******************************************************************-o-******
+ * usm_parse_user
+ *
+ * Parameters:
+ *	*name		Complete OID indexing a given usmUser entry.
+ *	 name_length
+ *      
+ * Returns:
+ *	Pointer to a usmUser  -OR-
+ *	NULL if name does not convert to a usmUser.
+ * 
+ * Convert an (full) OID and return a pointer to a matching user in the
+ * user list if one exists.
+ */
 struct usmUser *
 usm_parse_user(oid *name, int name_len)
 {
@@ -154,10 +205,43 @@ usm_parse_user(oid *name, int name_len)
   free(newName);
 
   return uptr;
-}
 
-/* var_usmUser(): this is our call back function passed to the agent
-   to appropriately return information for the mib tree we control. */
+}  /* end usm_parse_user() */
+
+
+
+
+
+/*******************************************************************-o-******
+ * var_usmUser
+ *
+ * Parameters:
+ *	  *vp	   (I)     Variable-binding associated with this action.
+ *	  *name	   (I/O)   Input name requested, output name found.
+ *	  *length  (I/O)   Length of input and output oid's.
+ *	   exact   (I)     TRUE if an exact match was requested.
+ *	  *var_len (O)     Length of variable or 0 if function returned.
+ *	(**write_method)   Hook to name a write method (UNUSED).
+ *      
+ * Returns:
+ *	Pointer to (char *) containing related data of length 'length'
+ *	  (May be NULL.)
+ *
+ *
+ * Call-back function passed to the agent in order to return information
+ * for the USM MIB tree.
+ *
+ *
+ * If this invocation is not for USMUSERSPINLOCK, lookup user name
+ * in the usmUser list.
+ *
+ * If the name does not match any user and the request
+ * is for an exact match, -or- if the usmUser list is empty, create a 
+ * new list entry.  (XXX  Optomize this lookup?)
+ *
+ * Finally, service the given USMUSER* var-bind.  A NULL user generally
+ * results in a NULL return value.
+ */
 unsigned char *
 var_usmUser(vp, name, length, exact, var_len, write_method)
     struct variable *vp;
@@ -174,8 +258,8 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
 
   /* variables we may use later */
   static long long_ret;
-  static unsigned char string[1500];
-  static oid objid[30];
+  static unsigned char string[SNMP_MAXBUF];
+  static oid objid[USM_LENGTH_OID_MAX];
 
   *write_method = 0;           /* assume it isnt writable for the time being */
   *var_len = sizeof(long_ret); /* assume an integer and change later if not */
@@ -197,7 +281,9 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
       /* oid is not within our range yet */
       /* need to fail if not exact */
       uptr = usm_get_userList();
+
     } else {
+      /* XXX  Stow this in it's own function? */
       for(nptr = usm_get_userList(), pptr = NULL, uptr = NULL; nptr != NULL;
           pptr = nptr, nptr = nptr->next) {
         indexOid = usm_generate_OID(vp->name, vp->namelen, nptr, &len);
@@ -228,7 +314,8 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
         }
         free(indexOid);
       }
-    }
+    }  /* endif -- name <= vp->name */
+
     /* if uptr is NULL and exact we need to continue for creates */
     if (uptr == NULL && !exact)
       return(NULL);
@@ -249,7 +336,7 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
   } else {
     if (header_generic(vp,name,length,exact,var_len,write_method))
       return 0;
-  }
+  }  /* endif -- vp->magic != USMUSERSPINLOCK */
 
   switch(vp->magic) {
     case USMUSERSPINLOCK:
@@ -360,7 +447,11 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
       ERROR_MSG("");
   }
   return 0;
-}
+
+}  /* end var_usmUser() */
+
+
+
 
 /* write_usmUserSpinLock(): called when a set is performed on the
    usmUserSpinLock object */
@@ -376,7 +467,7 @@ write_usmUserSpinLock(action, var_val, var_val_type, var_val_len, statP, name, n
 {
   /* variables we may use later */
   static long long_ret;
-  int size, bigsize=1000;
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
 
   if (var_val_type != ASN_INTEGER){
       DEBUGP("write to usmUserSpinLock not ASN_INTEGER\n");
@@ -397,8 +488,32 @@ write_usmUserSpinLock(action, var_val, var_val_type, var_val_len, statP, name, n
       usmUserSpinLock++;
   }
   return SNMP_ERR_NOERROR;
-}
+}  /* end write_usmUserSpinLock() */
 
+
+
+
+/*******************************************************************-o-******
+ * write_usmUserCloneFrom
+ *
+ * Parameters:
+ *	 action		Must be set to COMMIT for any useful result.
+ *	*var_val
+ *	 var_val_type
+ *	 var_val_len
+ *	*statP		(UNUSED)
+ *	*name		OID of user to clone from.
+ *	 name_len
+ *      
+ * Returns:
+ *	SNMP_ERR_NOERROR		On success  -OR-  If user exists
+ *					  and has already been cloned.
+ *	SNMP_ERR_GENERR			Local function call failures.
+ *	SNMP_ERR_INCONSISTENTNAME	'name' does not exist in user list
+ *					  -OR-  user to clone from != RS_ACTIVE.
+ *	SNMP_ERR_WRONGLENGTH		OID length > than local buffer size.
+ *	SNMP_ERR_WRONGTYPE		ASN_OBJECT_ID is wrong.
+ */
 int
 write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
@@ -410,8 +525,8 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
    int      name_len;
 {
   /* variables we may use later */
-  static oid objid[30], *oidptr;
-  int size, bigsize=1000;
+  static oid objid[USM_LENGTH_OID_MAX], *oidptr;
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   struct usmUser *uptr, *cloneFrom;
   
   if (var_val_type != ASN_OBJECT_ID){
@@ -458,10 +573,37 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
 
     usm_cloneFrom_user(cloneFrom, uptr);
     
-  }
-  return SNMP_ERR_NOERROR;
-}
+  }  /* endif: action == COMMIT */
 
+  return SNMP_ERR_NOERROR;
+
+
+}  /* end write_usmUserCloneFrom() */
+
+
+
+
+
+/*******************************************************************-o-******
+ * write_usmUserAuthProtocol
+ *
+ * Parameters:
+ *	 action
+ *	*var_val	OID of auth transform to set.
+ *	 var_val_type
+ *	 var_val_len
+ *	*statP
+ *	*name		OID of user upon which to perform set operation.
+ *	 name_len
+ *      
+ * Returns:
+ *	SNMP_ERR_NOERROR		On success.
+ *	SNMP_ERR_GENERR
+ *	SNMP_ERR_INCONSISTENTVALUE
+ *	SNMP_ERR_NOSUCHNAME
+ *	SNMP_ERR_WRONGLENGTH
+ *	SNMP_ERR_WRONGTYPE
+ */
 int
 write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
@@ -473,8 +615,8 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
    int      name_len;
 {
   /* variables we may use later */
-  static oid objid[30];
-  int size, bigsize=1000;
+  static oid objid[USM_LENGTH_OID_MAX];
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   static oid *optr;
   struct usmUser *uptr;
 
@@ -516,7 +658,7 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
       uptr->authProtocolLen = size;
   }
   return SNMP_ERR_NOERROR;
-}
+}  /* end write_usmUserAuthProtocol() */
 
 
 
@@ -525,12 +667,12 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
  * write_usmUserAuthKeyChange
  *
  * Parameters:
- *	 action
- *	*var_val
+ *	 action		Must be set to COMMIT for any useful result.
+ *	*var_val	Octet string representing new KeyChange value.
  *	 var_val_type
  *	 var_val_len
- *	*statP
- *	*name
+ *	*statP		(UNUSED)
+ *	*name		OID of user upon which to perform set operation.
  *	 name_len
  *      
  * Returns:
@@ -585,7 +727,7 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
 
 		/* Change the key.
 		 *
-		 * XXX	Assumes the amount memory allocated for uptr->authKey 
+		 * FIX	Assumes the amount memory allocated for uptr->authKey 
 		 *	is adequate for the new key.
 		 */
 		if ( decode_keychange(
@@ -617,8 +759,8 @@ write_usmUserOwnAuthKeyChange(action, var_val, var_val_type, var_val_len, statP,
    int      name_len;
 {
   /* variables we may use later */
-  static unsigned char string[1500];
-  int size, bigsize=1000;
+  static unsigned char string[SNMP_MAXBUF];
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   struct usmUser *uptr;
 
   if (var_val_type != ASN_OCTET_STR){
@@ -641,7 +783,7 @@ write_usmUserOwnAuthKeyChange(action, var_val, var_val_type, var_val_len, statP,
 
       /* Change the key.
        *
-       * XXX	Assumes the amount memory allocated for uptr->authKey is
+       * FIX	Assumes the amount memory allocated for uptr->authKey is
        *	adequate for the new key.
        */
       if ( decode_keychange(
@@ -657,6 +799,9 @@ write_usmUserOwnAuthKeyChange(action, var_val, var_val_type, var_val_len, statP,
   return SNMP_ERR_NOERROR;
 }  /* end write_usmUserOwnAuthKeyChange() */
 
+
+
+
 int
 write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
@@ -668,8 +813,8 @@ write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, nam
    int      name_len;
 {
   /* variables we may use later */
-  static oid objid[30];
-  int size, bigsize=1000;
+  static oid objid[USM_LENGTH_OID_MAX];
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   static oid *optr;
   struct usmUser *uptr;
 
@@ -706,7 +851,10 @@ write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, nam
       uptr->privProtocolLen = size;
   }
   return SNMP_ERR_NOERROR;
-}
+}  /* end write_usmUserPrivProtocol() */
+
+
+
 
 int
 write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, name, name_len)
@@ -719,8 +867,8 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
    int      name_len;
 {
   /* variables we may use later */
-  static unsigned char string[1500];
-  int size, bigsize=1000;
+  static unsigned char string[SNMP_MAXBUF];
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   struct usmUser *uptr;
 
   if (var_val_type != ASN_OCTET_STR){
@@ -743,7 +891,7 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
 
       /* Change the key.
        *
-       * XXX	Assumes the amount memory allocated for uptr->authKey is
+       * FIX	Assumes the amount memory allocated for uptr->authKey is
        *	adequate for the new key.
        */
       if ( decode_keychange(
@@ -759,6 +907,9 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
   return SNMP_ERR_NOERROR;
 }  /* end write_usmUserPrivKeyChange() */
 
+
+
+
 int
 write_usmUserOwnPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
@@ -770,8 +921,8 @@ write_usmUserOwnPrivKeyChange(action, var_val, var_val_type, var_val_len, statP,
    int      name_len;
 {
   /* variables we may use later */
-  static unsigned char string[1500];
-  int size, bigsize=1000;
+  static unsigned char string[SNMP_MAXBUF];
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   struct usmUser *uptr;
 
   if (var_val_type != ASN_OCTET_STR){
@@ -794,7 +945,7 @@ write_usmUserOwnPrivKeyChange(action, var_val, var_val_type, var_val_len, statP,
 
       /* Change the key.
        *
-       * XXX	Assumes the amount memory allocated for uptr->authKey is
+       * FIX	Assumes the amount memory allocated for uptr->authKey is
        *	adequate for the new key.
        */
       if ( decode_keychange(
@@ -810,6 +961,9 @@ write_usmUserOwnPrivKeyChange(action, var_val, var_val_type, var_val_len, statP,
   return SNMP_ERR_NOERROR;
 }  /* end write_usmUserOwnPrivKeyChange() */
 
+
+
+
 int
 write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
@@ -821,8 +975,8 @@ write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, nam
    int      name_len;
 {
   /* variables we may use later */
-  static unsigned char string[1500];
-  int size, bigsize=1000;
+  static unsigned char string[SNMP_MAXBUF];
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
 
   struct usmUser *uptr;
 
@@ -853,7 +1007,10 @@ write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, nam
              uptr->userPublicString);
   }
   return SNMP_ERR_NOERROR;
-}
+}  /* end write_usmUserPublic() */
+
+
+
 
 int
 write_usmUserStorageType(action, var_val, var_val_type, var_val_len, statP, name, name_len)
@@ -867,7 +1024,7 @@ write_usmUserStorageType(action, var_val, var_val_type, var_val_len, statP, name
 {
   /* variables we may use later */
   static long long_ret;
-  int size, bigsize=1000;
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   struct usmUser *uptr;
   
   if (var_val_type != ASN_INTEGER){
@@ -893,8 +1050,32 @@ write_usmUserStorageType(action, var_val, var_val_type, var_val_len, statP, name
         return SNMP_ERR_INCONSISTENTVALUE;
   }
   return SNMP_ERR_NOERROR;
-}
+}  /* end write_usmUserStorageType() */
 
+
+
+
+
+/*******************************************************************-o-******
+ * write_usmUserStatus
+ *
+ * Parameters:
+ *	 action
+ *	*var_val
+ *	 var_val_type
+ *	 var_val_len
+ *	*statP
+ *	*name
+ *	 name_len
+ *      
+ * Returns:
+ *	SNMP_ERR_NOERROR		On success.
+ *	SNMP_ERR_GENERR	
+ *	SNMP_ERR_INCONSISTENTNAME
+ *	SNMP_ERR_INCONSISTENTVALUE
+ *	SNMP_ERR_WRONGLENGTH
+ *	SNMP_ERR_WRONGTYPE
+ */
 int
 write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
@@ -907,7 +1088,7 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
 {
   /* variables we may use later */
   static long long_ret;
-  int size, bigsize=1000;
+  int size, bigsize=SNMP_MAXBUF_MEDIUM;
   unsigned char *engineID;
   int engineIDLen;
   unsigned char *newName;
@@ -939,10 +1120,8 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
     /* Now see if a user already exists with these index values */
     uptr = usm_get_user(engineID, engineIDLen, newName);
 
-    /* If so, we set the appropriate value */
 
-    /* else we create a new user */
-    if (uptr) {
+    if (uptr) {			/* If so, we set the appropriate value... */
       free(engineID);
       free(newName);
       if (long_ret == RS_CREATEANDGO || long_ret == RS_CREATEANDWAIT) {
@@ -954,7 +1133,8 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
       } else {
         uptr->userStatus = long_ret;
       }
-    } else {
+
+    } else {			/* ...else we create a new user */
       /* check for a valid status column set */
       if (long_ret == RS_ACTIVE || long_ret == RS_NOTINSERVICE) {
         free(engineID);
@@ -1009,8 +1189,11 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
 
       /* finally, add it to our list of users */
       usm_add_user(uptr);
-    }
-  }
+
+    }  /* endif -- uptr */
+  }  /* endif -- action==COMMIT */
+
   return SNMP_ERR_NOERROR;
-}
+
+}  /* end write_usmUserStatus() */
 

@@ -10,6 +10,9 @@
 #include "snmpusm.h"
 
 
+#define USM_LENGTH_OID_MAX	30	/* XXX  Why 30? */
+
+
 /* we use header_generic and checkmib from the util_funcs module */
 
 config_require(util_funcs)

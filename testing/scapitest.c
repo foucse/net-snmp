@@ -27,6 +27,8 @@ static char *rcsid = "$Id$";	/* */
 #include "all_system.h"
 #include "all_general_local.h"
 
+#include "transform_oids.h"
+
 #include <stdlib.h>
 
 extern char     *optarg;
@@ -274,7 +276,7 @@ EM(-1); /* */
 		    "sc_random() returned different than requested.");
 	}
 
-	dump_chunk(buf, nbytes);
+	dump_chunk(NULL, buf, nbytes);
 
 	SUCCESS("Random test -- large request.");
 
@@ -294,7 +296,7 @@ EM(-1); /* */
 				"than requested.");
 		}
 
-		dump_chunk(buf, nbytes);
+		dump_chunk(NULL, buf, nbytes);
 	}  /* endfor */
 
 	SUCCESS("Random test -- short requests.");

@@ -222,7 +222,7 @@ int get_exec_output(ex)
         }
 #ifdef EXCACHETIME
         unlink(CACHEFILE);
-	/* XXX  Use SNMP_FILEMODE instead of 644? */
+	/* XXX  Use SNMP_FILEMODE_CLOSED instead of 644? */
         if ((cfd = open(CACHEFILE,O_WRONLY|O_TRUNC|O_CREAT,0644)) < 0) {
           setPerrorstatus("open");
           cachetime = 0;

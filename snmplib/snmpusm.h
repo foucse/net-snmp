@@ -8,53 +8,58 @@
 #define SNMPUSM_H
 
 
+
 /*
- * Global constants.
- *
- * Numeric MIB names for auth and priv transforms.
- * (Perhaps legitimate declared globals could have a file of their own so as
- * to span both agents and applications.
- * shh2() reduces #(warnings) to one -- plausibly silly...  XXX)
- *
- * ISTRANSFORM ASSUMES the minimum length for ttype and toid.
+ * General.
  */
-static oid usmNoAuthProtocol[]       = { 1,3,6,1,6,3,10,1,1,1 };
-static oid usmHMACMD5AuthProtocol[]  = { 1,3,6,1,6,3,10,1,1,2 };
-static oid usmHMACSHA1AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,3 };
+#define USM_MAX_ID_LENGTH		1024
+#define USM_MAX_SALT_LENGTH		64
+#define USM_MAX_KEYEDHASH_LENGTH	128
 
-static oid usmNoPrivProtocol[]       = { 1,3,6,1,6,3,10,1,2,1 };
-static oid usmDESPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,2 };
-
-#define USM_LENGTH_OID_TRANSFORM	10
-
-#define ISTRANSFORM(ttype, toid)					\
-	!compare(ttype, USM_LENGTH_OID_TRANSFORM,			\
-		usm ## toid ## Protocol, USM_LENGTH_OID_TRANSFORM)
-
-#	define s(p)	shh = usm ## p ## Protocol;
-static void shh2(void)
-{ oid *shh; s(NoAuth) s(HMACMD5Auth) s(HMACSHA1Auth) s(NoPriv) s(DESPriv) }
-#	undef s
-
+#define USM_TIME_WINDOW			150
 
 
 
 /*
- * USM message processing error codes. USM_ form used in the .c file
- * SNMP_ERR_ form is defined in the snmp.h file.
+ * USM message processing error codes. USM_ERR_* form used in snmpusm.c;
+ * SNMPERR_USM_* form is defined in the snmp_api.h file.
  */
-#define USM_ERR_NO_ERROR		 SNMP_ERR_NOERROR
-#define USM_ERR_GENERIC_ERROR		 SNMP_ERR_GENERICERROR
-#define USM_ERR_UNKNOWN_SECURITY_NAME	 SNMP_ERR_UNKNOWNSECURITYNAME
-#define USM_ERR_UNSUPPORTED_SECURITY_LEVEL SNMP_ERR_UNSUPPORTEDSECURITYLEVEL
-#define USM_ERR_ENCRYPTION_ERROR	 SNMP_ERR_ENCRYPTIONERROR
-#define USM_ERR_AUTHENTICATION_FAILURE	 SNMP_ERR_AUTHENTICATIONFAILURE
-#define USM_ERR_PARSE_ERROR		 SNMP_ERR_PARSEERROR
-#define USM_ERR_UNKNOWN_ENGINE_ID	 SNMP_ERR_UNKNOWNENGINEID
-#define USM_ERR_NOT_IN_TIME_WINDOW	 SNMP_ERR_NOTINTIMEWINDOW
-#define USM_ERR_DECRYPTION_ERROR	 SNMP_ERR_DECRYPTIONERROR
+#define USM_ERR_NO_ERROR		   SNMPERR_SUCCESS
+#define USM_ERR_GENERIC_ERROR		   SNMPERR_USM_GENERICERROR
+#define USM_ERR_UNKNOWN_SECURITY_NAME	   SNMPERR_USM_UNKNOWNSECURITYNAME
+#define USM_ERR_UNSUPPORTED_SECURITY_LEVEL SNMPERR_USM_UNSUPPORTEDSECURITYLEVEL
+#define USM_ERR_ENCRYPTION_ERROR	   SNMPERR_USM_ENCRYPTIONERROR
+#define USM_ERR_AUTHENTICATION_FAILURE	   SNMPERR_USM_AUTHENTICATIONFAILURE
+#define USM_ERR_PARSE_ERROR		   SNMPERR_USM_PARSEERROR
+#define USM_ERR_UNKNOWN_ENGINE_ID	   SNMPERR_USM_UNKNOWNENGINEID
+#define USM_ERR_NOT_IN_TIME_WINDOW	   SNMPERR_USM_NOTINTIMEWINDOW
+#define USM_ERR_DECRYPTION_ERROR	   SNMPERR_USM_DECRYPTIONERROR
+
+
+
+/*
+ * Structures.
+ */
+struct usmStateReference {
+	u_char		*usr_name;
+	u_int		 usr_name_length;
+	u_char		*usr_engine_id;
+	u_int		 usr_engine_id_length;
+	oid		*usr_auth_protocol;
+	u_int		 usr_auth_protocol_length;
+	u_char		*usr_auth_key;
+	u_int		 usr_auth_key_length;
+	oid		*usr_priv_protocol;
+	u_int		 usr_priv_protocol_length;
+	u_char		*usr_priv_key;
+	u_int		 usr_priv_key_length;
+	u_int		 usr_sec_level;
+};
+
 
 /* struct usmUser: a structure to represent a given user in a list */
+/* Note: Any changes made to this structure need to be reflected in
+   the following functions: */
 
 struct usmUser;
 struct usmUser {
@@ -81,9 +86,9 @@ struct usmUser {
 
 
 
-/* Note: Any changes made to this structure need to be reflected in
-   the following functions: */
-
+/*
+ * Prototypes.
+ */
 void usm_set_reportErrorOnUnknownID __P((int value));
 void usm_free_usmStateReference __P((void *old));
 

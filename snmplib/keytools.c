@@ -11,6 +11,8 @@
 #include "all_system.h"
 #include "all_general_local.h"
 
+#include "transform_oids.h"
+
 
 
 
@@ -147,9 +149,9 @@ _KEYTOOLS_NOT_AVAILABLE
  *	*engineID
  *	 engineID_len
  *	*Ku		Master key for a given user.
- *	 kulen		Length of Ku in bytes.
+ *	 ku_len		Length of Ku in bytes.
  *	*Kul		Localized key for a given user at engineID.
- *	*kullen		Length of Kul buffer (IN); Length of Kul key (OUT).
+ *	*kul_len	Length of Kul buffer (IN); Length of Kul key (OUT).
  *      
  * Returns:
  *	SNMPERR_SUCCESS			Success.
@@ -170,6 +172,9 @@ _KEYTOOLS_NOT_AVAILABLE
  *
  *
  * ASSUMES  SNMP_MAXBUF >= sizeof(Ku + engineID + Ku).
+ *
+ * NOTE  Localized keys for privacy transforms are generated via
+ *	 the authentication transform held by the same usmUser.
  *
  * XXX	An engineID of any length is accepted, even if larger than
  *	what is spec'ed for the textual convention.

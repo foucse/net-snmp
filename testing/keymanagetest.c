@@ -23,6 +23,8 @@ static char *rcsid = "$Id$";	/* */
 #include "all_system.h"
 #include "all_general_local.h"
 
+#include "transform_oids.h"
+
 #include <stdlib.h>
 
 extern char     *optarg;

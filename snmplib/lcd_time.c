@@ -79,7 +79,7 @@ EM(-1); /* */
 		QUITFUN(SNMPERR_GENERR, get_enginetime_quit);
 	}
 
-#ifdef LCD_TIME_SYNC_OPT	
+#ifdef LCD_TIME_SYNC_OPT
         if (!authenticated || e->authenticatedFlag) {
 #endif	
 	*enginetime = e->engineTime;
@@ -93,6 +93,9 @@ EM(-1); /* */
 	if ( timediff > (ENGINETIME_MAX - *enginetime) ) {
 		*enginetime = (timediff - (ENGINETIME_MAX - *enginetime));
 
+		/* FIX -- move this check up... should not change anything
+		 * if engineboot is already locked.  ???
+		 */
 		if (*engineboot < ENGINEBOOT_MAX) {
 			*engineboot += 1;
 		}

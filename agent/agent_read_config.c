@@ -67,7 +67,8 @@ void init_agent_read_config __P((void))
 #endif
 }
 
-RETSIGTYPE update_config(a)
+RETSIGTYPE
+update_config(a)
 int a;
 {
   if (!dontReadConfigFiles) {  /* don't read if -C present on command line */

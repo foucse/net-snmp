@@ -21,7 +21,6 @@
 
 
 void init_snmpMPDStats(void) {
-  int i;
 #ifdef USING_MIBII_SYSORTABLE_MODULE
   static oid reg[] = {1,3,6,1,6,3,11,3,1,1};
   register_sysORTable(reg,10,"The MIB for Message Processing and Dispatching.");
@@ -40,9 +39,7 @@ var_snmpMPDStats(vp, name, length, exact, var_len, write_method)
 
   /* variables we may use later */
   static long long_ret;
-  static unsigned char string[1500];
-  static oid objid[30];
-  static struct counter64 c64;
+
 
   *write_method = 0;           /* assume it isnt writable for the time being */
   *var_len = sizeof(long_ret); /* assume an integer and change later if not */
