@@ -159,7 +159,7 @@ setup_engineID(char *text)
 
   if ((engineID = (char *) malloc(engineIDLength)) == NULL) {
     /* malloc failed */
-    snmp_perror("malloc");
+    perror("malloc");
     return;
   }
 
