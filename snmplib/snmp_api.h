@@ -38,6 +38,9 @@ struct synch_state;
 
 typedef struct sockaddr_in  snmp_ipaddr;
 
+#define USM_AUTH_KU_LEN     32
+#define USM_PRIV_KU_LEN     32
+
 struct snmp_pdu {
     int	    version;
 
@@ -48,6 +51,12 @@ struct snmp_pdu {
     int	    contextNameLen;  /* Length of contextName */
     u_char  *securityName;	/* on behalf of this principal */
     int	    securityNameLen;  /* Length of securityName. */
+    oid     *securityAuthProto; /* auth protocol oid */
+    int     securityAuthProtoLen; /* Length of auth protocol oid */
+    u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol */
+    oid     *securityPrivProto; /* priv protocol oid */
+    int     securityPrivProtoLen; /* Length of priv protocol oid */
+    u_char  securityPrivKey[USM_PRIV_KU_LEN];  /* Ku for privacy protocol */
     int	    securityModel;
     int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
     oid	    *srcParty;
@@ -78,8 +87,6 @@ struct snmp_pdu {
 
     struct variable_list *variables;
 };
-#define USM_AUTH_KU_LEN     32
-#define USM_PRIV_KU_LEN     32
 struct snmp_session {
     u_char  *community;	/* community for outgoing requests. */
     int	    community_len;  /* Length of community name. */
