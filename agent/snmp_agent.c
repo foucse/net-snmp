@@ -171,7 +171,7 @@ handle_next_pass( asp )
                     (we should figure out what will fit somehow...)
             */
     if (asp->pdu->command == SNMP_MSG_GETBULK && asp->pdu->errindex > 10)
-      asp->pdu->errindex = 10; 
+      asp->pdu->errindex = 100; 
           
     while ( 1 ) {
         if ( asp->outstanding_requests != NULL )
@@ -292,7 +292,7 @@ handle_next_pass( asp )
 		      	 		 var_ptr->name,
 					 MAX_OID_LEN);
 		      for ( i=var_ptr->name_length ; i< MAX_OID_LEN; i++)
-		          vp2->name[var_ptr->name_length+i] = '\0';
+		          vp2->name[i] = '\0';
 		      vp2->name_length = var_ptr->name_length;
 		      
 		      if ( var_ptr->type != SNMP_ENDOFMIBVIEW ) {
@@ -353,7 +353,7 @@ handle_var_list( asp )
     struct agent_snmp_session  *asp;
 {
     struct variable_list *varbind_ptr;
-    u_char  var_val_type, *var_val, statType;
+    u_char  statType;
     register u_char *statP;
     int	    statLen;
     u_short acl;
@@ -387,20 +387,18 @@ statp_loop:
 			   exact, &write_method, asp->pdu, &noSuchObject);
 			   
 	if (statP == NULL && rw != WRITE) {
-	    if ( rw != WRITE ) {
-	    	    varbind_ptr->val   = NULL;
-	    	    varbind_ptr->val_len = 0;
-		    if ( exact ) {
-	        	if ( noSuchObject == TRUE ){
-			    statType = SNMP_NOSUCHOBJECT;
-			} else {
-			    statType = SNMP_NOSUCHINSTANCE;
-			}
+	    	varbind_ptr->val   = NULL;
+	    	varbind_ptr->val_len = 0;
+		if ( exact ) {
+	            if ( noSuchObject == TRUE ){
+		        statType = SNMP_NOSUCHOBJECT;
 		    } else {
-	        	statType = SNMP_ENDOFMIBVIEW;
+		        statType = SNMP_NOSUCHINSTANCE;
 		    }
-		    varbind_ptr->type = statType;
-	    }
+		} else {
+	            statType = SNMP_ENDOFMIBVIEW;
+		}
+		varbind_ptr->type = statType;
 	}
 		/* GETNEXT/GETBULK should just skip inaccessible entries */
 	else if ( !in_a_view(varbind_ptr->name, &varbind_ptr->name_length,
@@ -468,7 +466,9 @@ statp_loop:
 	    else {
 		     varbind_ptr->type = statType;
 		     varbind_ptr->val_len  = statLen;
-		     /* free( varbind_ptr->val.string ); */
+                     if (varbind_ptr->val.string != NULL &&
+                         !varbind_ptr->usedBuf)
+                       free( varbind_ptr->val.string );
 		     varbind_ptr->val.string    = malloc( statLen );
 		     memcpy((char*)varbind_ptr->val.string, (char*)statP, statLen);
 	    }
