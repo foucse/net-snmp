@@ -24,7 +24,6 @@ void incr_snmpMPDStat(int which) {
     MPDErrors[which]++;
 }
 
-
 unsigned char *
 var_snmpMPDStats(vp, name, length, exact, var_len, write_method)
     struct variable *vp;
