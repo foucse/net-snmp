@@ -88,14 +88,16 @@ struct snmp_pdu {
 };
 
 struct snmp_session {
-    u_char  *community;	/* community for outgoing requests. */
-    int	    community_len;  /* Length of community name. */
+    u_char  *community;	        /* community for outgoing requests. */
+    int	    community_len;      /* Length of community name. */
     u_char  *contextEngineID;	/* authoritative snmpEngineID */
-    int	    contextEngineIDLen;  /* Length of contextEngineID */
+    int	    contextEngineIDLen; /* Length of contextEngineID */
+    u_int   engineBoots;        /* initial engineBoots for remote engine */
+    u_int   engineTime;         /* initial engineTime for remote engine */
     u_char  *contextName;	/* authoritative contextName */
-    int	    contextNameLen;  /* Length of contextName */
+    int	    contextNameLen;     /* Length of contextName */
     u_char  *securityName;	/* on behalf of this principal */
-    int	    securityNameLen;  /* Length of securityName. */
+    int	    securityNameLen;    /* Length of securityName. */
     oid     *securityAuthProto; /* auth protocol oid */
     int     securityAuthProtoLen; /* Length of auth protocol oid */
     u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol XXX */
@@ -147,11 +149,24 @@ typedef int (*snmp_callback) __P((int, struct snmp_session *, int, struct snmp_p
 #define SNMP_DEFAULT_TIME	    0
 #define SNMP_DEFAULT_VERSION	    -1
 #define SNMP_MAX_MSG_SIZE           (2 * 1024) /* XXX  this is provisional */
-#define SNMP_MAX_ENG_SIZE     256
+#define SNMP_MAX_ENG_SIZE          32
 #define SNMP_MAX_SEC_NAME_SIZE     256
 #define SNMP_MAX_SEC_NAME_SIZE     256
-#define SNMP_MAX_CONTEXT_SIZE     256
+#define SNMP_MAX_CONTEXT_SIZE      256
 #define SNMP_SEC_PARAM_BUF_SIZE     256
+
+/* set to one to ignore unauthenticated Reports */
+#define SNMPV3_IGNORE_UNAUTH_REPORTS 0
+/* to determine type of Report from varbind_list */
+#define REPORT_STATS_LEN 9
+#define REPORT_snmpUnknownSecurityModels_NUM 1
+#define REPORT_snmpInvalidMsgs_NUM 2
+#define REPORT_usmStatsUnsupportedSecLevels_NUM 1
+#define REPORT_usmStatsNotInTimeWindows_NUM 2
+#define REPORT_usmStatsUnknownUserNames_NUM 3
+#define REPORT_usmStatsUnknownEngineIDs_NUM 4 
+#define REPORT_usmStatsWrongDigests_NUM 5
+#define REPORT_usmStatsDecryptionErrors_NUM 6
 
 extern char *snmp_api_errstring __P((int));
 extern void snmp_perror __P((char *));
@@ -166,49 +181,60 @@ extern void snmp_set_detail __P((char *));
  * XXX	These should be merged with SNMP_ERR_* defines and confined
  *	to values < 0.  ???
  */
-#define SNMPERR_SUCCESS				(0)  
-#define SNMPERR_GENERR				(-1)
-#define SNMPERR_BAD_LOCPORT			(-2)
-#define SNMPERR_BAD_ADDRESS			(-3)
-#define SNMPERR_BAD_SESSION			(-4)
-#define SNMPERR_TOO_LONG			(-5)
-#define SNMPERR_NO_SOCKET			(-6)
-#define SNMPERR_V2_IN_V1			(-7)
-#define SNMPERR_V1_IN_V2			(-8)
-#define SNMPERR_BAD_REPEATERS			(-9)
-#define SNMPERR_BAD_REPETITIONS			(-10)
-#define SNMPERR_BAD_ASN1_BUILD			(-11)
-#define SNMPERR_BAD_SENDTO			(-12)
-#define SNMPERR_BAD_PARSE			(-13)
-#define SNMPERR_BAD_VERSION			(-14)
-#define SNMPERR_BAD_SRC_PARTY			(-15)
-#define SNMPERR_BAD_DST_PARTY			(-16)
-#define SNMPERR_BAD_CONTEXT			(-17)
-#define SNMPERR_BAD_COMMUNITY			(-18)
-#define SNMPERR_NOAUTH_DESPRIV			(-19)
-#define SNMPERR_BAD_ACL				(-20)
-#define SNMPERR_BAD_PARTY			(-21)
-#define SNMPERR_ABORT				(-22)
-#define SNMPERR_UNKNOWN_PDU			(-23)
-#define SNMPERR_TIMEOUT 			(-24)
-#define SNMPERR_BAD_RECVFROM 			(-25)
-#define SNMPERR_BAD_ENG_ID 			(-26)
-#define SNMPERR_BAD_SEC_NAME 			(-27)
-#define SNMPERR_BAD_SEC_LEVEL 			(-28)
-#define SNMPERR_SC_GENERAL_FAILURE		(-29)
-#define SNMPERR_SC_NOT_CONFIGURED		(-30)
-#define SNMPERR_KT_NOT_AVAILABLE		(-31)
-#define SNMPERR_USM_GENERICERROR		(-32)
-#define SNMPERR_USM_UNKNOWNSECURITYNAME		(-33)
-#define SNMPERR_USM_UNSUPPORTEDSECURITYLEVEL	(-34)
-#define SNMPERR_USM_ENCRYPTIONERROR		(-35)
-#define SNMPERR_USM_AUTHENTICATIONFAILURE	(-36)
-#define SNMPERR_USM_PARSEERROR			(-37)
-#define SNMPERR_USM_UNKNOWNENGINEID		(-38)
-#define SNMPERR_USM_NOTINTIMEWINDOW		(-39)
-#define SNMPERR_USM_DECRYPTIONERROR		(-40)
+#define SNMPERR_SUCCESS			(0)  /* XXX  Non-PDU "success" code. */
+#define SNMPERR_GENERR			(-1)
+#define SNMPERR_BAD_LOCPORT		(-2)
+#define SNMPERR_BAD_ADDRESS		(-3)
+#define SNMPERR_BAD_SESSION		(-4)
+#define SNMPERR_TOO_LONG		(-5)
+#define SNMPERR_NO_SOCKET		(-6)
+#define SNMPERR_V2_IN_V1		(-7)
+#define SNMPERR_V1_IN_V2		(-8)
+#define SNMPERR_BAD_REPEATERS		(-9)
+#define SNMPERR_BAD_REPETITIONS		(-10)
+#define SNMPERR_BAD_ASN1_BUILD		(-11)
+#define SNMPERR_BAD_SENDTO		(-12)
+#define SNMPERR_BAD_PARSE		(-13)
+#define SNMPERR_BAD_VERSION		(-14)
+#define SNMPERR_BAD_SRC_PARTY		(-15)
+#define SNMPERR_BAD_DST_PARTY		(-16)
+#define SNMPERR_BAD_CONTEXT		(-17)
+#define SNMPERR_BAD_COMMUNITY		(-18)
+#define SNMPERR_NOAUTH_DESPRIV		(-19)
+#define SNMPERR_BAD_ACL			(-20)
+#define SNMPERR_BAD_PARTY		(-21)
+#define SNMPERR_ABORT			(-22)
+#define SNMPERR_UNKNOWN_PDU		(-23)
+#define SNMPERR_TIMEOUT 		(-24)
+#define SNMPERR_BAD_RECVFROM 		(-25)
+#define SNMPERR_BAD_ENG_ID 		(-26)
+#define SNMPERR_BAD_SEC_NAME 		(-27)
+#define SNMPERR_BAD_SEC_LEVEL 		(-28)
+#define SNMPERR_ASN_PARSE_ERR           (-29)
+#define SNMPERR_UNKNOWN_SEC_MODEL 	(-30)
+#define SNMPERR_INVALID_MSG             (-31)
+#define SNMPERR_UNKNOWN_ENG_ID          (-32)
+#define SNMPERR_UNKNOWN_USER_NAME 	(-33)
+#define SNMPERR_UNSUPPORTED_SEC_LEVEL 	(-34)
+#define SNMPERR_AUTHENTICATION_FAILURE 	(-35)
+#define SNMPERR_NOT_IN_TIME_WINDOW 	(-36)
+#define SNMPERR_DECRYPTION_ERR          (-37)
+#define SNMPERR_SC_GENERAL_FAILURE	(-38)
+#define SNMPERR_SC_NOT_CONFIGURED	(-39)
+#define SNMPERR_KT_NOT_AVAILABLE	(-40)
+#define SNMPERR_UNKNOWN_REPORT          (-41)
+#define SNMPERR_USM_GENERICERROR		(-42)
+#define SNMPERR_USM_UNKNOWNSECURITYNAME		(-43)
+#define SNMPERR_USM_UNSUPPORTEDSECURITYLEVEL	(-44)
+#define SNMPERR_USM_ENCRYPTIONERROR		(-45)
+#define SNMPERR_USM_AUTHENTICATIONFAILURE	(-46)
+#define SNMPERR_USM_PARSEERROR			(-47)
+#define SNMPERR_USM_UNKNOWNENGINEID		(-48)
+#define SNMPERR_USM_NOTINTIMEWINDOW		(-49)
+#define SNMPERR_USM_DECRYPTIONERROR		(-50)
 
-#define SNMPERR_MAX			(-40)
+#define SNMPERR_MAX			(-50)
+
 
 #define non_repeaters	errstat
 #define max_repetitions errindex
@@ -431,6 +457,7 @@ int snmpv3_make_report(u_char *out_data, int *out_length,
 			   struct snmp_pdu *pdu,
 			   int error, oid *err_var, int err_var_len,
 			   u_char *engineID, int engineIDLen);
+int snmpv3_get_report_type(struct snmp_pdu *pdu);
 int snmp_pdu_parse(struct snmp_pdu *pdu, u_char *data, int *length);
 
 void snmp_pdu_add_variable __P((struct snmp_pdu *, oid *, int, u_char, u_char *, int));

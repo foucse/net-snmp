@@ -192,10 +192,20 @@ static char *api_errors[-SNMPERR_MAX+1] = {
     "Failure in recvfrom",			/* SNMPERR_BAD_RECVFROM */
     "Unable to determine contextEngineID",	/* SNMPERR_BAD_ENG_ID */
     "Unable to determine securityName",		/* SNMPERR_BAD_SEC_NAME */
-    "Unable to determine securityLevel",	/* SNMPERR_BAD_SEC_LEVEL */
+    "Unable to determine securityLevel",	/* SNMPERR_BAD_SEC_LEVEL  */
+    "ASN.1 parse error in message",             /* SNMPERR_ASN_PARSE_ERR */
+    "Unknown security model in message",        /* SNMPERR_UNKNOWN_SEC_MODEL */
+    "Invalid message (e.g. msgFlags)",          /* SNMPERR_INVALID_MSG */
+    "Unknown engine ID",                        /* SNMPERR_UNKNOWN_ENG_ID */
+    "Unknown user name",                        /* SNMPERR_UNKNOWN_USER_NAME */
+    "Unsupported security level",           /* SNMPERR_UNSUPPORTED_SEC_LEVEL */
+    "Authentication failure",               /* SNMPERR_AUTHENTICATION_FAILURE */
+    "Not in time window",                       /* SNMPERR_NOT_IN_TIME_WINDOW */
+    "Decryptiion error",                        /* SNMPERR_DECRYPTION_ERR */
     "SCAPI general failure",			/* SNMPERR_SC_GENERAL_FAILURE */
     "SCAPI sub-system not configured",		/* SNMPERR_SC_NOT_CONFIGURED */
     "Key tools not available",			/* SNMPERR_KT_NOT_AVAILABLE */
+    "Unknown Report message",	                /* SNMPERR_UNKNOWN_REPORT */
     "USM generic error",	      /* SNMPERR_USM_GENERICERROR */
     "USM unknown security name",      /* SNMPERR_USM_UNKNOWNSECURITYNAME */
     "USM unsupported security level", /* SNMPERR_USM_UNSUPPORTEDSECURITYLEVEL */
@@ -238,7 +248,6 @@ int			 snmp_errno	 = 0;
 char			*snmp_detail	 = NULL;
 
 static int snmp_dump_packet		 = 0;
-
 
 
 /*
@@ -652,6 +661,11 @@ snmp_sess_open(in_session)
       memmove(cp, session->contextEngineID,
 	      session->contextEngineIDLen * sizeof(u_char));
       session->contextEngineID = cp;
+
+      if (session->engineBoots || session->engineTime) {
+	set_enginetime(session->contextEngineID, session->contextEngineIDLen,
+		       session->engineBoots, session->engineTime, TRUE);
+      }
     }
 
     if (session->contextName) {
@@ -849,44 +863,41 @@ snmp_sess_open(in_session)
        we must probe it - this must be done after the session is
        created and inserted in the list so that the response can
        handled correctly */
-    if (session->version == SNMP_VERSION_3 &&
-	session->contextEngineIDLen == 0) {
-      snmpv3_build_probe_pdu(&pdu);
-      DEBUGP("probing for engineID...\n");
-      status = snmp_sess_synch_response(slp, pdu, &response);
+    if (session->version == SNMP_VERSION_3) {
+      if (session->contextEngineIDLen == 0) {
+	snmpv3_build_probe_pdu(&pdu);
+	DEBUGP("probing for engineID...\n");
+	status = snmp_sess_synch_response(slp, pdu, &response);
 
-      if ((response == NULL) && (status == STAT_SUCCESS)) status = STAT_ERROR;
+	if ((response == NULL) && (status == STAT_SUCCESS)) status = STAT_ERROR;
 
-      switch (status) {
-      case STAT_SUCCESS:
-	switch (response->errstat) {
-	case SNMP_ERR_NOERROR:
-	  break;
-	default:
-	  DEBUGP("remote engine returned an error: %s (%d)\n",
+	switch (status) {
+	case STAT_SUCCESS:
+	  DEBUGP("error: expected Report as response to probe: %s (%d)\n",
 		 snmp_errstring(response->errstat), response->errstat);
+	  break;
+	case STAT_ERROR: /* this is what we expected -> Report == STAT_ERROR */
+	  break; 
+	case STAT_TIMEOUT:
+	default:
+	  DEBUGP("unable to connect with remote engine: %s (%d)\n",
+		 snmp_api_errstring(snmp_get_errno()),
+		 snmp_get_errno());
+	  break;
 	}
-	break;
-      case STAT_TIMEOUT:
-      case STAT_ERROR:
-      default:
-	DEBUGP("unable to connect with remote engine: %s (%d)\n",
-	       snmp_api_errstring(snmp_get_errno()),
-	       snmp_get_errno());
-	break;
-      }
-      if (slp->session->contextEngineIDLen == 0) {
-	DEBUGP("unable to determine remote engine ID\n");
-	return NULL;
-      }
-      if (snmp_get_do_debugging()) {
-        DEBUGP("  probe found engineID:  ");
-        for(i = 0; i < slp->session->contextEngineIDLen; i++)
-          DEBUGP("%x", slp->session->contextEngineID[i]);
-        DEBUGP("\n");
+	if (slp->session->contextEngineIDLen == 0) {
+	  DEBUGP("unable to determine remote engine ID\n");
+	  return NULL;
+	}
+	if (snmp_get_do_debugging()) {
+	  DEBUGP("  probe found engineID:  ");
+	  for(i = 0; i < slp->session->contextEngineIDLen; i++)
+	    DEBUGP("%x", slp->session->contextEngineID[i]);
+	  DEBUGP("\n");
+	}
       }
       if (create_user_from_session(slp->session) != SNMPERR_SUCCESS)
-        DEBUGP("snmp_sess_open(): failed(2) to create a new user from session\n");
+	DEBUGP("snmp_sess_open(): failed(2) to create a new user from session\n");
     }
 
 
@@ -1677,9 +1688,6 @@ snmp_parse_version (data, length)
   return version;
 }
 
-
-
-
 int
 snmpv3_parse(pdu, data, length, after_header)
      struct snmp_pdu	 *pdu;
@@ -1784,7 +1792,6 @@ EM(-1);
   pdu->securityModel = msg_sec_model;
 
   /* end of msgGlobalData */
-
 
   /* securtityParameters OCTET STRING begins after msgGlobalData
    */
@@ -1914,6 +1921,8 @@ snmpv3_make_report(u_char *out_data, int *out_length,
   pdu->errindex		 	= 0;
   pdu->contextName		= strdup("");
   pdu->contextNameLen		= strlen(pdu->contextName);
+  if (error != STAT_USMSTATSNOTINTIMEWINDOWS) 
+    pdu->securityLevel          = SNMP_SEC_LEVEL_NOAUTH;
 
   /* find the unknown engineID counter
    */
@@ -1933,6 +1942,51 @@ snmpv3_make_report(u_char *out_data, int *out_length,
 }  /* end snmpv3_make_report() */
 
 
+int
+snmpv3_get_report_type(struct snmp_pdu *pdu)
+{
+  static oid snmpMPDStats[] = {1,3,6,1,6,3,11,2,1};
+  static oid usmStats[] = {1,3,6,1,6,3,12,1,1};
+  struct variable_list *vp;
+  int rpt_type = SNMPERR_UNKNOWN_REPORT;
+
+  if (pdu == NULL || pdu->variables == NULL) return rpt_type;
+  vp = pdu->variables;
+  if (vp->name_length == REPORT_STATS_LEN+1) {
+    if (memcmp(snmpMPDStats,vp->name,REPORT_STATS_LEN*sizeof(oid)) == 0) {
+      switch (vp->name[REPORT_STATS_LEN]) {
+      case REPORT_snmpUnknownSecurityModels_NUM:
+	rpt_type = SNMPERR_UNKNOWN_SEC_MODEL;
+	break;
+      case REPORT_snmpInvalidMsgs_NUM:
+	rpt_type = SNMPERR_INVALID_MSG;
+	break;
+      }
+    } else if (memcmp(usmStats,vp->name,REPORT_STATS_LEN*sizeof(oid)) == 0) {
+      switch (vp->name[REPORT_STATS_LEN]) {
+      case REPORT_usmStatsUnsupportedSecLevels_NUM:
+	rpt_type = SNMPERR_UNSUPPORTED_SEC_LEVEL;
+	break;
+      case REPORT_usmStatsNotInTimeWindows_NUM:
+	rpt_type = SNMPERR_NOT_IN_TIME_WINDOW;
+	break;
+      case REPORT_usmStatsUnknownUserNames_NUM:
+	rpt_type = SNMPERR_UNKNOWN_USER_NAME;
+	break;
+      case REPORT_usmStatsUnknownEngineIDs_NUM:
+	rpt_type = SNMPERR_UNKNOWN_ENG_ID;
+	break;
+      case REPORT_usmStatsWrongDigests_NUM:
+	rpt_type = SNMPERR_AUTHENTICATION_FAILURE;
+	break;
+      case REPORT_usmStatsDecryptionErrors_NUM:
+	rpt_type = SNMPERR_DECRYPTION_ERR;
+	break;
+      }
+    }
+  }
+  return rpt_type;
+}
 
 /*
  * Parses the packet received on the input session, and places the data into
@@ -2731,6 +2785,7 @@ snmp_sess_read(sessp)
     struct request_list *rp, *orp = NULL;
     snmp_callback callback;
     void *magic;
+    int rpt_type;
 
     sp = slp->session; isp = slp->internal;
     sp->s_snmp_errno = 0;
@@ -2777,25 +2832,25 @@ snmp_sess_read(sessp)
 		if (rp->cb_data) magic = rp->cb_data;
 	        if (callback == NULL || 
 		    callback(RECEIVED_MESSAGE,sp,pdu->reqid,pdu,magic) == 1){
-		  /* handle engineID discovery - */
-		  if (!rp->pdu->contextEngineIDLen) { /* engineID probe */
+		  if (pdu->command == SNMP_MSG_REPORT) {
+		    if (sp->s_snmp_errno == SNMPERR_NOT_IN_TIME_WINDOW) {
+		      /* trigger immediate retry on recoverable Reports 
+		       * (notInTimeWindow), incr_retries == TRUE to prevent
+		       * inifinite resend 		       */
+		      if (rp->retries <= sp->retries) {
+			snmp_resend_request(slp, rp, TRUE);
+		        break;
+		      }
+		    } else {
+		      if (SNMPV3_IGNORE_UNAUTH_REPORTS) break;
+		    }
+		    /* handle engineID discovery - */
 		    if (!sp->contextEngineIDLen && pdu->contextEngineIDLen) {
 		      sp->contextEngineID = malloc(pdu->contextEngineIDLen);
 		      memcpy(sp->contextEngineID, pdu->contextEngineID,
 			     pdu->contextEngineIDLen);
 		      sp->contextEngineIDLen = pdu->contextEngineIDLen;
-		      /* request satisfied */
-		      if (sp->snmp_synch_state) 
-			sp->snmp_synch_state->waiting = 0; 
 		    }
-		  } else {
-		    /* trigger immediate retry on other Reports (like
-		     * notInTimeWindow), incr_retries == TRUE to prevent
-		     * inifinite resend
-		     */
-		    if (rp->retries <= sp->retries) 
-		      snmp_resend_request(slp, rp, TRUE);
-		    break;
 		  }
 		  /* successful, so delete request */
 		  if (isp->requests == rp){

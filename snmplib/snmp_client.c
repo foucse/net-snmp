@@ -172,22 +172,29 @@ snmp_synch_input(op, session, reqid, pdu, magic)
     void *magic;
 {
     struct synch_state *state = (struct synch_state *)magic;
+    int rpt_type;
 
     if (reqid != state->reqid)
 	return 0;
 
-    if (pdu->command != SNMP_MSG_REPORT)
-      state->waiting = 0;
-
-    if (op == RECEIVED_MESSAGE && (pdu->command == SNMP_MSG_REPORT ||
-				   pdu->command == SNMP_MSG_RESPONSE))
-    {
-        /* clone the pdu to return to snmp_synch_response*/
-        state->pdu		 = snmp_clone_pdu(pdu);
-        state->status		 = STAT_SUCCESS;
-        snmp_errno		 = 0;  /* XXX all OK when msg received ? */
-        session->s_snmp_errno	 = 0;
-
+    state->waiting = 0;
+    if (op == RECEIVED_MESSAGE) {
+      if (pdu->command == SNMP_MSG_REPORT) {
+	rpt_type = snmpv3_get_report_type(pdu);
+	if (SNMPV3_IGNORE_UNAUTH_REPORTS || 
+	    rpt_type == SNMPERR_NOT_IN_TIME_WINDOW) 
+	  state->waiting = 1;
+	state->pdu = NULL;
+	state->status = STAT_ERROR;
+	snmp_errno = rpt_type;
+	session->s_snmp_errno = rpt_type;
+      } else if (pdu->command == SNMP_MSG_RESPONSE) {
+	/* clone the pdu to return to snmp_synch_response */
+	state->pdu = snmp_clone_pdu(pdu);
+	state->status = STAT_SUCCESS;
+	snmp_errno = 0;  /* XX all OK when msg received ? */
+	session->s_snmp_errno = 0;
+      }
     } else if (op == TIMED_OUT){
 	state->pdu		 = NULL;
 	state->status		 = STAT_TIMEOUT;
