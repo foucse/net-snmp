@@ -701,12 +701,6 @@ main(argc, argv)
 	read_config_with_type(file, "snmpd");
 #endif
 
-	engineID = snmpv3_generate_engineID(&engineIDLen);
-	set_enginetime(engineID, engineIDLen, 
-		       snmpv3_local_snmpEngineBoots(), 
-		       snmpv3_local_snmpEngineTime(),
-		       TRUE);
-
 	/* Open ports.
 	 */
 	init_snmp2p(dest_port);

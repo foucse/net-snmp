@@ -428,6 +428,7 @@ init_snmp(char *type)
 	read_config_with_type(file, type);
 
         init_usm_post_config();
+        init_snmpv3_post_config();
 	init_snmp_session();
 
 }  /* end init_snmp() */
@@ -556,7 +557,12 @@ snmp_sess_open(in_session)
       memmove(cp, session->securityAuthProto,
 	      session->securityAuthProtoLen * sizeof(oid));
       session->securityAuthProto = (oid*)cp;
+    } else if (get_default_authtype(&i) != NULL) {
+        session->securityAuthProto =
+          snmp_duplicate_objid(get_default_authtype(NULL), i);
+        session->securityAuthProtoLen = i;
     }
+
     if (session->securityPrivProtoLen > 0) {
       cp = (u_char*)malloc((unsigned)session->securityPrivProtoLen *
 			   sizeof(oid));
@@ -569,6 +575,10 @@ snmp_sess_open(in_session)
       memmove(cp, session->securityPrivProto,
 	      session->securityPrivProtoLen * sizeof(oid));
       session->securityPrivProto = (oid*)cp;
+    } else if (get_default_privtype(&i) != NULL) {
+        session->securityPrivProto =
+          snmp_duplicate_objid(get_default_privtype(NULL), i);
+        session->securityPrivProtoLen = i;
     }
 
     if (session->contextEngineIDLen > 0) {
@@ -629,12 +639,38 @@ snmp_sess_open(in_session)
       session->securityAuthKeyLen = in_session->securityAuthKeyLen;
       memcpy(session->securityAuthKey, in_session->securityAuthKey,
              session->securityAuthKeyLen);
+    } else if (get_default_authpass()) {
+      session->securityAuthKeyLen = USM_AUTH_KU_LEN;
+      if (generate_Ku(session->securityAuthProto,
+                      session->securityAuthProtoLen,
+                      get_default_authpass(), strlen(get_default_authpass()),
+                      session->securityAuthKey,
+                      &session->securityAuthKeyLen) != SNMPERR_SUCCESS) {
+        snmp_set_detail("Error generating Ku from authentication pass phrase.");
+	snmp_errno = SNMPERR_GENERR;
+	in_session->s_snmp_errno = SNMPERR_GENERR;
+	snmp_sess_close(slp);
+        return NULL;
+      }
     }
 
     if (in_session->securityPrivKeyLen > 0) {
       session->securityPrivKeyLen = in_session->securityPrivKeyLen;
       memcpy(session->securityPrivKey, in_session->securityPrivKey,
              session->securityPrivKeyLen);
+    } else if (get_default_privpass()) {
+      session->securityPrivKeyLen = USM_PRIV_KU_LEN;
+      if (generate_Ku(session->securityAuthProto,
+                      session->securityAuthProtoLen,
+                      get_default_privpass(), strlen(get_default_privpass()),
+                      session->securityPrivKey,
+                      &session->securityPrivKeyLen) != SNMPERR_SUCCESS) {
+        snmp_set_detail("Error generating Ku from privacy pass phrase.");
+	snmp_errno = SNMPERR_GENERR;
+	in_session->s_snmp_errno = SNMPERR_GENERR;
+	snmp_sess_close(slp);
+        return NULL;
+      }
     }
 
     if (session->srcPartyLen > 0){
@@ -1534,7 +1570,7 @@ snmpv3_parse(pdu, data, length, after_header)
   u_char tmp_buf[SNMP_MAX_MSG_SIZE];
   int tmp_buf_len;
   u_char pdu_buf[SNMP_MAX_MSG_SIZE];
-  int pdu_buf_len;
+  int pdu_buf_len = SNMP_MAX_MSG_SIZE;
   u_char *sec_params;
   u_char *msg_data;
   u_char *cp;

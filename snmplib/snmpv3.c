@@ -43,28 +43,29 @@
 #include "snmpusm.h"
 #include "snmp.h"
 #include "snmp_api.h"
+#include "snmp_impl.h"
 #include "read_config.h"
 #include "scapi.h"
 #include "tools.h"
 
-
-
-
-static int		 engineBoots	 = 0;
+static int		 engineBoots	 = 1;
 static char		*engineID	 = NULL;
 static int		 engineIDLength	 = 0;
 static struct timeval	 snmpv3starttime;
-
 
 /* 
  * Set up default snmpv3 parameter value storage.
  */
 static char	*defaultSecName		= NULL;
 static char	*defaultContext		= NULL;
+static char	*defaultPassphrase	= NULL;
+static char	*defaultAuthPassphrase	= NULL;
+static char	*defaultPrivPassphrase	= NULL;
+static oid	*defaultAuthType	= NULL;
+static int	 defaultAuthTypeLen	= 0;
+static oid	*defaultPrivType	= NULL;
+static int	 defaultPrivTypeLen	= 0;
 int		defaultSecurityLevel	= 0;
-
-
-
 
 void
 snmpv3_secName_conf(char *word, char *cptr)
@@ -79,6 +80,78 @@ char *
 get_default_secName(void)
 {
   return defaultSecName;
+}
+
+void
+snmpv3_passphrase_conf(char *word, char *cptr)
+{
+  char **pass;
+  if (strcmp(word, "defAuthPassphrase"))
+    pass = &defaultAuthPassphrase;
+  else if (strcmp(word, "defPrivPassphrase"))
+    pass = &defaultPrivPassphrase;
+  else
+    pass = &defaultPassphrase;
+  if (*pass)
+    free(*pass);
+  *pass = strdup(cptr);
+  DEBUGP("set %s\n",word);
+}
+
+char *
+get_default_authpass(void)
+{
+  if (defaultAuthPassphrase)
+    return defaultAuthPassphrase;
+  return defaultPassphrase;
+}
+
+char *
+get_default_privpass(void)
+{
+  if (defaultPrivPassphrase)
+    return defaultPrivPassphrase;
+  return defaultPassphrase;
+}
+
+void
+snmpv3_authtype_conf(char *word, char *cptr)
+{
+  if (strcmp(cptr,"MD5") == 0)
+    defaultAuthType = usmHMACMD5AuthProtocol;
+  else if (strcmp(cptr,"SHA") == 0)
+    defaultAuthType = usmHMACMD5AuthProtocol;
+  else
+    config_perror("unknown authentication type");
+  defaultAuthTypeLen = USM_LENGTH_OID_TRANSFORM;
+  DEBUGP("set default authentication type: %s\n", defaultAuthType);
+}
+
+oid *
+get_default_authtype(int *len)
+{
+  if (len)
+    *len = defaultAuthTypeLen;
+  return defaultAuthType;
+}
+
+void
+snmpv3_privtype_conf(char *word, char *cptr)
+{
+  if (strcmp(cptr,"DES") == 0)
+    defaultPrivType = usmDESPrivProtocol;
+  else
+    config_perror("unknown privacy type");
+  defaultPrivTypeLen = USM_LENGTH_OID_TRANSFORM;
+  DEBUGP("set default privacy type: %s\n", defaultPrivType);
+}
+
+oid *
+get_default_privtype(int *len)
+{
+  if (len)
+    *len = defaultPrivTypeLen;
+  return defaultPrivType;
 }
 
 void
@@ -247,6 +320,13 @@ init_snmpv3(char *type) {
   register_config_handler(type,"engineID", engineID_conf, NULL);
   register_config_handler("snmp","defSecurityName", snmpv3_secName_conf, NULL);
   register_config_handler("snmp","defContext", snmpv3_context_conf, NULL);
+  register_config_handler("snmp","defAuthType", snmpv3_authtype_conf, NULL);
+  register_config_handler("snmp","defPrivType", snmpv3_privtype_conf, NULL);
+  register_config_handler("snmp","defPassphrase", snmpv3_passphrase_conf, NULL);
+  register_config_handler("snmp","defAuthPassphrase",
+                          snmpv3_passphrase_conf, NULL);
+  register_config_handler("snmp","defPrivPassphrase",
+                          snmpv3_passphrase_conf, NULL);
   register_config_handler("snmp","defSecurityLevel", snmpv3_secLevel_conf,
                           NULL);
   register_config_handler(type,"userSetAuthPass", usm_set_password, NULL);
@@ -258,6 +338,27 @@ init_snmpv3(char *type) {
 #if		!defined(USE_INTERNAL_MD5)
 	sc_init();
 #endif		/* !USE_INTERNAL_MD5 */
+}
+
+/*
+ * initializations for SNMPv3 to be called after the configuration files
+ * have been read.
+ */
+
+void
+init_snmpv3_post_config(void) {
+
+  int engineIDLen;
+  u_char *engineID;
+
+  /* set our local engineTime in the LCD timing cache */
+  engineID = snmpv3_generate_engineID(&engineIDLen);
+  set_enginetime(engineID, engineIDLen, 
+                 snmpv3_local_snmpEngineBoots(), 
+                 snmpv3_local_snmpEngineTime(),
+                 TRUE);
+
+  free(engineID);
 }
 
 /*******************************************************************-o-******
