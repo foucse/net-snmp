@@ -1,4 +1,4 @@
-/* testhanlder.c */
+/* table.c */
 
 #include <config.h>
 
@@ -131,7 +131,7 @@ table_helper_handler(
   int oid_column_pos = reginfo->rootoid_len + 1;
   int tmp_idx, tmp_len;
   int incomplete, out_of_range;
-  int status;
+  int status = SNMP_ERR_NOERROR, need_processing = 0;
   oid *tmp_name;
   table_request_info        *tbl_req_info;
   struct variable_list      *vb;
@@ -164,6 +164,7 @@ table_helper_handler(
 
 	if (request->processed)
 	  continue;
+	++need_processing;
 
 	/* this should probably be handled further up */
 	if ( (reqinfo->mode == MODE_GET) &&
@@ -238,7 +239,7 @@ table_helper_handler(
 	  }
 	  else if( var->name[oid_column_pos] > tbl_info->max_column ) {
 		/* this is out of range...  remove from requests, free memory */
-		DEBUGMSGTL(("helper:table", "  oid is out of range. Not processed."));
+		DEBUGMSGTL(("helper:table", "  oid is out of range. Not processed.\n"));
 		if (reqinfo->mode != MODE_GETNEXT) {
 		  request->processed = 1;
 		  table_helper_cleanup( requests );
@@ -283,7 +284,7 @@ table_helper_handler(
 		++tmp_idx,vb=vb->next_variable) {
 		if (incomplete && tmp_len) {
 		  /* incomplete/illegal OID, set up dummy 0 to parse */
-		  DEBUGMSGTL(("helper:table", "  oid indexes not complete." ));
+		  DEBUGMSGTL(("helper:table", "  oid indexes not complete.\n" ));
 		  /* no sense in trying anymore if this is a GET/SET. */
 		  if (reqinfo->mode != MODE_GETNEXT) {
 			request->processed = 1;
@@ -346,7 +347,8 @@ table_helper_handler(
   /*
    * call our child access function
    */
-  status = call_next_handler(handler, reginfo, reqinfo, requests);
+	if (need_processing)
+		status = call_next_handler(handler, reginfo, reqinfo, requests);
 
 
   /*
@@ -360,14 +362,14 @@ table_helper_handler(
 
 int
 table_build_oid(handler_registration *reginfo,
-				request_info *reqinfo,
-				table_request_info *table_info) {
-    
+								request_info *reqinfo,
+								table_request_info *table_info)
+{
   oid tmpoid[MAX_OID_LEN];
   struct variable_list *var;
 
-  if (!reqinfo || !table_info)
-	return SNMPERR_GENERR;
+  if (!reginfo || !reqinfo || !table_info)
+		return SNMPERR_GENERR;
     
   memcpy(tmpoid, reginfo->rootoid, reginfo->rootoid_len * sizeof(oid));
   tmpoid[reginfo->rootoid_len] = 1; /* .Entry */
@@ -379,6 +381,32 @@ table_build_oid(handler_registration *reginfo,
 				table_info->indexes)
 	  != SNMPERR_SUCCESS)
 	return SNMPERR_GENERR;
+
+  return SNMPERR_SUCCESS;
+}
+
+int
+table_build_oid_from_full_index(handler_registration *reginfo,
+																request_info *reqinfo,
+																table_request_info *table_info)
+{
+  oid tmpoid[MAX_OID_LEN];
+  struct variable_list *var;
+	int len;
+
+  if (!reginfo || !reqinfo || !table_info)
+		return SNMPERR_GENERR;
+	
+	var = reqinfo->requestvb;
+	len = reginfo->rootoid_len;
+  memcpy(tmpoid, reginfo->rootoid, len * sizeof(oid));
+  tmpoid[len++] = 1; /* .Entry */
+  tmpoid[len++] = table_info->colnum; /* .column */
+	memcpy( &tmpoid[len], table_info->full_index_oid,
+					table_info->full_index_oid_len * sizeof(oid));
+	len += table_info->full_index_oid_len;
+  snmp_clone_mem( (void**)&var->name, tmpoid, len * sizeof(oid) );
+	var->name_length = len;
 
   return SNMPERR_SUCCESS;
 }
@@ -406,4 +434,18 @@ table_build_result(handler_registration *reginfo,
   snmp_set_var_typed_value(var, type, result, result_len);
               
   return SNMPERR_SUCCESS;
+}
+
+int
+update_indexes_from_full_index( table_request_info *tri )
+{
+	return parse_oid_indexes(tri->full_index_oid, tri->full_index_oid_len,
+													 tri->indexes);
+}
+
+int
+update_indexes_from_variable_list( table_request_info *tri )
+{
+	return build_oid_noalloc(tri->full_index_oid, sizeof(tri->full_index_oid),
+													 &tri->full_index_oid_len, NULL, 0, tri->indexes);
 }
