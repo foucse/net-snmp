@@ -36,7 +36,8 @@
  * sc_init
  *
  * Returns:
- *	SNMPERR_SUCCESS		Success.
+ *	SNMPERR_SUCCESS			Success.
+ *	SNMPERR_SC_NOT_CONFIGURED	If KMT is not available.
  */
 int
 sc_init(void)
@@ -60,7 +61,12 @@ sc_init(void)
  * sc_shutdown
  *
  * Returns:
- *	SNMPERR_SUCCESS		Success.
+ *	SNMPERR_SUCCESS			Success.
+ *	SNMPERR_SC_NOT_CONFIGURED	If KMT is not available.
+ *
+ * 
+ * kmt_close() is most critical because it deletes (and zeros) all key
+ * bits stored in the KMT cache.
  */
 int
 sc_shutdown(void)
@@ -132,10 +138,10 @@ EM(-1); /* */
  *
  *
  * A hash of the first msglen bytes of message using a keyed hash defined
- * by authtype is created and stored in MAC.  Allocated bytes for its
- * storage and its length, maclen, are returned.
- *
- * *maclen is set to the number of bytes stored in MAC.
+ * by authtype is created and stored in MAC.  MAC is ASSUMED to be a buffer
+ * of at least maclen bytes.  If the length of the hash is greater than
+ * maclen, it is truncated to fit the buffer.  If the length of the hash is
+ * less than maclen, maclen set to the number of hash bytes generated.
  *
  * ASSUMED that the number of hash bits is a multiple of 8.
  */
@@ -145,9 +151,13 @@ sc_generate_keyed_hash(	oid	*authtype,	int    authtypelen,
 			u_char	*message,	u_int  msglen,
 			u_char	*MAC,		u_int *maclen)
 {
-	int		rval	= SNMPERR_SUCCESS;
-	u_int		transform,
-			properlength;
+	int		 rval	 = SNMPERR_SUCCESS,
+			 buf_len = SNMP_MAXBUF_SMALL;
+	u_int		 transform,
+			 properlength;
+
+	u_int8_t	 buf[SNMP_MAXBUF_SMALL],
+			*bufp = buf;
 
 	KMT_KEY_LIST	*kmtkeylist	= NULL;
 
@@ -187,7 +197,8 @@ EM(-1); /* */
 
 	/*
 	 * Lookup key in KMT.
-	 * Perform the keyed hash over message, store the result in MAC.
+	 * Perform the keyed hash over message.
+	 * Store the result in MAC, possibly truncating the result.
 	 */
 	rval = sc_internal_kmtlookup(	transform,
 					key, keylen, properlength,
@@ -197,14 +208,19 @@ EM(-1); /* */
 	rval = kmt_sign_data(	KMT_CRYPT_MODE_ALL,
 				kmt_keylist_key(kmtkeylist), NULL,
 				message, msglen,
-				&MAC, maclen);
-	*maclen = properlength;
+				&bufp, &buf_len);
 	QUITFUN(rval, sc_generate_keyed_hash_quit);
 
+	if (*maclen > buf_len) {
+		*maclen = buf_len;
+	}
+	memcpy(MAC, buf, *maclen);
 
 
 sc_generate_keyed_hash_quit:
 	kmt_release_keylist(&kmtkeylist);
+	SNMP_ZERO(buf, SNMP_MAXBUF_SMALL);
+
 	return rval;
 
 }  /* end sc_generate_keyed_hash() */
@@ -227,6 +243,12 @@ sc_generate_keyed_hash_quit:
  * Returns:
  *	SNMPERR_SUCCESS		Success.
  *	SNMP_SC_GENERAL_FAILURE	Any error, including KMT errs.
+ *
+ *
+ * Check the hash given in MAC against the hash of message.  If the length
+ * of MAC is less than the length of the transform hash output, only maclen
+ * bytes are compared.  The length of MAC cannot be greater than the
+ * length of the hash transform output.
  */
 int
 sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
@@ -234,11 +256,14 @@ sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
 			u_char	*message,	u_int msglen,
 			u_char	*MAC,		u_int maclen)
 {
-	int		rval	= SNMPERR_SUCCESS;
-	u_int		transform,
-			properlength;
+	int		 rval	 = SNMPERR_SUCCESS,
+			 buf_len = SNMP_MAXBUF_SMALL;
+	u_int		 transform,
+			 properlength;
 
-	KMT_KEY_LIST	*kmtkeylist	= NULL;
+	u_int8_t	 buf[SNMP_MAXBUF_SMALL];
+
+	KMT_KEY_LIST	*kmtkeylist = NULL;
 
 EM(-1); /* */
 
@@ -254,46 +279,29 @@ EM(-1); /* */
 	}
 
 
-	/*
-	 * Determine transform type.
+	/* 
+	 * Generate a full hash of the message, then compare
+	 * the result with the given MAC which may shorter than
+	 * the full hash length.
 	 */
-	if ( ISTRANSFORM(authtype, HMACMD5Auth) ) {
-		transform    = KMT_ALG_HMAC_MD5;	
-		properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
+	rval = sc_generate_keyed_hash(	authtype, authtypelen,
+					key, keylen,
+					message, msglen,
+					buf, &buf_len);
+	QUITFUN(rval, sc_check_keyed_hash_quit);
 
-	} else if ( ISTRANSFORM(authtype, HMACSHA1Auth) ) {
-		transform    = KMT_ALG_HMAC_SHA1;	
-		properlength = BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
+	if (maclen > msglen) {
+		QUITFUN(SNMPERR_GENERR, sc_check_keyed_hash_quit);
 
-	} else {
+	} else if ( memcmp(buf, MAC, maclen) != 0 ) {
 		QUITFUN(SNMPERR_GENERR, sc_check_keyed_hash_quit);
 	}
-
-	if ( (maclen < properlength) || (keylen < properlength) ) {
-		QUITFUN(SNMPERR_GENERR, sc_check_keyed_hash_quit);
-	}
-
-
-
-	/*
-	 * Lookup key in KMT.
-	 * Check the keyed hash for message.
-	 */
-	rval = sc_internal_kmtlookup(	transform,
-					key, keylen, properlength,
-					&kmtkeylist, FALSE);
-	QUITFUN(rval, sc_check_keyed_hash_quit);
-		
-	rval = kmt_verify_data(	KMT_CRYPT_MODE_ALL,
-				kmt_keylist_key(kmtkeylist), NULL,
-				message, msglen,
-				MAC, maclen);
-
-	QUITFUN(rval, sc_check_keyed_hash_quit);
 
 
 sc_check_keyed_hash_quit:
 	kmt_release_keylist(&kmtkeylist);
+	SNMP_ZERO(buf, SNMP_MAXBUF_SMALL);
+
 	return rval;
 
 }  /* end sc_check_keyed_hash() */
@@ -327,10 +335,10 @@ sc_check_keyed_hash_quit:
  * successful return.
  */
 int
-sc_encrypt(	oid    *privtype,	int   privtypelen,
-		u_char *key,		u_int keylen,
-		u_char *iv,		u_int ivlen,
-		u_char *plaintext,	u_int ptlen,
+sc_encrypt(	oid    *privtype,	int    privtypelen,
+		u_char *key,		u_int  keylen,
+		u_char *iv,		u_int  ivlen,
+		u_char *plaintext,	u_int  ptlen,
 		u_char *ciphertext,	u_int *ctlen)
 {
 	int		rval	= SNMPERR_SUCCESS;
@@ -427,10 +435,10 @@ sc_encrypt_quit:
  * successful return.
  */
 int
-sc_decrypt(	oid    *privtype,	int   privtypelen,
-		u_char *key,		u_int keylen,
-		u_char *iv,		u_int ivlen,
-		u_char *ciphertext,	u_int ctlen,
+sc_decrypt(	oid    *privtype,	int    privtypelen,
+		u_char *key,		u_int  keylen,
+		u_char *iv,		u_int  ivlen,
+		u_char *ciphertext,	u_int  ctlen,
 		u_char *plaintext,	u_int *ptlen)
 {
 	int		rval	= SNMPERR_SUCCESS;
@@ -481,7 +489,7 @@ EM(-1); /* */
 	 */
 	rval = sc_internal_kmtlookup(	transform,
 					key, keylen, properlength,
-					&kmtkeylist, FALSE);
+					&kmtkeylist, TRUE);
 	QUITFUN(rval, sc_decrypt_quit);
 
 	rval = kmt_decrypt_data(KMT_CRYPT_MODE_ALL,
@@ -538,8 +546,15 @@ sc_internal_kmtlookup(	u_int 	 transform,
 
 	KMT_ATTRIBUTE	kmt_attribute = { KMT_ATTR_ALG, transform };
 
-
 EM(-1); /* */
+
+
+	/*
+	 * Sanity check.
+	 */
+	if ( !key || !kmtkeylist || (keylen <= 0) || (properlength <= 0) ) {
+		return SNMPERR_SC_GENERAL_FAILURE;
+	}
 
 
 	*kmtkeylist = NULL;

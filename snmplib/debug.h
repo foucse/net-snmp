@@ -51,7 +51,7 @@ static u_int snmp_debug =	DF(ON) | DF(EM)		/* */
 
 #define em_printClause(em, printfargs)					\
 {									\
-	if (ISDF(EM) && (_EM_LEVEL <= em)) {		\
+	if (ISDF(EM) && (_EM_LEVEL <= em)) {				\
 		fprintf(_EM_FD, "EM %s(%d).  ", __FUNCTION__, __LINE__);\
 		fprintf printfargs ;					\
 		fprintf(_EM_FD, "\n");					\

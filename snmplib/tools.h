@@ -22,6 +22,7 @@
 
 #define SNMP_FREE(s)		if (s) free((void *)s);
 #define SNMP_MALLOC(s)		malloc_zero(s)
+#define SNMP_ZERO(s,l)		memset(s, 0, l);
 
 
 #define TOUPPER(c)	(c >= 'a' && c <= 'z' ? c - ('a' - 'A') : c)

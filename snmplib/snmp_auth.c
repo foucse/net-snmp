@@ -47,7 +47,6 @@ SOFTWARE.
 static void md5Digest __P((u_char *, int, u_char *));
 #endif
 
-#define	MD5_HASHSIZE_BYTES	16
 
 
 
