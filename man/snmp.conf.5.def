@@ -39,7 +39,24 @@ encrypting snmpv3 requests.  The
 .I defPassphrase
 token sets them both to be the same
 .IP "defSecurityLevel noAuthNoPriv|authNoPriv|authPriv"
-Sets the default security level to use when transmitting snmp requests.
+Sets the default security level to use when transmitting snmp
+requests.
+.IP "mibdirs [MIBDIRS|+MIBDIRS]"
+Secifies that the colon seperated MIBDIRS path set should be used to
+look for textual mib files.  When a "+" sign preceeds the argument,
+the MIBDIRS path set is appended to the default list.  Also see the
+MIBDIRS environmental variable description in the snmpcmd(1) manual
+page.
+.IP "mibs [MIBTOKENS|+MIBTOKENS]"
+Secifies that the colon seperated MIBS path set should be used to
+initialize the numerical oid to text translations utilized by the snmp
+applications.  When a "+" sign preceeds the argument, the MIBDIRS path
+set is appended to the default list.  Also see the MIBDIRS
+environmental variable description in the snmpcmd(1) manual page.
+.IP "mibfile MIBFILETO-READ"
+Reads in the mibfile specified on the path into the mib tree database
+structure fro the numerical oid to text translations utilized by the
+snmp applications.
 .SH "SEE ALSO"
 snmpcmd(1)
 .\" Local Variables:
