@@ -18,8 +18,7 @@ config_add_mib(SNMP-MPD-MIB)
 
 /* function definitions */
 
-void   init_snmpMPDStats(void);
-void   incr_snmpMPDStat(int);
+void           init_snmpMPDStats(void);
 unsigned char *var_snmpMPDStats(struct variable *, oid *, int *, int, int *, int (**write) __P((int, unsigned char *, unsigned char, int, unsigned char *, oid *, int)));
 
 
@@ -32,10 +31,9 @@ unsigned char *var_snmpMPDStats(struct variable *, oid *, int *, int, int *, int
    for the snmpMPDStats mib */
 
 struct variable2 snmpMPDStats_variables[] = {
-  { SNMPUNKNOWNSECURITYMODELS, ASN_COUNTER   , RONLY , var_snmpMPDStats, 1, { 1 } },
-  { SNMPINVALIDMSGS     , ASN_COUNTER   , RONLY , var_snmpMPDStats, 1, { 2 } },
-  { SNMPUNKNOWNPDUHANDLERS, ASN_COUNTER   , RONLY , var_snmpMPDStats, 1, { 3 } },
-
+  { SNMPUNKNOWNSECURITYMODELS, ASN_COUNTER, RONLY, var_snmpMPDStats, 1, { 1 } },
+  { SNMPINVALIDMSGS,           ASN_COUNTER, RONLY, var_snmpMPDStats, 1, { 2 } },
+  { SNMPUNKNOWNPDUHANDLERS,    ASN_COUNTER, RONLY, var_snmpMPDStats, 1, { 3 } },
 };
 
 /* now load this mib into the agents mib table */

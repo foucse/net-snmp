@@ -6,22 +6,12 @@
 #include "mibincl.h"
 #include "snmpMPDStats.h"
 
-static int MPDErrors[3];
-
 void init_snmpMPDStats(void) {
   int i;
 #ifdef USING_MIBII_SYSORTABLE_MODULE
   static oid reg[] = {1,3,6,1,6,3,11,3,1,1};
   register_sysORTable(reg,10,"The MIB for Message Processing and Dispatching.");
 #endif
-  
-  for(i=0; i < 3; i++)
-    MPDErrors[i] = 0;
-}
-
-void incr_snmpMPDStat(int which) {
-  if (which >= 0 && which < 3)
-    MPDErrors[which]++;
 }
 
 unsigned char *
@@ -48,8 +38,8 @@ var_snmpMPDStats(vp, name, length, exact, var_len, write_method)
 
   /* this is where we do the value assignments for the mib results. */
 
-  if (vp->magic >= 0 && vp->magic <= 2) {
-    long_ret = MPDErrors[vp->magic];
+  if (vp->magic >= 0 && vp->magic <= STAT_MPD_STATS_END-STAT_MPD_STATS_START) {
+    long_ret = snmp_get_statistic(vp->magic + STAT_MPD_STATS_START);
     return (unsigned char *) &long_ret;
   }
   return 0;

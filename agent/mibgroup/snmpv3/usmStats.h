@@ -13,16 +13,16 @@ config_add_mib(SNMP-USER-BASED-SM-MIB)
 /* Magic number definitions: */
 
 #define   USMSTATSUNSUPPORTEDSECLEVELS  0
-#define   USMSTATSNOTINTIMEWINDOWS  1
-#define   USMSTATSUNKNOWNUSERNAMES  2
-#define   USMSTATSUNKNOWNENGINEIDS  3
-#define   USMSTATSWRONGDIGESTS  4
-#define   USMSTATSDECRYPTIONERRORS  5
+#define   USMSTATSNOTINTIMEWINDOWS      1
+#define   USMSTATSUNKNOWNUSERNAMES      2
+#define   USMSTATSUNKNOWNENGINEIDS      3
+#define   USMSTATSWRONGDIGESTS          4
+#define   USMSTATSDECRYPTIONERRORS      5   
 
 /* function definitions */
 
-extern void   init_usmStats __P((void));
-extern unsigned char *var_usmStats __P((struct variable *, oid *, int *, int, int *, int (**write) __P((int, unsigned char *, unsigned char, int, unsigned char *, oid *, int)) ));
+extern void           init_usmStats(void);
+extern unsigned char *var_usmStats(struct variable *, oid *, int *, int, int *, int (**write) (int, unsigned char *, unsigned char, int, unsigned char *, oid *, int));
 
 
 /* Only load this structure when this .h file is called in the snmp_vars.c 
@@ -34,13 +34,12 @@ extern unsigned char *var_usmStats __P((struct variable *, oid *, int *, int, in
    for the usmStats mib */
 
 struct variable2 usmStats_variables[] = {
-  { USMSTATSUNSUPPORTEDSECLEVELS, ASN_COUNTER   , RONLY , var_usmStats, 1, { 1 } },
-  { USMSTATSNOTINTIMEWINDOWS, ASN_COUNTER   , RONLY , var_usmStats, 1, { 2 } },
-  { USMSTATSUNKNOWNUSERNAMES, ASN_COUNTER   , RONLY , var_usmStats, 1, { 3 } },
-  { USMSTATSUNKNOWNENGINEIDS, ASN_COUNTER   , RONLY , var_usmStats, 1, { 4 } },
-  { USMSTATSWRONGDIGESTS, ASN_COUNTER   , RONLY , var_usmStats, 1, { 5 } },
-  { USMSTATSDECRYPTIONERRORS, ASN_COUNTER   , RONLY , var_usmStats, 1, { 6 } },
-
+  { USMSTATSUNSUPPORTEDSECLEVELS, ASN_COUNTER, RONLY, var_usmStats, 1, { 1 } },
+  { USMSTATSNOTINTIMEWINDOWS,     ASN_COUNTER, RONLY, var_usmStats, 1, { 2 } },
+  { USMSTATSUNKNOWNUSERNAMES,     ASN_COUNTER, RONLY, var_usmStats, 1, { 3 } },
+  { USMSTATSUNKNOWNENGINEIDS,     ASN_COUNTER, RONLY, var_usmStats, 1, { 4 } },
+  { USMSTATSWRONGDIGESTS,         ASN_COUNTER, RONLY, var_usmStats, 1, { 5 } },
+  { USMSTATSDECRYPTIONERRORS,     ASN_COUNTER, RONLY, var_usmStats, 1, { 6 } },
 };
 
 /* now load this mib into the agents mib table */

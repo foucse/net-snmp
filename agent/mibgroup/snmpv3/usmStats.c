@@ -6,22 +6,12 @@
 #include "mibincl.h"
 #include "usmStats.h"
 
-static int usmStats[5];
-
 void init_usmStats __P((void)) {
   int i;
 #ifdef USING_MIBII_SYSORTABLE_MODULE
   static oid reg[] = {1,3,6,1,6,3,12,2,1,1};
   register_sysORTable(reg,10,"The management information definitions for the SNMP User-based Security Model.");
 #endif
-  
-  for(i=0; i < 5; i++)
-    usmStats[i] = 0;
-}
-
-void incr_usmStat(int which) {
-  if (which >= 0 && which < 5)
-    usmStats[which]++;
 }
 
 unsigned char *
@@ -47,8 +37,8 @@ var_usmStats(vp, name, length, exact, var_len, write_method)
       return 0;
 
   /* this is where we do the value assignments for the mib results. */
-  if (vp->magic >= 0 && vp->magic <= 5) {
-    long_ret = usmStats[vp->magic];
+  if (vp->magic >= 0 && vp->magic <= STAT_USM_STATS_END-STAT_USM_STATS_START) {
+    long_ret = snmp_get_statistic(vp->magic + STAT_USM_STATS_START);
     return (unsigned char *) &long_ret;
   }
   return 0;
