@@ -27,6 +27,6 @@ oid    *get_default_authtype(int *);
 oid    *get_default_privtype(int *);
 char   *get_default_authpass(void);
 char   *get_default_privpass(void);
-int     snmpv3_set_engineBootsAndTime(int boots, int ttime);
+void    snmpv3_set_engineBootsAndTime(int boots, int ttime); 
 
 #endif /* SNMPV3_H */
