@@ -430,35 +430,14 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
               return 0;
 	    }
 
-            pdu_buf_len = pi->packet_end - out_header;
             *out_length = SNMP_MAX_MSG_SIZE;
-            if ((cp = snmpv3_scopedPDU_build(pdu, v3data, pdu_buf_len,
-                                             sec_param_buf, &sec_param_buf_len,
-                                             pdu_buf, out_length)) == NULL) {
-              ERROR_MSG("internal error: scopedPDU_build");
+            if (snmpv3_packet_build(pdu, out_auth, out_length, out_header,
+                                    pdu_buf_len)) {
+              ERROR_MSG("internal error: v3 build");
               return 0;
-            }
+	    }
 
-            /* the length of the data is the length of the security parameters
-               plus the length of the pdu data. */
-            pdu_buf_len = sec_param_buf_len + cp - pdu_buf;
-            *out_length = SNMP_MAX_MSG_SIZE;
-
-            /* build the headers for the packet */
-            if ((cp = snmpv3_header_build(pdu, out_auth, out_length,
-                                          pdu_buf_len, NULL)) == NULL) {
-              ERROR_MSG("internal error: snmpv3_header_build");
-              return 0;
-            }
-              
-            /* append the security_parameters and the scopedPdu data */
-            memcpy(cp, sec_param_buf, sec_param_buf_len);
-            cp += sec_param_buf_len;
-            memcpy(cp, pdu_buf, pdu_buf_len);
-            cp += pdu_buf_len;
-
-            *out_length = cp - out_auth;
-            pi->packet_end = cp;
+            pi->packet_end = out_auth + *out_length;
             snmp_free_pdu(pdu);
           } else {
 	    /* re-encode the headers with the real lengths */
