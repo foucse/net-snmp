@@ -27,31 +27,25 @@ static oid usmNoPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,1 };
 static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
 static oid usmDESPrivProtocol[]     = { 1,3,6,1,6,3,10,1,2,2 };
   
-/* local storage */
-static struct usmUser *userList=NULL;
 static unsigned int usmUserSpinLock=0;
 
 void init_usmUser(void) {
   /* initialize the user list */
-  userList = usm_create_initial_user();
+  usm_add_user(usm_create_initial_user());
   snmpd_register_config_handler("usmUser",
                                 usm_parse_config_usmUser, NULL);
-}
-
-struct usmUser *usmUser_get_userList() {
-  return userList;
 }
 
 void usm_parse_config_usmUser(char *token, char *line) {
   struct usmUser *uptr;
 
   uptr = usm_read_user(line);
-  userList = usm_add_user(uptr, userList);
+  usm_add_user(uptr);
 }
 
 void shutdown_usmUser(void) {
   /* save the user base */
-  usm_save_users(userList, "usmUser", "snmpd");
+  usm_save_users("usmUser", "snmpd");
 }
   
 /* given a user's information, generate the index OID for it */
@@ -157,7 +151,7 @@ struct usmUser *usm_parse_user(oid *name, int name_len) {
     return NULL;
 
   /* Now see if a user exists with these index values */
-  uptr = usm_get_user(engineID, engineIDLen, newName, userList);
+  uptr = usm_get_user(engineID, engineIDLen, newName);
   free(engineID);
   free(newName);
 
@@ -208,9 +202,9 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
     if (((int) *length) <= (int) vp->namelen || rtest == -1) {
       /* oid is not within our range yet */
       /* need to fail if not exact */
-      uptr = userList;
+      uptr = usm_get_userList();
     } else {
-      for(nptr = userList, pptr = NULL, uptr = NULL; nptr != NULL;
+      for(nptr = usm_get_userList(), pptr = NULL, uptr = NULL; nptr != NULL;
           pptr = nptr, nptr = nptr->next) {
         indexOid = usm_generate_OID(vp->name, vp->namelen, nptr, &len);
         result = compare(name, *length, indexOid, len);
@@ -877,7 +871,7 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
       return SNMP_ERR_INCONSISTENTNAME;
 
     /* Now see if a user already exists with these index values */
-    uptr = usm_get_user(engineID, engineIDLen, newName, userList);
+    uptr = usm_get_user(engineID, engineIDLen, newName);
 
     /* If so, we set the appropriate value */
 
@@ -889,7 +883,7 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
         return SNMP_ERR_INCONSISTENTVALUE;
       }
       if (long_ret == RS_DESTROY) {
-        userList = usm_remove_user(uptr, userList);
+        usm_remove_user(uptr);
         usm_free_user(uptr);
       } else {
         uptr->userStatus = long_ret;
@@ -948,7 +942,7 @@ write_usmUserStatus(action, var_val, var_val_type, var_val_len, statP, name, nam
         uptr->userStatus = RS_NOTINSERVICE;
 
       /* finally, add it to our list of users */
-      userList = usm_add_user(uptr, userList);
+      usm_add_user(uptr);
     }
   }
   return SNMP_ERR_NOERROR;
