@@ -191,100 +191,114 @@ table_helper_handler(
         }
 
         /*
-	 * check to make sure its in table range
-	 */
+				 * check to make sure its in table range
+				 */
 
-        out_of_range = 0;
-        /* if our root oid i > var->name and this is not a GETNEXT, */
-        /* then the oid is out of range                             */
-        if (snmp_oid_compare(reginfo->rootoid,reginfo->rootoid_len,
-                             var->name,reginfo->rootoid_len) > 0) {
-            if (reqinfo->mode == MODE_GETNEXT) {
-                if (var->name != var->name_loc)
-                    free(var->name);
-                snmp_set_var_objid(var, reginfo->rootoid, reginfo->rootoid_len );
-            } else {
-                DEBUGMSGTL(("helper:table", "  oid is out of range.\n"));
-                out_of_range = 1;
-            }
-        }
-        /* if var->name is longer than the root, make sure it is  */
-        /* table.1 (table.ENTRY).                                 */
-        else if ( (var->name_length > reginfo->rootoid_len) &&
-                  (var->name[reginfo->rootoid_len] != 1) ) {
-            if ( (var->name[reginfo->rootoid_len] < 1) &&
-                 (reqinfo->mode == MODE_GETNEXT) ) {
-                var->name[reginfo->rootoid_len] = 1;
-                var->name_length = reginfo->rootoid_len;
-            } else {
-                out_of_range = 1;
-                DEBUGMSGTL(("helper:table", "  oid is out of range.\n"));
-            }
-        }
-        /* if it is not in range, then remove it from the request list  */
-        /* because we can't process it. If the request is not a GETNEXT */
-        /* then set the error to NOSUCHOBJECT so nobody else wastes time*/
-        /* trying to process it.                                        */
-        if (out_of_range) {
-            DEBUGMSGTL(("helper:table", "  Not processed.\n"));
-            if (reqinfo->mode != MODE_GETNEXT) {
-                table_helper_cleanup(reqinfo, request,SNMP_ERR_NOSUCHNAME);
-            }
-            continue;
-        }
+				out_of_range = 0;
+				/* if our root oid is > var->name and this is not a GETNEXT, */
+				/* then the oid is out of range. (only compare up to shorter */
+				/* length) */
+				if (reginfo->rootoid_len > var->name_length)
+					tmp_len = var->name_length;
+				else
+					tmp_len = reginfo->rootoid_len;
+				if (snmp_oid_compare(reginfo->rootoid,reginfo->rootoid_len,
+														 var->name,tmp_len) > 0) {
+					if (reqinfo->mode == MODE_GETNEXT) {
+						if (var->name != var->name_loc)
+							free(var->name);
+						snmp_set_var_objid(var, reginfo->rootoid, reginfo->rootoid_len );
+					} else {
+						DEBUGMSGTL(("helper:table", "  oid is out of range.\n"));
+						out_of_range = 1;
+					}
+				}
+				/* if var->name is longer than the root, make sure it is  */
+				/* table.1 (table.ENTRY).                                 */
+				else if ( (var->name_length > reginfo->rootoid_len) &&
+									(var->name[reginfo->rootoid_len] != 1) ) {
+					if ( (var->name[reginfo->rootoid_len] < 1) &&
+							 (reqinfo->mode == MODE_GETNEXT) ) {
+						var->name[reginfo->rootoid_len] = 1;
+						var->name_length = reginfo->rootoid_len;
+					} else {
+						out_of_range = 1;
+						DEBUGMSGTL(("helper:table", "  oid is out of range.\n"));
+					}
+				}
+				/* if it is not in range, then remove it from the request list  */
+				/* because we can't process it. If the request is not a GETNEXT */
+				/* then set the error to NOSUCHOBJECT so nobody else wastes time*/
+				/* trying to process it.                                        */
+				if (out_of_range) {
+					DEBUGMSGTL(("helper:table", "  Not processed.\n"));
+					if (reqinfo->mode != MODE_GETNEXT) {
+						table_helper_cleanup(reqinfo, request,SNMP_ERR_NOSUCHNAME);
+					}
+					continue;
+				}
 
 	
         /*
-	 * Check column ranges; set-up to pull out indexes from OID.
-	 */
+				 * Check column ranges; set-up to pull out indexes from OID.
+				 */
+				
+		incomplete = 0;
+		tbl_req_info = SNMP_MALLOC_TYPEDEF(table_request_info);
+		tbl_req_info->indexes = snmp_clone_varbind(tbl_info->indexes);
+		tbl_req_info->number_indexes = 0; /* none yet */
+		if (var->name_length > oid_column_pos) {
+			if( var->name[oid_column_pos] < tbl_info->min_column ) {
+				/* fix column, truncate useless index info */
+				var->name_length = oid_column_pos;
+				tbl_req_info->colnum = tbl_info->min_column;
+			}
+			else if( var->name[oid_column_pos] > tbl_info->max_column ) {
+				/* this is out of range...  remove from requests, free memory */
+				DEBUGMSGTL(("helper:table", "  oid is out of range. Not processed.\n"));
+				if (reqinfo->mode != MODE_GETNEXT) {
+					table_helper_cleanup(reqinfo, request,SNMP_ERR_NOSUCHNAME);
+				}
+				continue;
+			}
+			/* use column verification */
+			else if( tbl_info->valid_columns ) {
+				tbl_req_info->colnum = closest_column(var->name[oid_column_pos],
+																							tbl_info->valid_columns );
+				if (tbl_req_info->colnum == 0)
+					continue;
+				if (tbl_req_info->colnum != var->name[oid_column_pos] ) {
+					/* different column! truncate useless index info */
+					var->name_length = oid_column_pos;
+				}
+			}
+			/* var->name_length may have changed - check again */
+			if (var->name_length <= oid_column_pos) { /* none available */
+				tbl_req_info->index_oid_len = 0;
+			} else {
+				tbl_req_info->colnum = var->name[oid_column_pos];
+				tbl_req_info->index_oid_len = var->name_length - oid_index_pos;
+				assert(tbl_req_info->index_oid_len < MAX_OID_LEN);
+				memcpy(tbl_req_info->index_oid,&var->name[oid_index_pos],
+							 tbl_req_info->index_oid_len*sizeof(oid) );
+				tmp_name = tbl_req_info->index_oid;
+			}
+		}
+		else if (reqinfo->mode != MODE_GETNEXT) {
+			table_helper_cleanup(reqinfo, request,SNMP_ERR_NOSUCHNAME);
+			continue;
+		}
+		else {
+			tbl_req_info->index_oid_len = 0;
+			tbl_req_info->colnum = tbl_info->min_column;
+		}
 
-        incomplete = 0;
-        tbl_req_info = SNMP_MALLOC_TYPEDEF(table_request_info);
-        tbl_req_info->indexes = snmp_clone_varbind(tbl_info->indexes);
-        tbl_req_info->number_indexes = 0; /* none yet */
-        if (var->name_length > oid_column_pos) {
-            if( var->name[oid_column_pos] < tbl_info->min_column ) {
-                /* fix column, truncate useless index info */
-                var->name_length = oid_column_pos;
-                tbl_req_info->colnum = tbl_info->min_column;
-            }
-            else if( var->name[oid_column_pos] > tbl_info->max_column ) {
-                /* this is out of range...  remove from requests, free memory */
-                DEBUGMSGTL(("helper:table", "  oid is out of range. Not processed.\n"));
-                if (reqinfo->mode != MODE_GETNEXT) {
-                    table_helper_cleanup(reqinfo, request,SNMP_ERR_NOSUCHNAME);
-                }
-                continue;
-            }
-            /* use column verification */
-            else if( tbl_info->valid_columns ) {
-                tbl_req_info->colnum = closest_column(var->name[oid_column_pos],
-                                                      tbl_info->valid_columns );
-                if (tbl_req_info->colnum == 0)
-                    continue;
-                if (tbl_req_info->colnum != var->name[oid_column_pos] ) {
-                    /* different column! truncate useless index info */
-                    var->name_length = oid_column_pos;
-                }
-            }
-            /* var->name_length may have changed - check again */
-            if (var->name_length <= oid_column_pos) { /* none available */
-                tbl_req_info->index_oid_len = 0;
-            } else {
-                tbl_req_info->colnum = var->name[oid_column_pos];
-                tbl_req_info->index_oid_len = var->name_length - oid_index_pos;
-                assert(tbl_req_info->index_oid_len < MAX_OID_LEN);
-                memcpy(tbl_req_info->index_oid,&var->name[oid_index_pos],
-                       tbl_req_info->index_oid_len*sizeof(oid) );
-                tmp_name = tbl_req_info->index_oid;
-            }
-        }
-        if (tbl_req_info->index_oid_len==0) {
-            incomplete = 1;
-            tmp_len = -1;
-        }
-        else
-            tmp_len = tbl_req_info->index_oid_len;
+		if (tbl_req_info->index_oid_len==0) {
+			incomplete = 1;
+			tmp_len = -1;
+		}
+		else
+			tmp_len = tbl_req_info->index_oid_len;
 
 
 	/*
