@@ -356,7 +356,7 @@ loop:
 	putchar('\n');
 	fflush(stdout);
 	line++;
-#ifdef SVR4
+#ifdef HAVE_SIGHOLD
 	sighold(SIGALRM);
 	if (! signalled) {
 		sigpause(SIGALRM);
