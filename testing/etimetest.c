@@ -294,11 +294,11 @@ EM(-1); /* */
 	}
 
 
-	rval = set_enginetime("BB", 2, 20, 2);
+	rval = set_enginetime("BB", 2, 20, 2, TRUE);
 	FAILED(rval, "set_enginetime()");
 
 
-	rval = set_enginetime("CCC", 3, 90127, 31);
+	rval = set_enginetime("CCC", 3, 90127, 31, TRUE);
 	FAILED(rval, "set_enginetime()");
 
 
@@ -351,7 +351,7 @@ EM(-1); /* */
 	OUTPUT("Retrieve data from real/stubbed records, update real/stubbed.");
 
 
-	rval = get_enginetime("BB", 2, &etime, &eboot);
+	rval = get_enginetime("BB", 2, &etime, &eboot, TRUE);
 	FAILED(rval, "get_enginetime().");
 
 	fprintf(stdout, "BB = <%d,%d>\n", etime, eboot);
@@ -361,7 +361,7 @@ EM(-1); /* */
 	}
 
 
-	rval = get_enginetime("DDDD", 4, &etime, &eboot);
+	rval = get_enginetime("DDDD", 4, &etime, &eboot, TRUE);
 	FAILED(rval, "get_enginetime().");
 
 	fprintf(stdout, "DDDD = <%d,%d>\n", etime, eboot);
@@ -371,11 +371,11 @@ EM(-1); /* */
 	}
 
 
-	rval = set_enginetime("CCC", 3, 10000, 234);
+	rval = set_enginetime("CCC", 3, 10000, 234, TRUE);
 	FAILED(rval, "set_enginetime().");
 
 
-	rval = set_enginetime("EEEEE", 5, 55555, 9876);
+	rval = set_enginetime("EEEEE", 5, 55555, 9876, TRUE);
 	FAILED(rval, "set_enginetime().");
 
 
