@@ -164,7 +164,8 @@ snmp_synch_input(op, session, reqid, pdu, magic)
     if (reqid != state->reqid)
 	return 0;
     state->waiting = 0;
-    if (op == RECEIVED_MESSAGE && pdu->command == SNMP_MSG_RESPONSE){
+    if (op == RECEIVED_MESSAGE &&
+        (pdu->command == SNMP_MSG_RESPONSE || pdu->command == SNMP_MSG_REPORT)){
 	/* clone the pdu */
 	state->pdu = snmp_clone_pdu(pdu);
 	state->status = STAT_SUCCESS;
@@ -333,6 +334,24 @@ snmp_clone_pdu(pdu)
     if (pdu->community){
 	newpdu->community = (u_char *)malloc(pdu->community_len);
 	memmove(newpdu->community, pdu->community, pdu->community_len);
+    }
+    if (pdu->contextEngineID){
+	newpdu->contextEngineID = (u_char *)malloc(pdu->contextEngineIDLen);
+	newpdu->contextEngineIDLen = pdu->contextEngineIDLen;
+	memmove(newpdu->contextEngineID, pdu->contextEngineID,
+                pdu->contextEngineIDLen);
+    }
+    if (pdu->contextName){
+	newpdu->contextName = (u_char *)malloc(pdu->contextNameLen);
+	newpdu->contextNameLen = pdu->contextNameLen;
+	memmove(newpdu->contextName, pdu->contextName,
+                pdu->contextNameLen);
+    }
+    if (pdu->securityName){
+	newpdu->securityName = (u_char *)malloc(pdu->securityNameLen);
+	newpdu->securityNameLen = pdu->securityNameLen;
+	memmove(newpdu->securityName, pdu->securityName,
+                pdu->securityNameLen);
     }
     if (pdu->srcParty){
 	newpdu->srcParty = (oid *)malloc(sizeof(oid)*pdu->srcPartyLen);
