@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
     /* do the request */
     status = snmp_synch_response(ss, pdu, &response);
     if (status == STAT_SUCCESS){
-      if (response->errindex != 0){
+      if (response->errstat == SNMP_ERR_NOERROR){
         for(vars = response->variables; vars; vars = vars->next_variable)
           print_variable(vars->name, vars->name_length, vars);
         } else {
