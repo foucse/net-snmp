@@ -355,8 +355,9 @@ snmp_callback_open(int attach_to,
                                 snmp_callback_hook_build,
                                 snmp_callback_check_packet,
                                 snmp_callback_create_pdu);
-    callback_ss->local_port =
-        ((callback_info *) callback_tr->data)->callback_num;
+    if (callback_ss)
+        callback_ss->local_port =
+            ((callback_info *) callback_tr->data)->callback_num;
     return callback_ss;
 }
 

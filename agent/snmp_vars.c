@@ -241,8 +241,10 @@ init_agent (const char *app)
   callback_master_sess = snmp_callback_open(0, handle_snmp_packet,
                                             snmp_check_packet,
                                             snmp_check_parse);
-  callback_master_num = callback_master_sess->local_port;
-
+  if (callback_master_sess)
+      callback_master_num = callback_master_sess->local_port;
+  else
+      callback_master_num = -1;
 
   /* initialize agentx subagent if necessary. */
 #ifdef USING_AGENTX_SUBAGENT_MODULE
