@@ -1,6 +1,20 @@
 This file contains major changes in released revisions.  Please read
 the ChangeLog file for a more detailed listing of changes/bug fixes.
 
+*4.1.3*
+ Fixes:
+    - Update parser to be able to parse complete RFC MIB modules
+      (specifically SNMPv2-SMI)
+    - Update parser to check AGENT-CAPABILITIES statements
+    - Plug memory leak when requests are blocked by VACM
+    - Update MIB files to current RFC level, and supply script to
+      extract them
+    - Add a needed #if to ip.c so that
+       ./configure --with-out-mib-modules=mibII/at
+      works
+    - Apply -w width constraint to snmptranslate -Td output
+    - Fix for ifSpeed on Irix 6.5
+
 *4.1.2*
  Fixes:
     - Host resources fixes for FreeBSD and NetBSD
