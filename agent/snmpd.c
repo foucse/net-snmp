@@ -104,9 +104,6 @@ typedef long    fd_mask;
 #include "mibgroup/v2party/event.h"
 #endif
 
-#if USING_MIBII_SNMP_MIB_MODULE
-#include "mibgroup/mibII/snmp_mib.h"
-#endif
 #include "snmp_client.h"
 #include "snmpd.h"
 #include "var_struct.h"
@@ -311,9 +308,7 @@ static void send_v1_trap (ss, trap, specific)
     if (snmp_send (ss, pdu) == 0) {
         snmp_perror ("snmpd: send_v1_trap");
     }
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-    snmp_outtraps++;
-#endif
+    snmp_increment_statistic(STAT_SNMPOUTTRAPS);
 }
 
 static void send_v2_trap (ss, trap, specific, type)
@@ -376,9 +371,7 @@ static void send_v2_trap (ss, trap, specific, type)
     if (snmp_send (ss, pdu) == 0) {
         snmp_perror ("snmpd: send_v2_trap");
     }
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-    snmp_outtraps++;
-#endif
+    snmp_increment_statistic(STAT_SNMPOUTTRAPS);
 }
 
 void
@@ -395,9 +388,7 @@ send_trap_pdu(pdu)
       if (snmp_send(sink->sesp, mypdu) == 0) {
         snmp_perror ("snmpd: send_trap_pdu");
       }
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-      snmp_outtraps++;
-#endif
+      snmp_increment_statistic(STAT_SNMPOUTTRAPS);
       sink = sink->next;
     }
   }
@@ -889,9 +880,7 @@ snmp_read_packet(sd)
 	}
 #endif
 
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-    snmp_inpkts++;
-#endif
+    snmp_increment_statistic(STAT_SNMPINPKTS);
     if (snmp_dump_packet){
 	printf("\nreceived %d bytes from %s:\n", length,
 	       inet_ntoa(from.sin_addr));
@@ -930,9 +919,7 @@ snmp_read_packet(sd)
 	    printf("\n");
             fflush(stdout);
 	}
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	snmp_outpkts++;
-#endif
+  	snmp_increment_statistic(STAT_SNMPOUTPKTS);
 	if (sendto(sd, (char *)outpacket, out_length, 0,
 		   (struct sockaddr *)&from, sizeof(from)) < 0){
 	    perror("sendto");

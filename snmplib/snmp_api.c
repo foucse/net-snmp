@@ -3290,6 +3290,14 @@ u_int snmp_increment_statistic(int which) {
   return 0;
 }
 
+u_int snmp_increment_statistic_by(int which, int count) {
+  if (which >= 0 && which <= MAX_STATS) {
+    statistics[which] += count;
+    return statistics[which];
+  }
+  return 0;
+}
+
 u_int snmp_get_statistic(int which) {
   if (which >= 0 && which <= MAX_STATS)
     return statistics[which];

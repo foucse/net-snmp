@@ -409,6 +409,7 @@ int ascii_to_binary __P((u_char *, u_char *));
 int snmp_add_var __P((struct snmp_pdu *, oid*, int, char, char *));
 oid  *snmp_duplicate_objid(oid *objToCopy, int);
 u_int snmp_increment_statistic(int which);
+u_int snmp_increment_statistic_by(int which, int count);
 u_int snmp_get_statistic(int which);
 void  snmp_init_statistics(void);
 int create_user_from_session(struct snmp_session *session);
@@ -542,7 +543,7 @@ void   snmp_sess_error      __P((void *, int *, int *, char **));
 #define  STAT_SNMPOUTSETREQUESTS             33
 #define  STAT_SNMPOUTGETRESPONSES            34
 #define  STAT_SNMPOUTTRAPS                   35
-#define  STAT_SNMP_STATS_START              STAT_SNMPINPKTS
-#define  STAT_SNMP_STATS_END                STAT_SNMPOUTTRAPS
+#define  STAT_SNMP_STATS_START               STAT_SNMPINPKTS
+#define  STAT_SNMP_STATS_END                 STAT_SNMPOUTTRAPS
 
-#define  MAX_STATS                            35
+#define  MAX_STATS                           35

@@ -67,9 +67,6 @@ SOFTWARE.
 #include "snmpv3.h"
 #include "lcd_time.h"
 #include "snmpusm.h"
-#if USING_MIBII_SNMP_MIB_MODULE
-#include "mibgroup/mibII/snmp_mib.h"
-#endif
 #include "snmpd.h"
 #include "mibgroup/struct.h"
 #include "mibgroup/util_funcs.h"
@@ -246,18 +243,14 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 #endif /* USE_V2PARTY_PROTOCOL */
 
     } else {
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-        snmp_inbadversions++;
-#endif
+        snmp_increment_statistic(STAT_SNMPINBADVERSIONS);
         ERROR_MSG("unknown auth header type");
         return 0;
     }
 
     if (data == NULL){
 	ERROR_MSG("bad authentication");
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	snmp_inasnparseerrors++;
-#endif
+  	snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
 	return 0;
     }
 
@@ -269,40 +262,26 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 
     switch (pi->pdutype) {
     case SNMP_MSG_GET:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	snmp_ingetrequests++;
-#endif
+        snmp_increment_statistic(STAT_SNMPINGETREQUESTS);
 	break;
     case SNMP_MSG_GETBULK:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	snmp_ingetrequests++;
-#endif
+        snmp_increment_statistic(STAT_SNMPINGETREQUESTS);
 	break;
     case SNMP_MSG_GETNEXT:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	snmp_ingetnexts++;
-#endif
+        snmp_increment_statistic(STAT_SNMPINGETNEXTS);
 	break;
     case SNMP_MSG_SET:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	snmp_insetrequests++;
-#endif
+        snmp_increment_statistic(STAT_SNMPINSETREQUESTS);
 	break;
     case SNMP_MSG_RESPONSE:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-        snmp_ingetresponses++;
-#endif
+        snmp_increment_statistic(STAT_SNMPINGETRESPONSES);
 	return 0;
     case SNMP_MSG_TRAP:
     case SNMP_MSG_TRAP2:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-        snmp_intraps++;
-#endif
+        snmp_increment_statistic(STAT_SNMPINTRAPS);
 	return 0;
     default:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-        snmp_inasnparseerrors++;
-#endif
+        snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
 	return 0;
     }
 
@@ -384,25 +363,19 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     data = asn_parse_int(data, &length, &type, &reqid, sizeof(reqid));
     if (data == NULL){
 	ERROR_MSG("bad parse of reqid");
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	snmp_inasnparseerrors++;
-#endif
+  	snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
 	return 0;
     }
     data = asn_parse_int(data, &length, &type, &errstat, sizeof(errstat));
     if (data == NULL){
 	ERROR_MSG("bad parse of errstat");
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	snmp_inasnparseerrors++;
-#endif
+  	snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
 	return 0;
     }
     data = asn_parse_int(data, &length, &type, &errindex, sizeof(errindex));
     if (data == NULL){
 	ERROR_MSG("bad parse of errindex");
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	snmp_inasnparseerrors++;
-#endif
+  	snmp_increment_statistic(STAT_SNMPINASNPARSEERRS);
 	return 0;
     }
 
@@ -487,10 +460,9 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
                 if (create_identical(startData, out_auth, startLength, 0L, 0L,
                                      pi, pdu)){
 		  *out_length = pi->packet_end - out_auth;
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-		  snmp_outgetresponses++;
-		  snmp_intotalsetvars += snmp_vars_inc;
-#endif
+  		  snmp_increment_statistic(STAT_SNMPOUTGETRESPONSES);
+		  snmp_increment_statistic_by(STAT_SNMPINTOTALSETVARS,
+                                            snmp_vars_inc);
 		  return 1;
                 }
                 return 0;
@@ -570,16 +542,12 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
               pi->packet_end = out_auth + packet_len;
           }
 
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	    snmp_intotalreqvars += snmp_vars_inc;
-	    snmp_outgetresponses++;
-#endif
+            snmp_increment_statistic(STAT_SNMPOUTGETRESPONSES);
+	    snmp_increment_statistic_by(STAT_SNMPINTOTALREQVARS, snmp_vars_inc);
 	    break;
 
 	case SNMP_ERR_TOOBIG:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	    snmp_intoobigs++;
-#endif
+            snmp_increment_statistic(STAT_SNMPINTOOBIGS);
 #ifdef USE_V2PARTY_PROTOCOL
 	    if (pi->version == SNMP_VERSION_2p){
 		create_toobig(out_auth, *out_length, reqid, pi);
@@ -603,24 +571,16 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
 	case SNMP_ERR_NOTWRITABLE:
 	    goto reterr;
 	case SNMP_ERR_NOSUCHNAME:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	    snmp_outnosuchnames++;
-#endif
+            snmp_increment_statistic(STAT_SNMPOUTNOSUCHNAMES);
 	    goto reterr;
 	case SNMP_ERR_BADVALUE:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	    snmp_inbadvalues++;
-#endif
+            snmp_increment_statistic(STAT_SNMPINBADVALUES);
 	    goto reterr;
 	case SNMP_ERR_READONLY:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	    snmp_inreadonlys++;
-#endif
+            snmp_increment_statistic(STAT_SNMPINREADONLYS);
 	    goto reterr;
 	case SNMP_ERR_GENERR:
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-	    snmp_ingenerrs++;
-#endif
+            snmp_increment_statistic(STAT_SNMPINGENERRS);
 reterr:
             if (pi->version == SNMP_VERSION_1 && errstat > SNMP_ERR_GENERR)
               errstat = SNMP_ERR_GENERR; /* translate newer errors into
