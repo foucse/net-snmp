@@ -7,6 +7,7 @@
 
 #include "mibdefs.h"
 
+extern void init_vmstat_freebsd2(void);
 extern FindVarMethod var_extensible_vmstat;
 
 #define SWAPIN 3

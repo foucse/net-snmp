@@ -5,7 +5,7 @@
 #ifndef _MIBGROUP_HRSTORAGE_H
 #define _MIBGROUP_HRSTORAGE_H
 
-extern void	init_hrstore (void);
+extern void	init_hr_storage (void);
 extern FindVarMethod var_hrstore;
 
 #define	HRSTORE_MEMSIZE		1
