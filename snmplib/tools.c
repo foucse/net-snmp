@@ -35,34 +35,31 @@ free_zero(void *buf, u_long size)
  * Parameters:
  *	size	Number of bytes to malloc() and fill with random bytes.
  *      
- * Returns:
- *	<char *>	Pointer to allocaed & set buffer on success.
+ * Returns pointer to allocaed & set buffer on success, size contains
+ * number of random bytes filled.
  *
- * XXX	Degenerates to malloc_zero if HAVE_LIBKMT is not defined.
+ * buf is NULL and *size set to KMT error value upon failure.
+ *
+ * (Degenerates to malloc_zero if HAVE_LIBKMT is not defined.)
  */
 char *
-malloc_random(u_long size)
+malloc_random(int *size)
 {
-	int	rval = SNMPERR_SUCCESS;
-	u_long	actualsize = size;
-	char	*buf = (char *) malloc_zero(size);
+	int	rval	= SNMPERR_SUCCESS;
+	char	*buf	= (char *) malloc(*size);
 
 #ifdef							HAVE_LIBKMT
 	if (buf) {
-		rval = kmt_random(KMT_RAND_DEFAULT, buf, actualsize);
+		rval = kmt_random(KMT_RAND_DEFAULT, buf, *size);
 
 		if (rval < 0) {
-			/* FIX -- Log an error? */
+			free_zero(buf, *size);
+			buf = NULL;
+		} else {
+			*size = rval;
 		}
-		if (actualsize != rval) {
-			/* FIX -- Log an error? */
-		}
-
-	} else {
-		; /* FIX -- Log a fatal error? */
 	}
 #endif							/* HAVE_LIBKMT */
-
 
 	return buf;
 
@@ -77,13 +74,18 @@ malloc_random(u_long size)
  * Parameters:
  *	size	Number of bytes to malloc().
  *      
- * Returns:
- *	<char *>	Pointer to allocaed & zeroed buffer on success.
+ * Returns pointer to allocaed & zeroed buffer on success.
  */
 char *
 malloc_zero(u_long size)
 {
-	return (char *) malloc_set(size, 0);
+	char	*buf = (char *) malloc(size);
+
+	if (buf) {
+		memset(buf, 0, size);
+	}
+
+	return buf;
 
 }  /* end malloc_zero() */
 
@@ -110,11 +112,11 @@ u_int
 binary_to_hex(char *input, u_long len, char **output)
 {
 	u_int	olen	= (len * 2) + 1;
-	char	*s	= (char *) MALLOC(olen),
+	char	*s	= (char *) SNMP_MALLOC(olen),
 		*op	= s,
 		*ip	= input;
 
-EM(1); /* */
+/* EM(1); /* */
 
 	while (ip-input < len) {
 		*op++ = VAL2HEX( (*ip >> 4) & 0xf );

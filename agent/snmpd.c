@@ -94,6 +94,8 @@ typedef long    fd_mask;
 #include "mib.h"
 #include "m2m.h"
 #include "snmpv3.h"
+#include "snmp_vars.h"
+#include "mibgroup/snmpv3/usmUser.h"
 
 #ifdef USING_V2PARTY_ALARM_MODULE
 #include "mibgroup/v2party/alarm.h"
@@ -110,6 +112,8 @@ typedef long    fd_mask;
 #include "var_struct.h"
 #include "mibgroup/struct.h"
 #include "mibgroup/util_funcs.h"
+
+#include "agent_read_config.h"
 
 #ifdef USE_LIBWRAP
 #include <syslog.h>

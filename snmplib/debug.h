@@ -11,14 +11,19 @@
 
 /* ------------------------------------ -o- 
  * Debugging flags.
+ *
+ * DF	Build a Debug Flag symbol.
+ * ISDF	Test whether a given Debug Flag IS defined.
  */
-#define DF(l)	(DEBUG_ ## l)			/* Build a flag.	*/
-#define ISDF(f)	(snmp_debug & (DF(ON)|DF(f)))	/* Check for a flag.	*/
+#define DF(l)	(DEBUG_ ## l)
+#define ISDF(f) ( (snmp_debug & (DF(ON))) && (snmp_debug & DF(f)) )
 
 #define DEBUG_ON	0x00000001	/* General ON/OFF switch.	*/
 #define DEBUG_EM	0x00000002	/* Print entry mark messages.	*/
+#define DEBUG_KMTDUMP1	0x00000004	/* Dump keylists in
+					 *  sc_internal_kmtlookup().	*/
 
-static u_int snmp_debug = DF(ON) | DF(EM);	/* */
+static u_int snmp_debug = DF(ON) | DF(EM);	/* | DF(KMTDUMP1);	/* */
 
 
 
@@ -68,6 +73,13 @@ static u_int snmp_debug = DF(ON) | DF(EM);	/* */
 
 #endif /* _EM_H	*/
 
+
+
+
+/* ------------------------------------ -o- 
+ * FIX	Another KMT broken API problem...
+ */
+void	kmt_s_dump_keylist(KMT_KEY_LIST *keylist, char *name);
 
 
 #endif /* _DEBUG_H */

@@ -142,8 +142,13 @@ extern void snmp_perror __P((char *));
 extern void snmp_set_detail __P((char *));
 #define SNMP_DETAIL_SIZE        512
 
-/* Error return values */
-#define SNMPERR_SUCCESS			(0)
+/* 
+ * Error return values.
+ *
+ * XXX	These should be merged with SNMP_ERR_* defines and confined
+ *	to values < 0.  ???
+ */
+#define SNMPERR_SUCCESS			(0)  /* XXX  Non-PDU "success" code. */
 #define SNMPERR_GENERR			(-1)
 #define SNMPERR_BAD_LOCPORT		(-2)
 #define SNMPERR_BAD_ADDRESS		(-3)
@@ -173,8 +178,9 @@ extern void snmp_set_detail __P((char *));
 #define SNMPERR_BAD_SEC_NAME 		(-27)
 #define SNMPERR_BAD_SEC_LEVEL 		(-28)
 #define SNMPERR_SC_GENERAL_FAILURE	(-29)	
+#define SNMPERR_SC_NOT_CONFIGURED	(-30)
 
-#define SNMPERR_MAX			(-29)
+#define SNMPERR_MAX			(-30)
 
 #define non_repeaters	errstat
 #define max_repetitions errindex
@@ -371,6 +377,7 @@ int compare __P((oid *, int, oid *, int));
 void init_snmp __P((char *));
 u_char * snmp_pdu_build __P((struct snmp_pdu *, u_char *, int *));
 int snmpv3_parse(struct snmp_pdu *, u_char *, int *, u_char  **);
+int snmpv3_packet_build(struct snmp_pdu *pdu, u_char *packet, int *out_length, u_char *pdu_data, int pdu_data_len);
 void snmp_pdu_add_variable __P((struct snmp_pdu *, oid *, int, u_char, u_char *, int));
 int hex_to_binary __P((u_char *, u_char *));
 int ascii_to_binary __P((u_char *, u_char *));

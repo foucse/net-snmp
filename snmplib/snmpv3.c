@@ -202,9 +202,9 @@ init_snmpv3(char *type) {
   register_config_handler(type,"userSetPrivKey", usm_set_password, NULL);
   register_config_handler(type,"userSetAuthLocalKey", usm_set_password, NULL);
   register_config_handler(type,"userSetPrivLocalKey", usm_set_password, NULL);
-#if		!defined(USE_INTERNAL_MD5) && defined(HAVE_LIBKMT)
-	kmt_init();
-#endif		/* !USE_INTERNAL_MD5 && defined(HAVE_LIBKMT) */
+#if		!defined(USE_INTERNAL_MD5)
+	sc_init();
+#endif		/* !USE_INTERNAL_MD5 */
 }
 
 /*******************************************************************-o-******
@@ -221,9 +221,9 @@ shutdown_snmpv3(char *type)
 	sprintf(line, "engineBoots %d", engineBoots);
 	read_config_store(type, line);
 
-#if		!defined(USE_INTERNAL_MD5) && defined(HAVE_LIBKMT)
-	kmt_close();
-#endif		/* !USE_INTERNAL_MD5 && defined(HAVE_LIBKMT) */
+#if		!defined(USE_INTERNAL_MD5) 
+	sc_shutdown();
+#endif		/* !USE_INTERNAL_MD5 */
 
 }  /* shutdown_snmpv3() */
 

@@ -6,7 +6,7 @@ TARG		=	bin/snmpget bin/snmpgetnext bin/snmpset 	\
 			bin/snmptranslate bin/snmpwalk bin/snmpbulkwalk \
 			bin/snmptest bin/snmptrapd bin/snmpnetstat bin/snmpd
 
-SUBDIRS		= snmplib agent apps local ov man
+SUBDIRS		= snmplib agent apps local ov man #testing
 INSTALLDIRS	= snmplib agent apps local man mibs
 
 CPP		= @CPP@ 						\
@@ -56,16 +56,19 @@ depend:
 	cd snmplib; make depend
 	cd apps; make depend
 	cd agent; make depend
+#	cd testing; make depend
 
 nosysdepend:
 	cd snmplib; make nosysdepend
 	cd apps; make nosysdepend
 	cd agent; make nosysdepend
+#	cd testing; make nosysdepend
 
 makefileindepend:
 	cd snmplib; make makefileindepend
 	cd apps; make makefileindepend
 	cd agent; make makefileindepend
+#	cd testing; make makefileindepend
 
 
 clean:
@@ -81,13 +84,14 @@ configclean:
 	rm -f Makefile snmplib/Makefile				\
 		agent/Makefile agent/mibgroup/Makefile		\
 		apps/Makefile  apps/snmpnetstat/Makefile	\
-		local/Makefile
+		local/Makefile testing/Makefile
 	rm -r agent/dlmods/Makefile
 	rm -f mib_module_config.h			\
 		agent/mibgroup/mib_module_includes.h 	\
 		agent/mibgroup/mib_module_inits.h 	\
 		agent/mibgroup/mib_module_loads.h 	\
 		agent/mibgroup/mib_module_dot_conf.h
+	rm -f *.core
 
 
 configure: configure.in aclocal.m4

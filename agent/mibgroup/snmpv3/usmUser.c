@@ -520,6 +520,28 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
   return SNMP_ERR_NOERROR;
 }
 
+
+
+
+/*******************************************************************-o-******
+ * write_usmUserAuthKeyChange
+ *
+ * Parameters:
+ *	 action
+ *	*var_val
+ *	 var_val_type
+ *	 var_val_len
+ *	*statP
+ *	*name
+ *	 name_len
+ *      
+ * Returns:
+ *	SNMP_ERR_NOERR		Success.
+ *	SNMP_ERR_WRONGTYPE	
+ *	SNMP_ERR_WRONGLENGTH	
+ *	SNMP_ERR_NOSUCHNAME	
+ *	SNMP_ERR_GENERR		
+ */
 int
 write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
@@ -530,36 +552,58 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
    oid      *name;
    int      name_len;
 {
-  /* variables we may use later */
-  static unsigned char string[1500];
-  int size, bigsize=1000;
-  struct usmUser *uptr;
+	/* variables we may use later
+	 */
+	static unsigned char	 string[1500];
+	int            		 size, bigsize = 1000;
+	struct usmUser		*uptr;
 
-  if (var_val_type != ASN_OCTET_STR){
-      DEBUGP("write to usmUserAuthKeyChange not ASN_OCTET_STR\n");
-      return SNMP_ERR_WRONGTYPE;
-  }
-  if (var_val_len > sizeof(string)){
-      DEBUGP("write to usmUserAuthKeyChange: bad length\n");
-      return SNMP_ERR_WRONGLENGTH;
-  }
-  if (action == COMMIT) {
-      /* parse the incoming string (key) out of the data */
-      size = sizeof(string);
-      asn_parse_string(var_val, &bigsize, &var_val_type, string, &size);
 
-      /* don't allow creations here */
-      if ((uptr = usm_parse_user(name, name_len)) == NULL) {
-        return SNMP_ERR_NOSUCHNAME;
-      }
+	if (var_val_type != ASN_OCTET_STR) {
+		DEBUGP("write to usmUserAuthKeyChange not ASN_OCTET_STR\n");
+		return SNMP_ERR_WRONGTYPE;
+	}
+	if (var_val_len > sizeof(string)) {
+		DEBUGP("write to usmUserAuthKeyChange: bad length\n");
+		return SNMP_ERR_WRONGLENGTH;
+	}
 
-      /* Change the key */
-      if (do_keychange(uptr->secName, 0, string, size,
-                       &uptr->authKey, &uptr->authKeyLen) != SNMPERR_SUCCESS)
-        return SNMP_ERR_GENERR;
-  }
-  return SNMP_ERR_NOERROR;
-}
+
+	if (action == COMMIT) {
+		/* parse the incoming string (key) out of the data
+		 */
+		size = sizeof(string);
+		asn_parse_string(	var_val,
+					&bigsize,
+					&var_val_type,
+					string,
+					&size);
+
+		/* don't allow creations here
+		 */
+		if ((uptr = usm_parse_user(name, name_len)) == NULL) {
+			return SNMP_ERR_NOSUCHNAME;
+		}
+
+		/* Change the key
+		 */
+		/*
+		 * FIXupdate to current name/signature what assumed
+		 * functionality must still be provided? if
+		 * (do_keychange(uptr->secName, 0, string, size,
+		 * &uptr->authKey, &uptr->authKeyLen) != SNMP_ERR_NOERROR)
+		 * return SNMP_ERR_GENERR;
+		 *
+		 * better error?
+		 */
+	}  /* endif -- COMMIT */
+
+
+	return SNMP_ERR_NOERROR;
+
+} /* end write_usmUserAuthKeyChange() */
+
+
 
 int
 write_usmUserOwnAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, name, name_len)
@@ -595,12 +639,15 @@ write_usmUserOwnAuthKeyChange(action, var_val, var_val_type, var_val_len, statP,
       }
 
       /* Change the key */
+      	/* FIXupdate to current name/signature
+		what assumed functionality must still be provided?
       if (do_keychange(uptr->secName, 1, string, size,
-                       &uptr->authKey, &uptr->authKeyLen) != SNMPERR_SUCCESS)
+                       &uptr->authKey, &uptr->authKeyLen) != SNMP_ERR_NOERROR)
         return SNMP_ERR_GENERR;
+	 */
   }
   return SNMP_ERR_NOERROR;
-}
+}  /* end write_usmUserOwnAuthKeyChange() */
 
 int
 write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, name, name_len)
@@ -687,12 +734,15 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
       }
 
       /* Change the key */
+      	/* FIXupdate to current name/signature
+		what assumed functionality must still be provided?
       if (do_keychange(uptr->secName, 0, string, size,
-                       &uptr->privKey, &uptr->privKeyLen) != SNMPERR_SUCCESS)
+                       &uptr->privKey, &uptr->privKeyLen) != SNMP_ERR_NOERROR)
         return SNMP_ERR_GENERR;
+	 */
   }
   return SNMP_ERR_NOERROR;
-}
+}  /* end write_usmUserPrivKeyChange() */
 
 int
 write_usmUserOwnPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, name, name_len)
@@ -728,12 +778,15 @@ write_usmUserOwnPrivKeyChange(action, var_val, var_val_type, var_val_len, statP,
       }
 
       /* Change the key */
+      	/* FIXupdate to current name/signature
+		what assumed functionality must still be provided?
       if (do_keychange(uptr->secName, 1, string, size,
-                       &uptr->privKey, &uptr->privKeyLen) != SNMPERR_SUCCESS)
+                       &uptr->privKey, &uptr->privKeyLen) != SNMP_ERR_NOERROR)
         return SNMP_ERR_GENERR;
+	 */
   }
   return SNMP_ERR_NOERROR;
-}
+}  /* end write_usmUserOwnPrivKeyChange() */
 
 int
 write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, name_len)

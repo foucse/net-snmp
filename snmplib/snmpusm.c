@@ -55,6 +55,7 @@ asn_predict_int_length (int type, long number, int len)
 	return 1+1+len;
 }
 
+
 int
 asn_predict_length (int type, u_char *ptr, int u_char_len)
 {
@@ -1235,8 +1236,9 @@ void usm_set_password(char *token, char *line) {
   }
 
   if (type == 0) {
-    /* convert the password into a key */
+    /* convert the password into a key 
     ret = generate_Ku(cp, strlen(cp), &userKey, &userKeyLen);
+	FIXupdate */
   
     if (ret == 1) {
       config_perror("setting key failed (in sc_genKu())");
@@ -1254,8 +1256,9 @@ void usm_set_password(char *token, char *line) {
   }
   
   if (type < 2) {
-    /* generate the kul */
+    /* generate the kul
     generate_kul(engineID, engineIDLen, userKey, userKeyLen, key, keyLen);
+	FIXupdate */
     /* (destroy and) free the old key */
     memset(userKey, 0, userKeyLen);
     free(userKey);

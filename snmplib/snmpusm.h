@@ -9,6 +9,8 @@
 
 
 /*
+ * Global constants.
+ *
  * Numeric MIB names for auth and priv transforms.
  */
 static oid usmNoAuthProtocol[]       = { 1,3,6,1,6,3,10,1,1,1 };
@@ -19,6 +21,7 @@ static oid usmNoPrivProtocol[]       = { 1,3,6,1,6,3,10,1,2,1 };
 static oid usmDESPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,2 };
 
 #define USM_LENGTH_OID_TRANSFORM	10
+
 
 #define USM_ERR_NO_ERROR			(-1300)
 #define USM_ERR_GENERIC_ERROR			(-1301)

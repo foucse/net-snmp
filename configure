@@ -6450,6 +6450,7 @@ trap 'rm -fr `echo "
  agent/mibgroup/Makefile:Makefile.top:agent/mibgroup/Makefile.in
  agent/dlmods/Makefile:Makefile.top:agent/dlmods/Makefile.in
  local/Makefile:Makefile.top:local/Makefile.in
+ testing/Makefile:Makefile.top:testing/Makefile.in
  man/Makefile:Makefile.top:man/Makefile.in
  ov/Makefile:Makefile.top:ov/Makefile.in
  mibs/Makefile:Makefile.top:mibs/Makefile.in
@@ -6573,6 +6574,7 @@ CONFIG_FILES=\${CONFIG_FILES-"Makefile:Makefile.top:Makefile.in
  agent/mibgroup/Makefile:Makefile.top:agent/mibgroup/Makefile.in
  agent/dlmods/Makefile:Makefile.top:agent/dlmods/Makefile.in
  local/Makefile:Makefile.top:local/Makefile.in
+ testing/Makefile:Makefile.top:testing/Makefile.in
  man/Makefile:Makefile.top:man/Makefile.in
  ov/Makefile:Makefile.top:ov/Makefile.in
  mibs/Makefile:Makefile.top:mibs/Makefile.in

@@ -29,6 +29,26 @@
 #define VAL2HEX(s)	( (s) + (((s) >= 10) ? ('a'-10) : '0') )
 
 
+/* XXX	Got these two somewhere already?
+ */
+#define SNMP_MAX(a,b) ((a) > (b) ? (a) : (b))
+#define SNMP_MIN(a,b) ((a) > (b) ? (b) : (a))
+
+/*
+ * QUIT the FUNction:
+ *	e	Error code variable
+ *	l	Label to goto to cleanup and get out of the function.
+ *
+ * XXX	It would be nice if the label could be constructed by the
+ *	preprocessor in context.  Limited to a single error return value.
+ *	Temporary hack at best.
+ */
+#define QUITFUN(e, l)					\
+	if (e != SNMPERR_SUCCESS) {			\
+		rval = SNMPERR_SC_GENERAL_FAILURE;	\
+		goto l ;				\
+	}
+
 
 
 /* 
@@ -36,7 +56,7 @@
  */
 void	free_zero __P((void *buf, u_long size));
 
-char   *malloc_random __P((u_long size));
+char   *malloc_random __P((int *size));
 char   *malloc_zero __P((u_long size));
 
 u_int	binary_to_hex __P((char *input, u_long len, char **output));

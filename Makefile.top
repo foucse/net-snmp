@@ -35,7 +35,7 @@ RANLIB		= @RANLIB@
 #
 # Compiler arguments
 #
-CFLAGS		= @CFLAGS@
+CFLAGS		= -Wall @CFLAGS@
 EXTRACPPFLAGS	= @EXTRACPPFLAGS@
 LDFLAGS		= @LDFLAGS@ 
 

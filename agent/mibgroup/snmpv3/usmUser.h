@@ -34,6 +34,7 @@ config_add_mib(SNMP-USER-BASED-SM-MIB)
 
 extern void   init_usmUser(void);
 extern unsigned char *var_usmUser(struct variable *, oid *, int *, int, int *, int (**write)(int, unsigned char *, unsigned char, int, unsigned char *, oid *, int)) ;
+void shutdown_usmUser(void);
 oid *usm_generate_OID(oid *prefix, int prefixLen, struct usmUser *uptr,
                   int *length);
 int usm_parse_oid(oid *oidIndex, int oidLen,
