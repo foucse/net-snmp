@@ -208,8 +208,8 @@ struct snmp_internal_session {
 /*
  * The list of active/open sessions.
  */
-struct session_list {
-  struct session_list *next;
+struct netsnmp_session {
+  struct netsnmp_session *next, *prev;
   struct snmp_session *session;
   snmp_transport *transport;
   struct snmp_internal_session *internal;
@@ -300,7 +300,7 @@ static const char * secLevelName[] = {
  */
 /*MTCRITICAL_RESOURCE*/
 /* use token in comments to individually protect these resources */
-struct session_list	*Sessions	 = NULL; /* MT_LIB_SESSION */
+struct netsnmp_session	*Sessions	 = NULL; /* MT_LIB_SESSION */
 static long		 Reqid		 = 0;    /* MT_LIB_REQUESTID */
 static long		 Msgid		 = 0;    /* MT_LIB_MESSAGEID */
 static long		 Sessid		 = 0;    /* MT_LIB_SESSIONID */
@@ -327,7 +327,7 @@ static int snmpv3_build_probe_pdu (struct snmp_pdu **);
 static int snmpv3_build	(u_char **pkt, size_t *pkt_len, size_t *offset,
 			 struct snmp_session *session, struct snmp_pdu *pdu);
 static int snmp_parse_version (u_char *, size_t);
-static int snmp_resend_request (struct session_list *slp, 
+static int snmp_resend_request (struct netsnmp_session *slp, 
 				struct request_list *rp, 
 				int incr_retries);
 
@@ -505,7 +505,7 @@ snmp_sess_error(void *sessp,
 		int *p_snmp_errno,
 		char **p_str)
 {
-    struct session_list *slp = (struct session_list*)sessp;
+    struct netsnmp_session *slp = (struct netsnmp_session*)sessp;
 
     if ((slp) && (slp->session))
 	snmp_error(slp->session, p_errno, p_snmp_errno, p_str);
@@ -706,8 +706,8 @@ snmp_shutdown(const char *type) {
 struct snmp_session *
 snmp_open(struct snmp_session *session)
 {
-    struct session_list *slp;
-    slp = (struct session_list *)snmp_sess_open(session);
+    struct netsnmp_session *slp;
+    slp = (struct netsnmp_session *)snmp_sess_open(session);
     if (!slp) return NULL;
 
     snmp_res_lock(MT_LIBRARY_ID, MT_LIB_SESSION);
@@ -728,8 +728,8 @@ struct snmp_session *snmp_open_ex (
   int (*fcheck) (u_char *, size_t )
 )
 {
-    struct session_list *slp;
-    slp = (struct session_list *)snmp_sess_open(session);
+    struct netsnmp_session *slp;
+    slp = (struct netsnmp_session *)snmp_sess_open(session);
     if (!slp) return NULL;
     slp->internal->hook_pre = fpre_parse;
     slp->internal->hook_parse = fparse;
@@ -739,16 +739,20 @@ struct snmp_session *snmp_open_ex (
 
     snmp_res_lock(MT_LIBRARY_ID, MT_LIB_SESSION);
     slp->next = Sessions;
+    if ( Sessions ) {
+	Sessions->prev = slp;
+    }
+    slp->prev = NULL;
     Sessions = slp;
     snmp_res_unlock(MT_LIBRARY_ID, MT_LIB_SESSION);
 
     return (slp->session);
 }
 
-static struct session_list *
+static struct netsnmp_session *
 _sess_copy( struct snmp_session *in_session)
 {
-    struct session_list *slp;
+    struct netsnmp_session *slp;
     struct snmp_internal_session *isp;
     struct snmp_session *session;
     struct snmp_secmod_def *sptr;
@@ -760,7 +764,7 @@ _sess_copy( struct snmp_session *in_session)
     in_session->s_errno = 0;
 
     /* Copy session structure and link into list */
-    slp = (struct session_list *)calloc(1,sizeof(struct session_list));
+    slp = (struct netsnmp_session *)calloc(1,sizeof(struct netsnmp_session));
     if (slp == NULL) { 
       in_session->s_snmp_errno = SNMPERR_MALLOC;
       return(NULL);
@@ -997,10 +1001,10 @@ _sess_copy( struct snmp_session *in_session)
     return( slp );
 }
 
-struct session_list *
+struct netsnmp_session *
 snmp_sess_copy( struct snmp_session *pss)
 {
-    struct session_list * psl;
+    struct netsnmp_session * psl;
     psl = _sess_copy(pss);
     if (!psl) {
       if (!pss->s_snmp_errno) {
@@ -1013,7 +1017,7 @@ snmp_sess_copy( struct snmp_session *pss)
 
 
 
-int	snmpv3_engineID_probe	(struct session_list *slp,
+int	snmpv3_engineID_probe	(struct netsnmp_session *slp,
 				 struct snmp_session *in_session)
 {
   struct snmp_pdu *pdu = NULL, *response = NULL;
@@ -1114,7 +1118,7 @@ int	snmpv3_engineID_probe	(struct session_list *slp,
 static void *
 _sess_open(struct snmp_session *in_session)
 {
-    struct session_list *slp;
+    struct netsnmp_session *slp;
     struct snmp_internal_session *isp;
     struct snmp_session *session;
 
@@ -1233,8 +1237,8 @@ snmp_transport *transport,
 int (*fpre_parse) (struct snmp_session *, snmp_transport *, void *, int),
 int (*fpost_parse) (struct snmp_session *, struct snmp_pdu *, int))
 {	
-  struct session_list *slp;
-  slp = (struct session_list *)snmp_sess_add_ex(in_session, transport,
+  struct netsnmp_session *slp;
+  slp = (struct netsnmp_session *)snmp_sess_add_ex(in_session, transport,
 						fpre_parse, NULL, fpost_parse,
 						NULL, NULL);
   if (slp == NULL) {
@@ -1243,6 +1247,10 @@ int (*fpost_parse) (struct snmp_session *, struct snmp_pdu *, int))
 
   snmp_res_lock(MT_LIBRARY_ID, MT_LIB_SESSION);
   slp->next = Sessions;
+  if ( Sessions ) {
+	Sessions->prev = slp;
+  }
+  slp->prev = NULL;
   Sessions = slp;
   snmp_res_unlock(MT_LIBRARY_ID, MT_LIB_SESSION);
 
@@ -1260,7 +1268,7 @@ int (*fpost_parse) (struct snmp_session *, struct snmp_pdu *, int),
 int (*fbuild) (struct snmp_session *, struct snmp_pdu *, u_char *, size_t *),
 int (*fcheck) (u_char *, size_t))
 {	
-  struct session_list *slp;
+  struct netsnmp_session *slp;
 
   if (Reqid == 0) {
     _init_snmp();
@@ -1482,7 +1490,7 @@ snmp_free_session(struct snmp_session *s)
 int
 snmp_sess_close(void *sessp)
 {
-    struct session_list *slp = (struct session_list *)sessp;
+    struct netsnmp_session *slp = (struct netsnmp_session *)sessp;
     snmp_transport *transport;
     struct snmp_internal_session *isp;
     struct snmp_session *sesp = NULL;
@@ -1549,23 +1557,24 @@ snmp_sess_close(void *sessp)
 int 
 snmp_close(struct snmp_session *session)
 {
-    struct session_list *slp = NULL, *oslp = NULL;
+    struct netsnmp_session *slp = NULL;
 
     { /*MTCRITICAL_RESOURCE*/
 	snmp_res_lock(MT_LIBRARY_ID, MT_LIB_SESSION);
-    if (Sessions && Sessions->session == session){	/* If first entry */
-	slp = Sessions;
-	Sessions = slp->next;
-    } else {
 	for(slp = Sessions; slp; slp = slp->next){
 	    if (slp->session == session){
-		if (oslp)   /* if we found entry that points here */
-		    oslp->next = slp->next;	/* link around this entry */
+		if ( slp->prev ) {
+		    slp->prev->next = slp->next;
+		}
+		else {
+		    Sessions = slp->next;
+		}
+		if ( slp->next ) {
+		    slp->next->prev = slp->prev;
+		}
 		break;
 	    }
-	    oslp = slp;
 	}
-    }
 	snmp_res_unlock(MT_LIBRARY_ID, MT_LIB_SESSION);
     } /*END MTCRITICAL_RESOURCE*/
     if (slp == NULL){
@@ -1577,12 +1586,13 @@ snmp_close(struct snmp_session *session)
 int
 snmp_close_sessions( void )
 {
-    struct session_list *slp;
+    struct netsnmp_session *slp;
 
     snmp_res_lock(MT_LIBRARY_ID, MT_LIB_SESSION);
     while ( Sessions ) {
         slp = Sessions;
         Sessions = Sessions->next;
+	Sessions->prev = NULL;
         snmp_sess_close((void *)slp);
     }
     snmp_res_unlock(MT_LIBRARY_ID, MT_LIB_SESSION);
@@ -3844,7 +3854,7 @@ _sess_async_send(void *sessp,
 		     snmp_callback callback,
 		     void *cb_data)
 {
-  struct session_list *slp = (struct session_list *)sessp;
+  struct netsnmp_session *slp = (struct netsnmp_session *)sessp;
   struct snmp_session *session;
   struct snmp_internal_session *isp;
   snmp_transport *transport = NULL;
@@ -4075,9 +4085,9 @@ snmp_sess_async_send(void *sessp,
     }
     rc = _sess_async_send(sessp, pdu, callback, cb_data);
     if (rc == 0) {
-        struct session_list *psl;
+        struct netsnmp_session *psl;
         struct snmp_session *pss;
-        psl = (struct session_list *)sessp;
+        psl = (struct netsnmp_session *)sessp;
         pss = psl->session;
         SET_SNMP_ERROR(pss->s_snmp_errno);
     }
@@ -4157,7 +4167,7 @@ _sess_process_packet(void *sessp, struct snmp_session *sp,
 		     u_char *packetptr, int length)
 		     
 {
-  struct session_list *slp = (struct session_list *)sessp;
+  struct netsnmp_session *slp = (struct netsnmp_session *)sessp;
   struct snmp_pdu *pdu;
   struct request_list *rp, *orp = NULL;
   struct snmp_secmod_def *sptr;
@@ -4376,7 +4386,7 @@ _sess_process_packet(void *sessp, struct snmp_session *sp,
 void
 snmp_read(fd_set *fdset)
 {
-    struct session_list *slp;
+    struct netsnmp_session *slp;
     snmp_res_lock(MT_LIBRARY_ID, MT_LIB_SESSION);
     for(slp = Sessions; slp; slp = slp->next){
         snmp_sess_read((void *)slp, fdset);
@@ -4391,7 +4401,7 @@ snmp_read(fd_set *fdset)
 int
 _sess_read(void *sessp, fd_set *fdset)
 {
-  struct session_list *slp = (struct session_list *)sessp;
+  struct netsnmp_session *slp = (struct netsnmp_session *)sessp;
   struct snmp_session *sp = slp?slp->session:NULL;
   struct snmp_internal_session *isp = slp?slp->internal:NULL;
   snmp_transport *transport = slp?slp->transport:NULL;
@@ -4443,18 +4453,22 @@ _sess_read(void *sessp, fd_set *fdset)
 
       snmp_transport *new_transport = snmp_transport_copy(transport);
       if (new_transport != NULL) {
-	struct session_list *nslp = NULL;
+	struct netsnmp_session *nslp = NULL;
 
 	new_transport->sock   = data_sock;
 	new_transport->flags &= ~SNMP_TRANSPORT_FLAG_LISTEN;
 
-	nslp = (struct session_list *)snmp_sess_add_ex(sp, new_transport,
+	nslp = (struct netsnmp_session *)snmp_sess_add_ex(sp, new_transport,
 				isp->hook_pre,
 				isp->hook_parse, isp->hook_post,
 				isp->hook_build, isp->check_packet);
 
 	if (nslp != NULL) {
 	  nslp->next = Sessions;
+	  if ( Sessions ) {
+	    Sessions->prev = nslp;
+	  }
+	  nslp->prev = NULL;
 	  Sessions = nslp;
 	} else {
 	  new_transport->f_close(new_transport);
@@ -4653,12 +4667,12 @@ _sess_read(void *sessp, fd_set *fdset)
 int
 snmp_sess_read(void *sessp, fd_set *fdset)
 {
-    struct session_list *psl;
+    struct netsnmp_session *psl;
     struct snmp_session *pss;
     int rc;
 
     rc = _sess_read(sessp, fdset);
-    psl = (struct session_list *)sessp;
+    psl = (struct netsnmp_session *)sessp;
     pss = psl->session;
     if (rc && pss->s_snmp_errno) {
         SET_SNMP_ERROR(pss->s_snmp_errno);
@@ -4711,8 +4725,8 @@ snmp_sess_select_info(void *sessp,
 		      struct timeval *timeout,
 		      int *block)
 {
-  struct session_list *slptest = (struct session_list *)sessp;
-  struct session_list *slp, *next=NULL;
+  struct netsnmp_session *slptest = (struct netsnmp_session *)sessp;
+  struct netsnmp_session *slp, *next=NULL;
   struct request_list *rp;
   struct timeval now, earliest, delta;
   int timer_set = 0;
@@ -4856,7 +4870,7 @@ snmp_sess_select_info(void *sessp,
 void
 snmp_timeout (void)
 {
-    struct session_list *slp;
+    struct netsnmp_session *slp;
     snmp_res_lock(MT_LIBRARY_ID, MT_LIB_SESSION);
     for(slp = Sessions; slp; slp = slp->next) {
 	snmp_sess_timeout((void *)slp);
@@ -4865,7 +4879,7 @@ snmp_timeout (void)
 }
 
 static int
-snmp_resend_request(struct session_list *slp, struct request_list *rp, 
+snmp_resend_request(struct netsnmp_session *slp, struct request_list *rp, 
 		    int incr_retries)
 {
   struct snmp_internal_session *isp;
@@ -4974,7 +4988,7 @@ snmp_resend_request(struct session_list *slp, struct request_list *rp,
 void
 snmp_sess_timeout(void *sessp)
 {
-    struct session_list *slp = (struct session_list*)sessp;
+    struct netsnmp_session *slp = (struct netsnmp_session*)sessp;
     struct snmp_session *sp;
     struct snmp_internal_session *isp;
     struct request_list *rp, *orp = NULL, *freeme = NULL;
@@ -5598,7 +5612,7 @@ out:
 void *
 snmp_sess_pointer(struct snmp_session *session)
 {
-    struct session_list *slp;
+    struct netsnmp_session *slp;
 
     snmp_res_lock(MT_LIBRARY_ID, MT_LIB_SESSION);
     for(slp = Sessions; slp; slp = slp->next){
@@ -5622,7 +5636,7 @@ snmp_sess_pointer(struct snmp_session *session)
 struct snmp_session *
 snmp_sess_session(void *sessp)
 {
-    struct session_list *slp = (struct session_list *)sessp;
+    struct netsnmp_session *slp = (struct netsnmp_session *)sessp;
     if (slp == NULL) return(NULL);
     return (slp->session);
 }
@@ -5637,7 +5651,7 @@ snmp_sess_session(void *sessp)
 snmp_transport *
 snmp_sess_transport	(void *sessp)
 {
-  struct session_list *slp = (struct session_list *)sessp;
+  struct netsnmp_session *slp = (struct netsnmp_session *)sessp;
   if (slp == NULL) {
     return NULL;
   } else {
@@ -5653,7 +5667,7 @@ snmp_sess_transport	(void *sessp)
 void
 snmp_sess_transport_set	(void *sp, snmp_transport *t)
 {
-  struct session_list *slp = (struct session_list *)sp;
+  struct netsnmp_session *slp = (struct netsnmp_session *)sp;
   if (slp != NULL) {
     slp->transport = t;
   }
