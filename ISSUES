@@ -1,0 +1,46 @@
+# This file contains a list of issues and ownership of those issues.  It
+# is meant to be a convenient but trivial method of logging work that
+# people are doing so as to avoid conflict when possible as well as
+# logging thoughts/errors/yet-to-be-done-features before they are
+# forgotten about.  This file should be committed _immediately_ after you
+# modify it.
+# 
+# Format:
+#   SYMBOL USER/DATE : USER/DATE/DATE
+#       DESCRIPTION
+# 
+# Where the first USER/DATE pair is the date it was created in this
+# file, and the second USER/DATE/DATE is the person working on the issue 
+# and the date began and the date finished.
+#
+# Symbols:
+#
+# * Needed by next release/demo                 (oct)
+# + Needed by the following release/demo        (feb)
+# - Needed at some point later                  (phase II)
+# . Completed
+#
+# (a given symbol doesn't mean that they can't be completed earlier...
+# They are a deadline indicator)
+
++ hardaker/Sep 23
+    snmplib/snmpusm.c: snmp_clone_user() should be split into two
+    functions, namely snmp_create_new_user() and snmp_clone_user().
+
+* hardaker/Sep 23
+    snmplib/snmpusm.c: snmp_clone_user() shouldn't clone the name and
+    engineid when cloneFrom is set?
+
++ hardaker/Sep 23
+    Is creation of users via sets to something other than the
+    usmUserStatus object going to be allowed?  For the time being, for
+    ease of implementation, the status column *must* be set first.  This
+    might need to change later if we so decide.
+
++ hardaker/Sep 23
+    usmUserSpinLock needs to be done better and to return an error asap,
+    rather than at commit.  Undo should undo the set as well.
+
++ hardaker/Sep 23
+    Actually, the usm code should be careful about backing out of a set
+    (currently at COMMIT, it happens regardless of past or future fails).
