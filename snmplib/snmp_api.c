@@ -454,6 +454,7 @@ init_snmp(char *type) {
   if (done_init)
     return;
   done_init = 1;
+  snmp_init_statistics();
   register_mib_handlers();
   init_snmpv3(type);
   read_premib_configs();
@@ -3039,15 +3040,19 @@ oid *snmp_duplicate_objid(oid *objToCopy, int objToCopyLen) {
 }
 
 /* generic statistics counter functions */
-static int statistics[MAX_STATS];
+static u_int statistics[MAX_STATS];
 
 void snmp_increment_statistic(int which) {
-  if (which >= 0 && which < MAX_STATS)
+  if (which >= 0 && which <= MAX_STATS)
     statistics[which]++;
 }
 
-int snmp_get_statistic(int which) {
-  if (which >= 0 && which < MAX_STATS)
+u_int snmp_get_statistic(int which) {
+  if (which >= 0 && which <= MAX_STATS)
     return statistics[which];
-  return -1;
+  return 0;
+}
+
+void snmp_init_statistics(void) {
+  memset(statistics, 0, sizeof(statistics));
 }
