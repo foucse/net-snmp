@@ -112,6 +112,8 @@ typedef long    fd_mask;
 #include "var_struct.h"
 #include "mibgroup/struct.h"
 #include "mibgroup/util_funcs.h"
+#include "snmpusm.h"
+#include "tools.h"
 
 #include "agent_read_config.h"
 
@@ -530,6 +532,8 @@ main(argc, argv)
 	char            logfile[300], file[512];
 	char           *cptr, **argvptr;
 
+        struct usmUser *user;
+
 	logfile[0]		= 0;
 	optconfigfile		= NULL;
 	dontReadConfigFiles	= 0;
@@ -667,6 +671,19 @@ main(argc, argv)
 		exit(0);
 	}
 
+        user = usm_get_user(NULL, 0, "initial");
+        if (user == NULL) {
+          user = (struct usmUser *) SNMP_MALLOC(sizeof(struct usmUser));
+          user->name = strdup("initial");
+          user->secName = strdup("initial");
+          user->authProtocolLen = sizeof(usmNoAuthProtocol)/sizeof(oid);
+          user->authProtocol =
+            snmp_duplicate_objid(usmNoAuthProtocol, user->authProtocolLen);
+          user->privProtocolLen = sizeof(usmNoPrivProtocol)/sizeof(oid);
+          user->privProtocol =
+            snmp_duplicate_objid(usmNoPrivProtocol, user->privProtocolLen);
+          usm_add_user(user);
+        }
 	init_snmpv3("snmpd");	/* register the v3 handlers */
 	init_agent();		/* register our .conf handlers */
 	register_mib_handlers();/* snmplib .conf handlers */
