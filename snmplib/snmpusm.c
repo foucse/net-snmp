@@ -536,7 +536,8 @@ EM(-1);
  * FIX  Sanity check against the USM RFC...
  */
 int
-usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int priv_key_length)
+usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int priv_key_length,
+              u_char *salt, int *salt_length)
 {
 	int index;
 	int boots 		= snmpv3_local_snmpEngineBoots();
@@ -545,13 +546,16 @@ usm_set_salt (u_char *iv, int *iv_length, u_char *priv_key, int priv_key_length)
 
 EM(-1);
 
-	if ( iv_length == NULL || *iv_length != propersize_salt
-		|| iv == NULL
-			|| priv_key_length < propersize_keyhash
-				|| priv_key == NULL) return -1;
+	if ( iv_length == NULL || *iv_length != propersize_salt ||
+             iv == NULL ||
+             salt_length == NULL || *salt_length != propersize_salt ||
+             salt == NULL ||
+             priv_key_length < propersize_keyhash || priv_key == NULL)
+          return -1;
 
 	memcpy (iv, &boots, sizeof(int));
 	memcpy (&iv[sizeof(int)], &salt_integer, sizeof(int));
+        memcpy (salt, iv, propersize_salt);
 	salt_integer++;
 
 	/* 
@@ -848,10 +852,13 @@ EM(-1);
 	if (theSecLevel == SNMP_SEC_LEVEL_AUTHPRIV)
 	{
 		int encrypted_length	= theTotalLength - dataOffset;
-		int iv_length		= msgPrivParmLen;
+		int salt_length		= msgPrivParmLen;
+		int iv_length	= BYTESIZE(USM_MAX_SALT_LENGTH);
+                u_char iv[BYTESIZE(USM_MAX_SALT_LENGTH)];
 
-		if (usm_set_salt (&ptr[privParamsOffset], &iv_length,
-			thePrivKey, thePrivKeyLength) == -1)
+		if (usm_set_salt (iv, &iv_length,
+			thePrivKey, thePrivKeyLength,
+                        &ptr[privParamsOffset], &salt_length) == -1)
 		{
 			DEBUGPL (("Can't set DES-CBC salt.\n"));
 			if (secStateRef)
@@ -862,7 +869,7 @@ EM(-1);
 		if ( sc_encrypt (
 			 thePrivProtocol,	 thePrivProtocolLength,
 			 thePrivKey,		 thePrivKeyLength,
-			&ptr[privParamsOffset],	 iv_length,
+                         iv,			 iv_length,
 			 scopedPdu,		 scopedPduLen,
 			&ptr[dataOffset],	&encrypted_length)
 							!= SNMP_ERR_NOERROR )
@@ -878,7 +885,7 @@ EM(-1);
 			dump_chunk("This data was encrypted:",
 					scopedPdu, scopedPduLen);
 			dump_chunk("IV + Encrypted form:",
-					&ptr[privParamsOffset], iv_length);
+					iv, iv_length);
 			dump_chunk(NULL,
 					&ptr[dataOffset], encrypted_length);
 			dump_chunk("*wholeMsg:",
@@ -895,7 +902,7 @@ EM(-1);
 		 *	under usm_calc_offsets() or tossed.
 		 */
 		if ( (encrypted_length != (theTotalLength - dataOffset))
-				|| (iv_length != msgPrivParmLen) )
+				|| (salt_length != msgPrivParmLen) )
 		{
 			DEBUGPL (("DES-CBC length error.\n"));
 			if (secStateRef)
@@ -1532,11 +1539,14 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 	u_int   signature_length = BYTESIZE(USM_MAX_KEYEDHASH_LENGTH);
 	u_char  salt[BYTESIZE(USM_MAX_SALT_LENGTH)];
 	u_int   salt_length = BYTESIZE(USM_MAX_SALT_LENGTH);
+	u_char  iv[BYTESIZE(USM_MAX_SALT_LENGTH)];
+	u_int   iv_length = BYTESIZE(USM_MAX_SALT_LENGTH);
 	u_char *data_ptr;
 	u_char *value_ptr;
 	u_char  type_value;
 	u_char *end_of_overhead;
 	int     error;
+        int     i;
 
 	struct usmUser *user;
 
@@ -1802,10 +1812,17 @@ EM(-1);
 
 		end_of_overhead = value_ptr;
 
+                /* 
+                 * XOR the salt with the last (iv_length) bytes
+                 * of the priv_key to obtain the IV.
+                 */
+                for (i = 0; i < iv_length; i++)
+                  iv[i] = salt[i] ^ user->privKey[iv_length + i];
+                
 		if (sc_decrypt (
 			 user->privProtocol,	user->privProtocolLen,
 			 user->privKey,		user->privKeyLen,
-			 salt,			salt_length,
+			 iv,			iv_length,
 			 value_ptr,		remaining,
 			*scopedPdu,		scopedPduLen) 
 							!= SNMP_ERR_NOERROR)
