@@ -239,7 +239,7 @@ static char *api_errors[-SNMPERR_MAX+1] = {
 };
 
 struct timeval Now;
-static int default_s_port = 161;
+static unsigned short default_s_port = 0; /* default SNMP service port */
 struct snmp_pdu *SavedPdu = NULL;
 struct internal_variable_list *SavedVars = NULL;
 
@@ -325,6 +325,7 @@ snmp_api_errstring(snmp_errnumber)
 static void
 init_snmp __P((void))
 {
+    struct servent *servp;
     struct timeval tv;
 
     gettimeofday(&tv,(struct timezone *)0);
@@ -337,6 +338,11 @@ init_snmp __P((void))
     srandom(tv.tv_sec ^ tv.tv_usec);
     Reqid = random();
 #endif
+
+    default_s_port = htons(SNMP_PORT);
+    servp = getservbyname("snmp", "udp");
+    if (servp)
+      default_s_port = servp->s_port;
 }
 
 /*
@@ -358,15 +364,9 @@ snmp_open(session)
     in_addr_t addr;
     struct sockaddr_in	me;
     struct hostent *hp;
-    static struct servent *servp = NULL;
-
 
     if (Reqid == 0)
 	init_snmp();
-
-    servp = getservbyname("snmp", "udp");
-    if (servp)
-      default_s_port = servp->s_port;
 
     /* Copy session structure and link into list */
     slp = (struct session_list *)malloc(sizeof(struct session_list));
@@ -510,11 +510,7 @@ snmp_open(session)
 	}
 	isp->addr.sin_family = AF_INET;
 	if (session->remote_port == SNMP_DEFAULT_REMPORT){
-	    if (default_s_port){
 		isp->addr.sin_port = default_s_port;
-	    } else {
-		isp->addr.sin_port = htons(SNMP_PORT);
-	    }
 	} else {
 	    isp->addr.sin_port = htons(session->remote_port);
 	}
