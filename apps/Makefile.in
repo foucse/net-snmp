@@ -14,7 +14,8 @@ SUBDIRS		= snmpnetstat
 TRAPSPECIAL	= @trap_list_o@
 
 USELIBS		= ../snmplib/libsnmp.$(SHLIB_EXTENSION)$(SHLIB_VERSION)
-LIBS		= -L../snmplib $(CC_RUNTIME_ARG) -lsnmp @LIBS@
+LOCAL_LIBS	= -L../snmplib 
+LIBS		= $(CC_RUNTIME_ARG) -lsnmp @LIBS@
 
 PARSEOBJS	= snmp_parse_args.o
 
@@ -31,46 +32,46 @@ subdirs:
 	done
 
 snmpwalk:    snmpwalk.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmpwalk.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmpwalk.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmpbulkwalk:    snmpbulkwalk.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmpbulkwalk.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmpbulkwalk.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmptranslate:    snmptranslate.o $(USELIBS)
-	${CC} -o $@ snmptranslate.o ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmptranslate.o $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmpstatus:    snmpstatus.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmpstatus.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmpstatus.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmpget:    snmpget.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmpget.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmpget.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmpdelta:    snmpdelta.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmpdelta.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmpdelta.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmptable:    snmptable.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmptable.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmptable.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmptest:    snmptest.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmptest.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmptest.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmptrapd:    snmptrapd.o snmptrapd_handlers.o $(USELIBS)
-	${CC} -o $@ snmptrapd.o snmptrapd_handlers.o ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmptrapd.o snmptrapd_handlers.o $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmptrap:    snmptrap.o $(TRAPSPECIAL) $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmptrap.o $(TRAPSPECIAL) $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmptrap.o $(TRAPSPECIAL) $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmpset:    snmpset.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmpset.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmpset.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmppass:    snmppass.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmppass.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmppass.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmpgetnext:    snmpgetnext.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmpgetnext.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ snmpgetnext.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 encode_keychange:    encode_keychange.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ encode_keychange.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
+	${CC} -o $@ encode_keychange.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 
 clean:
