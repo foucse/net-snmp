@@ -893,7 +893,7 @@ main(argc, argv)
 static int
 receive()
 {
-    int numfds, index;
+    int numfds;
     fd_set fdset;
     struct timeval	timeout, *tvp = &timeout;
     struct timeval	sched,   *svp = &sched,
