@@ -1966,6 +1966,8 @@ snmpv3_make_report(u_char *out_data, int *out_length,
   
   if (error != STAT_USMSTATSNOTINTIMEWINDOWS) 
     pdu->securityLevel          = SNMP_SEC_LEVEL_NOAUTH;
+  else
+    pdu->securityLevel          = SNMP_SEC_LEVEL_AUTHNOPRIV;
 
   /* find the appropriate error counter
    */
@@ -1995,7 +1997,7 @@ snmpv3_get_report_type(struct snmp_pdu *pdu)
 
   if (pdu == NULL || pdu->variables == NULL) return rpt_type;
   vp = pdu->variables;
-  if (vp->name_length == REPORT_STATS_LEN+1) {
+  if (vp->name_length == REPORT_STATS_LEN+2) {
     if (memcmp(snmpMPDStats,vp->name,REPORT_STATS_LEN*sizeof(oid)) == 0) {
       switch (vp->name[REPORT_STATS_LEN]) {
       case REPORT_snmpUnknownSecurityModels_NUM:
