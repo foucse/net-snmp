@@ -11,6 +11,13 @@
 #include <strings.h>
 #endif
 
+#ifdef HAVE_KMT_H
+#	include <kmt.h>
+#endif
+#ifdef HAVE_KMT_ALGS_H
+#	include <kmt_algs.h>
+#endif
+
 #include "mibincl.h"
 #include "snmpusm.h"
 #include "snmpv3.h"
