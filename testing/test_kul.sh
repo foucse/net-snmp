@@ -7,6 +7,11 @@
 # Run key localization tests and compare with data given in the USM
 # documentation.
 #
+# FIX	CHECKEXACT() will produce 2 lines when SCAPI is built with
+#	SNMP_TESTING_CODE, but only 1 line without the #define.  The script
+#	assumes SNMP_TESTING_CODE is defined.
+#
+#
 
 
 . ./eval_tools.sh
@@ -46,15 +51,15 @@ for dfs in $DATAFILE_SUFFIXES; do
 	engineID=$3
 	kul=$4
 
-	CAPTURE "ktest -l -P $P -E $engineID"
+	CAPTURE "ktest -l -P $P -E $engineID "
 	FAILED $? "ktest"
 
 	CHECKEXACT $Ku
-	[ $? -eq 1 ]
+	[ $? -eq 2 ]
 	FAILED $? "Master key was not generated."
 
 	CHECKEXACT $kul
-	[ $? -eq 1 ]
+	[ $? -eq 2 ]
 	FAILED $? "Localized key was not generated."
 
 
