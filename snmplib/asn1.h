@@ -50,6 +50,9 @@ typedef u_char	oid;
 #define MAX_NAME_LEN	    MAX_OID_LEN   /* obsolete. use MAX_OID_LEN */
 #endif
 
+#define OID_LENGTH(x)  (sizeof(x)/sizeof(oid))
+
+
 #define ASN_BOOLEAN	    ((u_char)0x01)
 #define ASN_INTEGER	    ((u_char)0x02)
 #define ASN_BIT_STR	    ((u_char)0x03)
