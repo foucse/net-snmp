@@ -32,6 +32,11 @@ SOFTWARE.
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
+#if HAVE_STRING_H
+#include <string.h>
+#else
+#include <strings.h>
+#endif
 #if TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
@@ -160,6 +165,8 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
             pdu->command = SNMP_MSG_REPORT;
             pdu->errstat = 0;
             pdu->errindex = 0;
+            pdu->contextName = strdup("");
+            pdu->contextNameLen = strlen(pdu->contextName);
             /* increment the unknown engineID counter */
             ltmp = snmp_increment_statistic(STAT_USMSTATSUNKNOWNENGINEIDS);
             /* return  the unknown engineID counter */
