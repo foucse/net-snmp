@@ -340,7 +340,7 @@ TITLE "Demonstrate KeyChange."\
 oldkey=`ktest -q -l -P "$defpass" -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
 newkey=`ktest -q -l -P "new_$defpass" -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
 
-keychange=`ktest -k -N $newkey -O $oldkey | grep string | awk '{print $NF}'`
+keychange=`ktest -k -N $newkey -O $oldkey | egrep 'MD5.*KeyChange string' | awk '{print $NF}'`
 
 TITLE "changing stingray's auth and priv key"\
       "(from $oldkey to $newkey using $keychange)"
