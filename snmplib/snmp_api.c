@@ -453,7 +453,7 @@ init_snmp(char *type) {
     return;
   done_init = 1;
   register_mib_handlers();
-  /*  init_snmpv3(type);*/
+  init_snmpv3(type);
   read_premib_configs();
   init_mib();
   read_configs();
@@ -956,7 +956,7 @@ snmpv3_header_build(struct snmp_pdu *pdu, register u_char *packet,
     /* msgSecurityModel */
     sec_model = SNMP_SEC_MODEL_USM;
     cp = asn_build_int(cp, out_length,
-		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OCTET_STR),
+		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
 		       &sec_model, sizeof(sec_model));
     if (cp == NULL) return NULL;
 
@@ -1009,11 +1009,13 @@ snmpv3_scopedPDU_build(struct snmp_pdu *pdu, char *pdu_buf, int pdu_buf_len,
   *out_length -= pdu_buf_len;
   
   /* insert actual length */
-  if(asn_build_sequence(pb, out_length, 
-                     (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
-                     pb - pb0e) == NULL)
+  if(asn_build_sequence(pdu_buf, out_length, 
+                        (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
+                        pb - pb0e) == NULL)
     return NULL;
 
+  /* call the security module to possibly encrypt the data, and to
+     return to us the appropriate security parameters */
   pdu_buf_len = pb - scopedPdu;
   msg_buf_len = SNMP_MAX_MSG_SIZE;
   generateRequestMsg(SNMP_VERSION_3, NULL, SNMP_MAX_MSG_SIZE, 
@@ -1067,16 +1069,17 @@ snmpv3_packet_build(struct snmp_pdu *pdu, register u_char *packet,
 
     /* the length of the data is the length of the security parameters
        plus the length of the pdu data. */
-    pdu_buf_len = sec_param_buf_len + pb - pdu_buf;
+    pdu_buf_len = pb - pdu_buf;
     /* build the headers for the packet */
-    if ((cp = snmpv3_header_build(pdu, packet, out_length, pdu_buf_len,
+    if ((cp = snmpv3_header_build(pdu, packet, out_length,
+                                  sec_param_buf_len + pdu_buf_len,
                                   &msg_hdr_e)) == NULL)
       return -1;
 
     memcpy(cp, sec_param_buf, sec_param_buf_len);
     cp += sec_param_buf_len;
-    memcpy(cp, msg_buf, msg_buf_len);
-    cp += msg_buf_len;
+    memcpy(cp, pdu_buf, pdu_buf_len);
+    cp += pdu_buf_len;
 
     *out_length = cp - packet;
     snmp_errno = 0;
