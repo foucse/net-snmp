@@ -135,6 +135,17 @@ snmpv3_get_engineID(char *buf) {
   return engineIDLength;
 }
 
+/* snmpv3_generate_engineID(): generates a malloced copy of our engineID. */
+char *
+snmpv3_generate_engineID(int *length) {
+  char *newID;
+  newID = (char *) malloc(engineIDLength);
+  if (newID)
+    *length = snmpv3_get_engineID(newID);
+  return newID;
+}
+
+
 /* snmpv3_get_engineTime(): return the number of seconds since the
    snmpv3 engine last incremented engine_boots */
 int
