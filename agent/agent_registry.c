@@ -353,6 +353,7 @@ register_mib_context2(const char *moduleName,
   subtree->session = ss;
   subtree->reginfo = reginfo;
   subtree->flags = (u_char)flags;  /* used to identify instance oids */
+  subtree->cacheid = -1;
   res = load_subtree(subtree);
 
 	/*
@@ -575,6 +576,7 @@ register_mib_table_row(const char *moduleName,
     subtree->timeout  = timeout;
     subtree->session = ss;
     subtree->flags = (u_char)flags;
+    subtree->cacheid = -1;
 
     /*  Since we're not really making use of this in the normal way:  */
 

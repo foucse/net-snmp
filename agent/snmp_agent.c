@@ -1340,13 +1340,14 @@ add_varbind_to_cache(struct agent_snmp_session  *asp,
 
 
         /* place them in a cache */
-        if (tp->cacheid && tp->cacheid < asp->treecache_num &&
+        if (tp->cacheid > -1 && tp->cacheid <= asp->treecache_num &&
             asp->treecache[tp->cacheid]->subtree == tp) {
             /* we have already added a request to this tree
                    pointer before */
             cacheid = tp->cacheid;
 
         } else {
+            cacheid = ++(asp->treecache_num);
             /* new slot needed */
             if (asp->treecache_num >= asp->treecache_len) {
                 /* exapand cache array */
@@ -1358,11 +1359,11 @@ add_varbind_to_cache(struct agent_snmp_session  *asp,
                 if (asp->treecache == NULL)
                     return SNMP_ERR_GENERR;
             }
-            cacheid = asp->treecache_num++;
             tmpc = (tree_cache *) calloc(1, sizeof(tree_cache));
             asp->treecache[cacheid] = tmpc;
             asp->treecache[cacheid]->subtree = tp;
             asp->treecache[cacheid]->requests_begin = request;
+            tp->cacheid = cacheid;
         }
 
         /* link into chain */
@@ -1392,7 +1393,7 @@ check_acm(struct agent_snmp_session  *asp, u_char type) {
     int ret = 0;
     struct variable_list *vb;
     
-    for(i = 0; i < asp->treecache_num; i++) {
+    for(i = 0; i <= asp->treecache_num; i++) {
         for(request = asp->treecache[i]->requests_begin;
             request; request = request->next) {
             /* for each request, run it through in_a_view() */
@@ -1426,7 +1427,7 @@ create_subtree_cache(struct agent_snmp_session  *asp) {
         if (asp->treecache == NULL)
             return SNMP_ERR_GENERR;
     }
-    asp->treecache_num = 0;
+    asp->treecache_num = -1;
 
     /* collect varbinds into their registered trees */
 
@@ -1489,9 +1490,9 @@ reassign_requests(struct agent_snmp_session  *asp) {
     /* malloc new space */
     asp->treecache =
         (tree_cache **) malloc(sizeof(tree_cache *) * asp->treecache_len);
-    asp->treecache_num = 0;
+    asp->treecache_num = -1;
 
-    for(i = 0; i < old_treecache_num; i++) {
+    for(i = 0; i <= old_treecache_num; i++) {
         for(request = old_treecache[i]->requests_begin; request;
             request = request->next) {
 
@@ -1533,11 +1534,12 @@ delete_request_infos(request_info *reqlist) {
 
 void
 delete_subtree_cache(struct agent_snmp_session  *asp) {
-    while(asp->treecache_num-- > 0) {
+    while(asp->treecache_num > 0) {
         /* don't delete subtrees */
         delete_request_infos(asp->treecache[asp->treecache_num]
                              ->requests_begin);
         free(asp->treecache[asp->treecache_num]);
+        asp->treecache_num--;
     }
 }
 
@@ -1557,7 +1559,7 @@ handle_var_requests(struct agent_snmp_session  *asp) {
     asp->reqinfo->mode = asp->mode;
 
     /* now, have the subtrees in the cache go search for their results */
-    for(i=0; i < asp->treecache_num; i++) {
+    for(i=0; i <= asp->treecache_num; i++) {
         reginfo = asp->treecache[i]->subtree->reginfo;
 
         if (reginfo) {
