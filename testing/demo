@@ -36,28 +36,34 @@ createUsers=1
 autoread=1
 autodoit=1
 runcommands=1
+host=localhost
+handleagent=1
+tmpfile=/tmp/snmp.demo.out
 
 for arg
 do
   if test $arg = "-u"; then
     createUsers=0
-  fi
-  if test $arg = "-t"; then
+  elif test $arg = "-t"; then
     autoread=0
-  fi
-  if test $arg = "-c"; then
+  elif test $arg = "-c"; then
     autodoit=0
-  fi
-  if test $arg = "-n"; then
+  elif test $arg = "-n"; then
     runcommands=0
-  fi
-  if test $arg = "-h"; then
-    echo "$0 [-t] [-c] [-u]"
-    echo "  -t:    pause at section titles"
-    echo "  -c:    pause before running commands"
-    echo "  -u:    do not create the users, assume they are already created."
-    echo "  -n:    don't actually run any commands."
+  elif test $arg = "-a"; then
+    handleagent=0
+  elif test $arg = "-h"; then
+    echo "$0 [-t] [-c] [-u] [host]"
+    echo "    -t:    pause at section titles"
+    echo "    -c:    pause before running commands"
+    echo "    -u:    do not create the users, assume they are already created."
+    echo "    -n:    don't actually run any commands."
+    echo "    -a:    don't start/stop the agent.  Let the user do this."
+    echo "  host:    The host with the agent that the commands should talk to."
     exit 0
+  else
+    host=$arg
+    handleagent=0
   fi
 done
 
@@ -65,7 +71,6 @@ export PATH=../apps:../agent:$PATH
 
 noAuthArgs="-p 1600 -n default -u initial -l noAuthNoPriv -v 3"
 AuthArgs="-p 1600 -n default -u initial -a MD5 -A "$defpass" -l authNoPriv -v 3"
-host=localhost
 
 # simple commands
 snmpset="snmpset -s -R $AuthArgs $host"
@@ -84,27 +89,76 @@ SETDEBUGGING() {
   DOIT $snmpset versionDoDebugging.0 i $1
 }
 
-DOIT() {
+PRINTCOMMAND() {
   echo ""
   echo "% $*"
+}
+
+DOIT() {
+  PRINTCOMMAND "$*"
   if test "x$autodoit" != "x1"; then
-    echo -n "Hit RETURN to run the above command: "
-    read ret
+    GETRET
   fi
   if test $runcommands = 1; then
-    $* | sed 's/^/     /'
+    $* | tee $tmpfile | sed 's/^/     /'
   fi
 }
 
+LOOKFOR() {
+  lookfor=$1
+  shift
+  DOIT $@
+  lookresults=`egrep "$lookfor" $tmpfile`
+}
+
+testcounter=0
+succeeds=0
+OKORFAIL() {
+  testcounter=`expr $testcounter + 1`
+  echo ""
+  echo "****** test #$testcounter:"
+  echo ""
+  LOOKFOR $@
+  echo ""
+  if test "x$lookresults" = "x"; then
+    echo "****** Test #$testcounter FAILED"
+  else
+    echo "****** Test #$testcounter PASSED"
+    succeeds=`expr $succeeds + 1`
+  fi
+}
+
+REPORT() {
+  echo ""
+  echo "**** $succeeds/$testcounter tests passed"
+  echo ""
+}
+
+GETRET() {
+  echo -n "Hit RETURN to continue: "
+  read ret
+}
+
+
 STARTAGENT() {
-  echo "   Starting the agent"
-  snmpd -p 1600 -f -L -P /tmp/snmpd.pid 2>&1 | sed 's/^/       agent:/' &
-  sleep 3 # give the agent time to start up
+  if test $handleagent = 1; then
+    echo "   Starting the agent"
+    snmpd -p 1600 -f -L -P /tmp/snmpd.pid 2>&1 | sed 's/^/       agent:/' &
+    sleep 3 # give the agent time to start up
+  else
+    echo "!! You need to start the agent on $host now"
+    GETRET
+  fi
 }
 
 STOPAGENT() {
-  echo "   Stopping the agent"
-  kill `cat /tmp/snmpd.pid`
+  if test $handleagent = 1; then
+    echo "   Stopping the agent"
+    kill `cat /tmp/snmpd.pid`
+  else
+    echo "!! You need to start the agent on $host now"
+    GETRET
+  fi
 }
 
 COMMENT() {
@@ -123,8 +177,7 @@ TITLE() {
   echo "**"
   echo ""
   if test "x$autoread" != "x1"; then
-    echo -n "Hit RETURN to continue: "
-    read ret
+    GETRET
   fi
 }
 
@@ -167,13 +220,13 @@ STARTAGENT
 #
 
 TITLE "Sending a SNMPv1 message."
-DOIT snmpget -v 1 -p 1600 $host private system.sysUpTime.0
+OKORFAIL "sysUpTime.*Timeticks" snmpget -v 1 -p 1600 $host private system.sysUpTime.0
 
 TITLE "Sending a SNMP v2c message."
-DOIT snmpget -v 2c -p 1600 $host private system.sysUpTime.0
+OKORFAIL "sysUpTime.*Timeticks" snmpget -v 2c -p 1600 $host private system.sysUpTime.0
 
 TITLE "Sending a SNMP v3 message -- noAuthNoPriv."
-DOIT snmpget $noAuthArgs $host system.sysUpTime.0
+OKORFAIL "sysUpTime.*Timeticks" snmpget $noAuthArgs $host system.sysUpTime.0
 
 #
 # Persistent storage
@@ -181,23 +234,27 @@ DOIT snmpget $noAuthArgs $host system.sysUpTime.0
 
 TITLE "Demonstrate persistent storage of snmpEngineBoots:" \
       "Note: You should see snmpEngineBoots.0 increment by one."
-DOIT $snmpwalk snmpFrameworkMIB
+LOOKFOR "snmpEngineBoots.0" $snmpwalk snmpFrameworkMIB
+
+boots=`echo $lookresults | tail -1 | awk '{print $NF}'`
+boots=`expr $boots + 1`
 
 STOPAGENT
 
 STARTAGENT
 
-DOIT $snmpwalk snmpFrameworkMIB
+echo "boots: $boots ($lookresults)"
+OKORFAIL "snmpEngineBoots.0.=.$boots" $snmpwalk snmpFrameworkMIB
 
 #
 # agent configuration
 #
 
 TITLE "Demonstrate that users, user passphrases -or- Ku,"\
-      "and engineIDs can be configured in a configuration file."
+      "and engineIDs can be configured in a configuration file."\
 
 ## FIX: these may not be there, they could be somewhere else.
-DOIT grep userSet $HOME/.snmp/snmpd.conf
+DOIT "egrep userSet|engineID $HOME/.snmp/snmpd.conf /usr/local/share/snmp/snmpd.conf"
 
 TITLE "+++++++ NOT Demonstrating syntax for user creation at the agent"
 
@@ -241,23 +298,23 @@ TITLE "Send crypted packets." \
 ## FIX: CRYPT
 SETDEBUGGING 1
 TITLE "Perform a get with shark."
-DOIT snmpget -p 1600 -n default -u shark -l noAuthNoPriv -v 3 $host $sysUpTime
-DOIT snmpget -p 1600 -n default -u shark -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l noAuthNoPriv -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 ## FIX: CRYPT
 TITLE "Perform a get with shark2."
-DOIT snmpget -p 1600 -n default -u shark2 -l noAuthNoPriv -v 3 $host $sysUpTime
-DOIT snmpget -p 1600 -n default -u shark2 -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark2 -l noAuthNoPriv -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u shark2 -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
 
 ## FIX: CRYPT
 TITLE "Perform a get with stingray."
-DOIT snmpget -p 1600 -n default -u stingray -l noAuthNoPriv -v 3 $host $sysUpTime
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l noAuthNoPriv -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 ## FIX: CRYPT
 TITLE "Perform a get with stingray2."
-DOIT snmpget -p 1600 -n default -u stingray2 -l noAuthNoPriv -v 3 $host $sysUpTime
-DOIT snmpget -p 1600 -n default -u stingray2 -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray2 -l noAuthNoPriv -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray2 -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
 
 SETDEBUGGING 0
 
@@ -266,15 +323,17 @@ SETDEBUGGING 0
 #
 
 TITLE "Send AuthNoPriv messages with a user configured for AuthPriv."
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 #
 # Malformed packets (wrong key)
 #
 
 ## FIX: CRYPT
+## FIX: Change "FIXME" below to the proper error message to look for
+
 TITLE "Send malformed crypted packets and examine the result for proper information."
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
 
 #
 # Key Change
@@ -291,16 +350,18 @@ keychange=`ktest -k -N $newkey -O $oldkey | grep string | awk '{print $NF}'`
 TITLE "changing stingray's auth and priv key"\
       "(from $oldkey to $newkey using $keychange)"
 
-DOIT $snmpset usmUserAuthKeyChange.$stingrayoid x $keychange
-DOIT $snmpset usmUserPrivKeyChange.$stingrayoid x $keychange
+OKORFAIL "usmUserAuthKeyChange.$stingrayoid = +Hex: " $snmpset usmUserAuthKeyChange.$stingrayoid x $keychange
+OKORFAIL "usmUserPrivKeyChange.$stingrayoid = +Hex: " $snmpset usmUserPrivKeyChange.$stingrayoid x $keychange
 
 TITLE "Perform a get using stingray to demonstrate it fails."\
       "(using old key)"
+
 ## FIX: authpriv
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
+## FIX: change FIXME to proper error message
+OKORFAIL "FIXME" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 TITLE "Perform a get using stingray to demonstrate it succeeds." "(using new key)"
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpass" -v 3 $host $sysUpTime
 
 #
 # Cloning an account
@@ -308,17 +369,17 @@ DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpas
 
 TITLE "Use an admin user to clone a new account that has additional priveleges."
 CREATEUSER whale $sharkoid
-DOIT snmpget -p 1600 -n default -u whale -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
+OKORFAIL "sysUpTime.*Timeticks" snmpget -p 1600 -n default -u whale -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 #
 # engineID & time discovery
 #
 
 TITLE "Demonstrate engineID and time discovery." "snmpget -noAuthNoPriv- to an agent that is not pre-configured."	"Note: Trace the 4 message exchange."
-DOIT snmpget -s -R $noAuthArgs -d $host
+OKORFAIL "sysUpTime.*Timeticks" snmpget -s -R $noAuthArgs -d $host $sysUpTime
 
 TITLE "snmpget -AuthNoPriv- to an agent that is not pre-configured." 	"Note: Trace the 6 message exchange."
-DOIT snmpget -s -R $AuthArgs -d $host
+OKORFAIL "sysUpTime.*Timeticks" snmpget -s -R $AuthArgs -d $host $sysUpTime
 
 #
 # Proper time stamp handling.
@@ -358,3 +419,4 @@ DOIT $asnmpget $sysUpTime
 TITLE "Done with the demonstration"
 
 STOPAGENT
+REPORT
