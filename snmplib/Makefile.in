@@ -52,7 +52,7 @@ CSRCS=	snmp_client.c               snmp_api.c snmp.c 		\
 	ucd/ucd_mib_api.c ucd/ucd_varbind.c ucd/ucd_convert.c	\
 	protocol/pdu.c protocol/encode.c			\
 	snmpv3/pdu.c snmpv3/engine.c snmpv3/v3info.c		\
-	snmpv3/auth.c snmpv3/priv.c snmpv3/usm.c 		\
+	snmpv3/auth.c snmpv3/priv.c snmpv3/user.c 		\
         community/pdu.c community/cinfo.c
 
 OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
@@ -73,7 +73,7 @@ OBJS=	snmp_client.o               snmp_api.o snmp.o 		\
 	ucd/ucd_mib_api.o ucd/ucd_varbind.o ucd/ucd_convert.o	\
 	protocol/pdu.o protocol/encode.o			\
 	snmpv3/pdu.o snmpv3/engine.o snmpv3/v3info.o		\
-	snmpv3/auth.o snmpv3/priv.o snmpv3/usm.o 		\
+	snmpv3/auth.o snmpv3/priv.o snmpv3/user.o 		\
         community/pdu.o community/cinfo.o
 
 LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
@@ -94,7 +94,7 @@ LOBJS=	snmp_client.lo                 snmp_api.lo snmp.lo 	\
 	ucd/ucd_mib_api.lo ucd/ucd_varbind.lo ucd/ucd_convert.lo\
 	protocol/pdu.lo protocol/encode.lo			\
 	snmpv3/pdu.lo snmpv3/engine.lo snmpv3/v3info.lo		\
-	snmpv3/auth.lo snmpv3/priv.lo snmpv3/usm.lo 		\
+	snmpv3/auth.lo snmpv3/priv.lo snmpv3/user.lo 		\
         community/pdu.lo community/cinfo.lo
 
 # just in case someone wants to remove libtool, change this to OBJS.
