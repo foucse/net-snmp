@@ -8,6 +8,8 @@
  *
  * Test of hash_engineID().				SUCCESSes:  0
  * Test of LCD Engine ID and Time List.			SUCCESSes:  3
+ *
+ * FIX  Devise a test for {set,get}_enginetime(..., FALSE).
  */
 
 static char *rcsid = "$Id$";	/* */
@@ -297,16 +299,12 @@ EM(-1); /* */
 	}
 
 
-#ifdef FIXmissingargument
-	rval = set_enginetime("BB", 2, 20, 2);
+	rval = set_enginetime("BB", 2, 20, 2, TRUE);
 	FAILED(rval, "set_enginetime()");
 
 
-	rval = set_enginetime("CCC", 3, 90127, 31);
+	rval = set_enginetime("CCC", 3, 90127, 31, TRUE);
 	FAILED(rval, "set_enginetime()");
-#else
-	FAILED(SNMPERR_GENERR, "FIX  update set_enginetime() args...");
-#endif
 
 
 	SUCCESS("Check of empty list, and two additions.");
@@ -359,12 +357,8 @@ EM(-1); /* */
 
 
 
-#ifdef FIXmissingargument
-	rval = get_enginetime("BB", 2, &etime, &eboot);
+	rval = get_enginetime("BB", 2, &etime, &eboot, TRUE);
 	FAILED(rval, "get_enginetime().");
-#else
-	FAILED(SNMPERR_GENERR, "FIX3  update set_enginetime() args...");
-#endif
 
 	fprintf(stdout, "BB = <%d,%d>\n", etime, eboot);
 	if ( (etime < 20) || (eboot < 2) ) {
@@ -372,13 +366,8 @@ EM(-1); /* */
 			"get_enginetime() returned bad values.  (1)");
 	}
 
-
-#ifdef FIXmissingargument
-	rval = get_enginetime("DDDD", 4, &etime, &eboot);
+	rval = get_enginetime("DDDD", 4, &etime, &eboot, TRUE);
 	FAILED(rval, "get_enginetime().");
-#else
-	FAILED(SNMPERR_GENERR, "FIX3  update set_enginetime() args...");
-#endif
 
 	fprintf(stdout, "DDDD = <%d,%d>\n", etime, eboot);
 	if ( (etime < sleeptime) || (eboot != 0) ) {
@@ -387,16 +376,12 @@ EM(-1); /* */
 	}
 
 
-#ifdef FIXmissingargument
-	rval = set_enginetime("CCC", 3, 10000, 234);
+	rval = set_enginetime("CCC", 3, 10000, 234, TRUE);
 	FAILED(rval, "set_enginetime().");
 
 
-	rval = set_enginetime("EEEEE", 5, 55555, 9876);
+	rval = set_enginetime("EEEEE", 5, 55555, 9876, TRUE);
 	FAILED(rval, "set_enginetime().");
-#else
-	FAILED(SNMPERR_GENERR, "FIX2  update set_enginetime() args...");
-#endif
 
 
 	SUCCESS("Retrieval and updates.");

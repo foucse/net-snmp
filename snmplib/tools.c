@@ -50,7 +50,7 @@ malloc_random(int *size)
 
 #ifdef							HAVE_LIBKMT
 	if (buf) {
-		rval = kmt_random(KMT_RAND_DEFAULT, buf, *size);
+		rval = kmt_random(buf, *size);
 
 		if (rval < 0) {
 			free_zero(buf, *size);

@@ -65,7 +65,7 @@ done
 [ -z "$PROGRAM" ] && echo $USAGE && exit 1
 
 
-SCRIPTFILE="__`echo $PROGRAM | sed 's/ /_/g'`__$$o"
+SCRIPTFILE="__`echo \`basename $PROGRAM\` | sed 's/ /_/g'`__$$o"
 
 
 

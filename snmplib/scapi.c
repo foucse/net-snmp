@@ -107,7 +107,7 @@ sc_random(u_char *buf, u_int *buflen)
 
 EM(-1); /* */
 
-	rval = kmt_random(KMT_RAND_DEFAULT, buf, *buflen);
+	rval = kmt_random(buf, *buflen);
 	if (rval < 0) {
 		rval = SNMPERR_SC_GENERAL_FAILURE;
 	} else {

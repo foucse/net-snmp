@@ -21,7 +21,7 @@ all: subdirs snmpd
 
 subdirs:
 	cd mibgroup; $(MAKE); cd ..
-#	cd dlmods; $(MAKE); cd ..
+	cd dlmods; $(MAKE); cd ..
 
 
 getkstat: getkstat.o
@@ -51,7 +51,7 @@ clean:
 
 
 install:  installdirs
-#	cd dlmods ; $(MAKE) install; cd ..
+	cd dlmods ; $(MAKE) install; cd ..
 	@$(INSTALL) $(TARG) $(sbindir) ; echo "install:  installed $(TARG) in $(sbindir) "
 
 installdirs:
