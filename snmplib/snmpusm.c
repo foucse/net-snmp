@@ -224,7 +224,10 @@ emergency_print (u_char *field, u_int length)
 int
 asn_predict_int_length (int type, long number, int len)
 {
-	/* Do this the same way as asn_built_int... */
+
+	/* Just the length of the integer -- NOT THE HEADER! */
+
+	/* Do this the same way as asn_build_int... */
 	register u_long mask;
 
 	if (len != sizeof (long)) return -1;
@@ -238,7 +241,7 @@ asn_predict_int_length (int type, long number, int len)
 		number <<= 8;
 	}
 
-	return 1+1+len;
+	return len;
 }
 
 /*
@@ -254,7 +257,11 @@ asn_predict_length (int type, u_char *ptr, int u_char_len)
 	if (type & ASN_SEQUENCE) return 1+3+u_char_len;
 
 	if (type &  ASN_INTEGER)
-		return asn_predict_int_length (type, (long) *ptr, u_char_len);
+	{
+		u_long value;
+		memcpy (&value, ptr, u_char_len);
+		u_char_len = asn_predict_int_length (type, value, u_char_len);
+	}
 
 	if (u_char_len < 0x80)
 		return 1+1+u_char_len;
@@ -346,24 +353,29 @@ usm_calc_offsets (
 	{
 		return -1;
 	}
+
 	if ((engBtlen = asn_predict_length (ASN_INTEGER,
 		(u_char*)&engineboots,sizeof(long)))==-1)
 	{
 		return -1;
 	}
+
 	if ((engTmlen = asn_predict_length (ASN_INTEGER,
 		(u_char*)&enginetime,sizeof(long)))==-1)
 	{
 		return -1;
 	}
+
 	if ((namelen = asn_predict_length (ASN_OCTET_STR,0,secNameLen))==-1)
 	{
 		return -1;
 	}
+
 	if ((authlen = asn_predict_length (ASN_OCTET_STR,0,*msgAuthParmLen))==-1)
 	{
 		return -1;
 	}
+
 	if ((privlen = asn_predict_length (ASN_OCTET_STR,0,*msgPrivParmLen))==-1)
 	{
 		return -1;
