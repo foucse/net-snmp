@@ -34,36 +34,21 @@ static unsigned int usmUserSpinLock=0;
 
 
 
-void
-init_usmUser(void)
-{
+void init_usmUser(void) {
   /* initialize the user list */
   usm_add_user(usm_create_initial_user());
   snmpd_register_config_handler("usmUser",
                                 usm_parse_config_usmUser, NULL);
 }
 
-void
-usm_parse_config_usmUser(char *token, char *line)
-{
-  struct usmUser *uptr;
-
-  uptr = usm_read_user(line);
-  usm_add_user(uptr);
-}
-
-void
-shutdown_usmUser(void)
-{
+void shutdown_usmUser(void) {
   /* save the user base */
   usm_save_users("usmUser", "snmpd");
 }
   
 /* given a user's information, generate the index OID for it */
-oid *
-usm_generate_OID(oid *prefix, int prefixLen, struct usmUser *uptr,
-                  int *length)
-{
+oid * usm_generate_OID(oid *prefix, int prefixLen, struct usmUser *uptr,
+                       int *length) {
   oid *indexOid;
   int i;
 
