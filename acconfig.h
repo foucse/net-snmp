@@ -71,10 +71,15 @@
 
 @BOTTOM@
 
+/* If defined, the snmplib library will store contents of the
+   DESCRIPTION field in the mib.txt file.  Since none of the
+   distributed applications use this information, it is turned off by
+   default.  Uncomment to turn storage back on. */
+/* #define USE_DESCRIPTION */
 
 /* the ErrorFlag is V1 accessable because HP Openview does not support
-V2.  You can make this list of pairs as long as you want, just make
-sure to end it in -1.*/
+   V2.  You can make this list of pairs as long as you want, just make
+   sure to end it in -1.*/
 
 #define SECURITYEXCEPTIONS {100,SNMPV1,-1} /* the ErrorFlag is V1 */
 
