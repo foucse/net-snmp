@@ -84,7 +84,8 @@ typedef struct _snmp_tdomain {
   size_t		 name_length;
   const char 	       **prefix;
 
-  snmp_transport	*(*f_create)(const char *, int);
+  snmp_transport      *(*f_create_from_tstring)(const char *, int);
+  snmp_transport      *(*f_create_from_ostring)(const u_char *, size_t, int);
 
   struct _snmp_tdomain	*next;
 } snmp_tdomain;
@@ -110,11 +111,6 @@ void		     	snmp_transport_free	(snmp_transport *t);
     domain (e.g. in pdu->tDomain etc.) is written to *out_oid and its length
     to *out_len.  */
 
-int			snmp_transport_support	(const oid *in_oid,
-						 size_t in_len,
-						 const oid **out_oid,
-						 size_t *out_len);
-						 
 int			snmp_tdomain_support	(const oid *in_oid,
 						 size_t in_len,
 						 const oid **out_oid,
@@ -128,6 +124,11 @@ void			snmp_tdomain_init	(void);
 
 snmp_transport	       *snmp_tdomain_transport	(const char *string, int local,
 						 const char *default_domain);
+
+snmp_transport	       *snmp_tdomain_transport_oid(const oid *dom, 
+						   size_t dom_len,
+						   const u_char *o,
+						   size_t o_len, int local);
 
 #ifdef __cplusplus
 }

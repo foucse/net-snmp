@@ -181,6 +181,16 @@ snmp_transport		*snmp_ipx_transport	(struct sockaddr_ipx *addr,
   }
 
   if (local) {
+    t->local = malloc(12);
+    if (t->local == NULL) {
+      snmp_transport_free(t);
+      return NULL;
+    }
+    memcpy(&(t->local[00]), (u_char *)&(addr->sipx_network), 4);
+    memcpy(&(t->local[04]), (u_char *)&(addr->sipx_node),    6);
+    memcpy(&(t->local[10]), (u_char *)&(addr->sipx_port),    2);
+    t->local_length = 12;
+
     /*  This session is inteneded as a server, so we must bind on to the given
 	address (which may include a particular network and/or node address,
 	but definitely includes a port number).  */
@@ -194,6 +204,16 @@ snmp_transport		*snmp_ipx_transport	(struct sockaddr_ipx *addr,
     t->data = NULL;
     t->data_length = 0;
   } else {
+    t->remote = malloc(12);
+    if (t->remote == NULL) {
+      snmp_transport_free(t);
+      return NULL;
+    }
+    memcpy(&(t->remote[00]), (u_char *)&(addr->sipx_network), 4);
+    memcpy(&(t->remote[04]), (u_char *)&(addr->sipx_node),    6);
+    memcpy(&(t->remote[10]), (u_char *)&(addr->sipx_port),    2);
+    t->remote_length = 12;
+
     /*  This is a client session.  Save the address in the transport-specific
 	data pointer for later use by snmp_ipx_send.  */
 
@@ -318,7 +338,7 @@ int			snmp_sockaddr_ipx	(struct sockaddr_ipx *addr,
 
 
 
-snmp_transport	*snmp_ipx_create		(const char *string, int local)
+snmp_transport	*snmp_ipx_create_tstring	(const char *string, int local)
 {
   struct sockaddr_ipx addr;
 
@@ -331,13 +351,32 @@ snmp_transport	*snmp_ipx_create		(const char *string, int local)
 
 
 
+snmp_transport	*snmp_ipx_create_ostring	(const u_char *o, size_t o_len,
+						 int local)
+{
+  struct sockaddr_ipx addr;
+
+  if (o_len == 12) {
+    addr.sipx_family = AF_IPX;
+    memcpy((u_char *)&(addr.sipx_network), &(o[00]), 4);
+    memcpy((u_char *)&(addr.sipx_node),    &(o[04]), 6);
+    memcpy((u_char *)&(addr.sipx_port),    &(o[10]), 2);
+    return snmp_ipx_transport(&addr, local);
+  }
+  return NULL;
+}
+
+
+
 void		snmp_ipx_ctor			(void)
 {
   ipxDomain.name        = snmpIPXDomain;
   ipxDomain.name_length = sizeof(snmpIPXDomain)/sizeof(oid);
-  ipxDomain.f_create	= snmp_ipx_create;
   ipxDomain.prefix	= calloc(2, sizeof(char *));
   ipxDomain.prefix[0] 	= "ipx";
+
+  ipxDomain.f_create_from_tstring = snmp_ipx_create_tstring;
+  ipxDomain.f_create_from_ostring = snmp_ipx_create_ostring;
 
   snmp_tdomain_register(&ipxDomain);
 }

@@ -243,6 +243,15 @@ snmp_transport		*snmp_tcp_transport	(struct sockaddr_in *addr,
 	INADDR_ANY, but will always include a port number.  */
     
     t->flags |= SNMP_TRANSPORT_FLAG_LISTEN;
+    t->local = malloc(6);
+    if (t->local == NULL) {
+      snmp_transport_free(t);
+      return NULL;
+    }
+    memcpy(t->local, (u_char *)&(addr->sin_addr.s_addr), 4);
+    t->local[4] = (addr->sin_port & 0xff00) >> 8;
+    t->local[5] = (addr->sin_port & 0x00ff) >> 0;
+    t->local_length = 6;
 
     /*  We should set SO_REUSEADDR too.  */
     
@@ -278,6 +287,16 @@ snmp_transport		*snmp_tcp_transport	(struct sockaddr_in *addr,
       return NULL;
     }
   } else {
+    t->remote = malloc(6);
+    if (t->remote == NULL) {
+      snmp_transport_free(t);
+      return NULL;
+    }
+    memcpy(t->remote, (u_char *)&(addr->sin_addr.s_addr), 4);
+    t->remote[4] = (addr->sin_port & 0xff00) >> 8;
+    t->remote[5] = (addr->sin_port & 0x00ff) >> 0;
+    t->remote_length = 6;
+
     /*  This is a client-type session, so attempt to connect to the far end.
 	We don't go non-blocking here because it's not obvious what you'd then
 	do if you tried to do snmp_sends before the connection had completed.
@@ -307,7 +326,7 @@ snmp_transport		*snmp_tcp_transport	(struct sockaddr_in *addr,
 
 
 
-snmp_transport	*snmp_tcp_create		(const char *string, int local)
+snmp_transport	*snmp_tcp_create_tstring	(const char *string, int local)
 {
   struct sockaddr_in addr;
 
@@ -320,13 +339,31 @@ snmp_transport	*snmp_tcp_create		(const char *string, int local)
 
 
 
+snmp_transport	*snmp_tcp_create_ostring       (const u_char *o, size_t o_len,
+						int local)
+{
+  struct sockaddr_in addr;
+
+  if (o_len == 6) {
+    addr.sin_family = AF_INET;
+    memcpy((u_char *)&(addr.sin_addr.s_addr), o, 4);
+    addr.sin_port = (o[4] << 8) + o[5];
+    return snmp_tcp_transport(&addr, local);
+  }
+  return NULL;
+}
+
+
+
 void		snmp_tcp_ctor			(void)
 {
   tcpDomain.name        = snmpTCPDomain;
   tcpDomain.name_length = sizeof(snmpTCPDomain)/sizeof(oid);
-  tcpDomain.f_create	= snmp_tcp_create;
   tcpDomain.prefix      = calloc(2, sizeof(char *));
   tcpDomain.prefix[0]   = "tcp";
+
+  tcpDomain.f_create_from_tstring = snmp_tcp_create_tstring;
+  tcpDomain.f_create_from_ostring = snmp_tcp_create_ostring;
 
   snmp_tdomain_register(&tcpDomain);
 }
