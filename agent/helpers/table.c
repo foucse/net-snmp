@@ -80,7 +80,9 @@ closest_column(unsigned int current, column_info * valid_columns)
     unsigned int    closest = 0;
     char            done = 0;
     char            idx;
-    assert(valid_columns != NULL);
+
+    if(valid_columns == NULL)
+        return 0;
 
     do {
 
@@ -159,11 +161,12 @@ table_helper_handler(mib_handler * handler,
     }
 
     /*
-     * * if the agent request info has a state reference, then * this is a 
-     * later pass of a set request and we can * skip all the lookup stuff.
-     * * xxx-rks: this might break for handlers which only handle * one pdu 
-     * at a time... those handlers should not save * data by their
-     * handler_name. 
+     * if the agent request info has a state reference, then this is a 
+     * later pass of a set request and we can skip all the lookup stuff.
+     *
+     * xxx-rks: this might break for handlers which only handle one varbind
+     * at a time... those handlers should not save data by their handler_name
+     * in the agent_request_info. 
      */
     if (agent_get_list_data(reqinfo, handler->handler_name)) {
         if (MODE_IS_SET(reqinfo->mode)) {
@@ -194,11 +197,8 @@ table_helper_handler(mib_handler * handler,
         /*
          * this should probably be handled further up 
          */
-        if ((reqinfo->mode == MODE_GET) && (var->type != ASN_NULL)) {   /* valid 
-                                                                         * request 
-                                                                         * if 
-                                                                         * ASN_NULL 
-                                                                         */
+        if ((reqinfo->mode == MODE_GET) && (var->type != ASN_NULL)) {
+          /* valid request if ASN_NULL */
             DEBUGMSGTL(("helper:table",
                         "  GET var type is not ASN_NULL\n"));
             set_request_error(reqinfo, request, SNMP_ERR_WRONGTYPE);
@@ -206,17 +206,13 @@ table_helper_handler(mib_handler * handler,
         }
 
         /*
-         * * check to make sure its in table range 
+         * check to make sure its in table range 
          */
 
         out_of_range = 0;
         /*
          * if our root oid is > var->name and this is not a GETNEXT, 
-         */
-        /*
          * then the oid is out of range. (only compare up to shorter 
-         */
-        /*
          * length) 
          */
         if (reginfo->rootoid_len > var->name_length)
@@ -237,8 +233,6 @@ table_helper_handler(mib_handler * handler,
         }
         /*
          * if var->name is longer than the root, make sure it is 
-         */
-        /*
          * table.1 (table.ENTRY).  
          */
         else if ((var->name_length > reginfo->rootoid_len) &&
@@ -254,14 +248,8 @@ table_helper_handler(mib_handler * handler,
         }
         /*
          * if it is not in range, then remove it from the request list 
-         */
-        /*
          * because we can't process it. If the request is not a GETNEXT 
-         */
-        /*
          * then set the error to NOSUCHOBJECT so nobody else wastes time
-         */
-        /*
          * trying to process it.  
          */
         if (out_of_range) {
@@ -321,7 +309,7 @@ table_helper_handler(mib_handler * handler,
             /*
              * var->name_length may have changed - check again 
              */
-            if (var->name_length <= oid_column_pos) {   /* none available */
+            if (var->name_length <= oid_column_pos) { /** none available */
                 tbl_req_info->index_oid_len = 0;
             } else {
                 tbl_req_info->colnum = var->name[oid_column_pos];
@@ -384,14 +372,14 @@ table_helper_handler(mib_handler * handler,
                  */
                 if (incomplete)
                     continue;
-                ++tbl_req_info->number_indexes; /* got one ok */
+                ++tbl_req_info->number_indexes; /** got one ok */
                 if (tmp_len <= 0) {
                     incomplete = 1;
                     tmp_len = -1;       /* is this necessary? Better safe
                                          * than sorry */
                 }
             }
-        }                       /* for loop */
+        }                       /** for loop */
 
 
         /*
@@ -451,9 +439,8 @@ table_build_oid(handler_registration * reginfo,
         return SNMPERR_GENERR;
 
     memcpy(tmpoid, reginfo->rootoid, reginfo->rootoid_len * sizeof(oid));
-    tmpoid[reginfo->rootoid_len] = 1;   /* .Entry */
-    tmpoid[reginfo->rootoid_len + 1] = table_info->colnum;      /* .column 
-                                                                 */
+    tmpoid[reginfo->rootoid_len] = 1;   /** .Entry */
+    tmpoid[reginfo->rootoid_len + 1] = table_info->colnum; /** .column */
 
     var = reqinfo->requestvb;
     if (build_oid(&var->name, &var->name_length,

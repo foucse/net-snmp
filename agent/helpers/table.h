@@ -42,7 +42,7 @@ typedef struct column_info_t {
 typedef struct variable_list * (FirstDataPoint)(void **loop_context,
                                                 void **data_context,
                                                 struct variable_list *);
-typedef struct variable_list * (NextDataPoint)(void **,
+typedef struct variable_list * (NextDataPoint)(void **loop_context,
                                                void **data_context,
                                                struct variable_list *);
 typedef void (FreeLoopContext)(void *);
