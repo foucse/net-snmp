@@ -101,10 +101,11 @@ snmp_parse_args_descriptions(outf)
 }
 
 int
-snmp_parse_args(argc, argv, session)
+snmp_parse_args(argc, argv, session, type)
   int argc;
   char *argv[];
   struct snmp_session *session;
+  char *type;
 {
   int arg;
   char *psz;
@@ -286,7 +287,7 @@ snmp_parse_args(argc, argv, session)
   }
 
   /* read in MIB database and initialize the snmp library*/
-  init_snmp();
+  init_snmp(type);
 
   /* get the hostname */
   if (arg == argc) {
