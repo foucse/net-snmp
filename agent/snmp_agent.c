@@ -285,9 +285,11 @@ handle_snmp_packet(int operation, struct snmp_session *session, int reqid,
             asp->pdu->command = SNMP_MSG_RESPONSE;
             snmp_increment_statistic(STAT_SNMPOUTPKTS);
             snmp_send( asp->session, asp->pdu );
+	    free(asp);
             return 1;
         } else {
             /* drop the request */
+	    snmp_free_pdu(asp->pdu);
             free( asp );
             return 0;
         }
