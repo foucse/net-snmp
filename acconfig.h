@@ -1,5 +1,8 @@
 /* config.h:  a general config file */
 
+/* Our assigned enterprise number */
+#define ENTERPRISE_NUMBER 2021
+
 /* don't change these values! */
 #define SNMPV1      0xAAAA       /* readable by anyone */
 #define SNMPV2ANY   0xA000       /* V2 Any type (includes NoAuth) */
