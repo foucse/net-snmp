@@ -1,0 +1,77 @@
+V3 Packet Generator
+
+A flexible data-driven SNMPv3 packet generator has been developed in
+support of future testing needs.  The functional goal of the tool is
+to allow arbitrarily contructed (both legal and illegal message
+content) V3 messages to be encoded. These messages may then be issued
+to a remote SNMPv3 engine as unsolicited messages or as a response in
+order to verify that the remote engine responds correctly to a wide
+range of possible input traffic. Specifically, test messages can be
+constructed which will exercise the error Reporting facility specified
+in SNMPv3.
+
+Below is a condensed data description of the SNMPv3 message
+format. The field names defined below can be added to a file along
+with values to define the packet to be sent. The value syntax is
+flexible to allow raw hex, enumerated symbolic values or other more
+familiar ways of expressing the value of a given field. Default, v3
+oriented values are defined for all fields so that a very minimal
+description can be used to produce a v3 message.
+
+The tool is implemented in perl and requires the Convert::BER module
+to be installed.
+
+---data field names and enumerstions--------------------
+
+SEQUENCE snmpV3Msg {
+    INTEGER msgVersion {snmpv3(3)};
+    SEQUENCE msgGlobalData {
+        INTEGER msgID;
+        INTEGER msgMaxSize {1472};
+        OCTSTR msgFlags[1]
+           {reportableFlag(0x04) authFlag(0x01) privFlag(0x02)};
+        INTEGER msgSecModel {snmpv3(3)};
+    };
+    OCTSTR msgSecParam  {
+        SEQUENCE secParams {
+            OCTSTR msgEngineID;
+            INTEGER msgEngineBoots;
+            INTEGER msgEngineTime;
+            OCTSTR msgUserName;
+            OCTSTR msgAuthParam;
+            OCTSTR msgPrivParam;
+        };
+    };
+    SEQUENCE scopedPDU {
+        OCTSTR contextEngineID;
+        OCTSTR contextName;
+        CHOICE(GET|GETNEXT|RESPONSE|SET|TRAP|GETBULK|INFORM|TRAPv2|REPORT) pduData {
+            INTEGER reqID;
+            INTEGER errStat|nonRepeaters {noError(0) tooBig(1) };
+            INTEGER errInd|maxRepetitions;
+            SEQUENCE_OF varbindList {
+	        SEQUENCE varbind {
+                   OID objectID;
+                   BER value;
+                };
+            };
+        };
+   };
+};
+
+example packet descr
+
+----packet.txt---
+msgFlags => reportableFlag; # or 0x04
+msgID => 43;
+# the secParams field can be given in hex or each field defined seperately
+#secParams => 0x3019040C800007e5746573746974000201010201ef040004000400;
+msgEngineID => 0x040C800007e574657374697400;
+msgEngineBoots => 1;
+msgEngineTime => 1;
+msgUserName => initial;
+contextEngineID => 0x040C800007e574657374697400;
+contextName => "default";
+pduData => GETNEXT; 
+varbind => 0x3000;
+------------------------
