@@ -54,7 +54,7 @@ static u_int salt_integer = 4985517;
 int    reportErrorOnUnknownID = 0; /* Should be configurable item */
 
 void
-set_reportErrorOnUnknownID (value)
+usm_set_reportErrorOnUnknownID (value)
 int value;
 {
 	reportErrorOnUnknownID = value;
@@ -89,16 +89,17 @@ usm_malloc_usmStateReference()
 }
 
 void
-usm_free_usmStateReference(old)
-struct usmStateReference *old;
+usm_free_usmStateReference (old)
+void *old;
 {
-	if (old->usr_name_length != 0) free (old->usr_name);
-	if (old->usr_engine_id_length != 0) free (old->usr_engine_id);
-	if (old->usr_auth_protocol_length != 0) free(old->usr_auth_protocol);
-	if (old->usr_auth_key_length != 0) free (old->usr_auth_key);
-	if (old->usr_priv_protocol_length != 0) free(old->usr_priv_protocol);
-	if (old->usr_priv_key_length != 0) free (old->usr_priv_key);
-	free (old);
+	struct usmStateReference *old_ref = old;
+	if (old_ref->usr_name) free (old_ref->usr_name);
+	if (old_ref->usr_engine_id) free (old_ref->usr_engine_id);
+	if (old_ref->usr_auth_protocol) free(old_ref->usr_auth_protocol);
+	if (old_ref->usr_auth_key) free (old_ref->usr_auth_key);
+	if (old_ref->usr_priv_protocol) free(old_ref->usr_priv_protocol);
+	if (old_ref->usr_priv_key) free (old_ref->usr_priv_key);
+	free (old_ref);
 }
 
 /* A macro to ease the setting of the secStateRef parameters */
