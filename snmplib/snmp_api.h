@@ -741,7 +741,8 @@ void	*snmp_sess_add_ex(struct snmp_session *, struct _snmp_transport *,
 					      snmp_pdu *, int), 
 			  int (*fbuild) (struct snmp_session *, struct
 					 snmp_pdu *, u_char *, size_t *), 
-			  int (*fcheck) (u_char *, size_t));
+			  int (*fcheck) (u_char *, size_t),
+                          struct snmp_pdu * (*fcreate_pdu) (struct _snmp_transport *, void *, size_t));
 
 void   *snmp_sess_add	(struct snmp_session *, struct _snmp_transport *,
 			 int (*fpre_parse) (struct snmp_session *,
@@ -756,6 +757,15 @@ struct snmp_session *snmp_add(struct snmp_session *, struct _snmp_transport *,
 						 void *, int),
 			      int (*fpost_parse) (struct snmp_session *,
 						  struct snmp_pdu *, int));
+struct snmp_session *snmp_add_full(struct snmp_session *in_session,
+                                   struct _snmp_transport *transport,
+                                   int (*fpre_parse) (struct snmp_session *, struct _snmp_transport *, void *, int),
+                                   int (*fparse) (struct snmp_session *, struct snmp_pdu *, u_char *, size_t),
+                                   int (*fpost_parse) (struct snmp_session *, struct snmp_pdu *, int),
+                                   int (*fbuild) (struct snmp_session *, struct snmp_pdu *, u_char *, size_t *),
+                                   int (*fcheck) (u_char *, size_t),
+                                   struct snmp_pdu * (*fcreate_pdu) (struct _snmp_transport *, void *, size_t)
+);
 
 /* use return value from snmp_sess_open as void * parameter */
 
