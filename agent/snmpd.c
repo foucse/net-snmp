@@ -847,6 +847,8 @@ receive(void)
         /* run requested alarms */
         run_alarms();
         
+        check_outstanding_agent_requests(SNMP_ERR_NOERROR);
+
     }  /* endwhile */
 
     snmp_log(LOG_INFO, "Received TERM or STOP signal...  shutting down...\n");

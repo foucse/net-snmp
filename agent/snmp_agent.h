@@ -19,7 +19,56 @@ extern int	log_addresses;
 
 extern int	lastAddrAge;
 
+typedef struct request_info_s {
+   struct variable_list *requestvb; /* will certainly change */
+   void *parent_data;               /* can be used to pass information
+                                       on a per-request basis from a
+                                       helper to the final handler */
+   void *state_reference;           /* if multiple calls to you are
+                                       needed for a request (SETs
+                                       namely), this can be used to
+                                       store data between calls */
+   int processed;
+   int status;
+   struct request_info_s         *next;
+   struct request_info_s         *prev;
+} request_info;
 
+typedef struct _set_info {
+   int   action;
+   void *stateRef;
+
+/* don't use yet: */
+   void **oldData;
+   int   setCleanupFlags;
+#define AUTO_FREE_STATEREF 0x01 /* calls free(stateRef) */
+#define AUTO_FREE_OLDDATA  0x02 /* calls free(*oldData) */
+#define AUTO_UNDO          0x03 /* ... */
+} set_info;
+
+typedef struct tree_cache_s {
+   struct subtree *subtree;
+   request_info *requests_begin;
+   request_info *requests_end;
+} tree_cache;
+
+/* (will likely change later) */
+#define MODE_GET              SNMP_MSG_GET
+#define MODE_GETNEXT          SNMP_MSG_GETNEXT
+#define MODE_GETBULK          SNMP_MSG_GETBULK
+#define MODE_SET_RESERVE1     RESERVE1
+#define MODE_SET_RESERVE2     RESERVE2
+#define MODE_SET_ACTION       ACTION
+#define MODE_SET_COMMIT       COMMIT
+#define MODE_SET_FREE         FREE
+#define MODE_SET_UNDO         UNDO
+
+typedef struct agent_request_info_s {
+   int    mode;
+   struct snmp_pdu *pdu;                 /* pdu contains authinfo, eg */
+   struct agent_snmp_session *asp;       /* may not be needed */
+   /* ... */
+} agent_request_info;
 
 struct agent_snmp_session {
     int		mode;
@@ -34,8 +83,13 @@ struct agent_snmp_session {
     
     struct request_list *outstanding_requests;
     struct agent_snmp_session *next;
-};
 
+   /* new API pointers */
+   agent_request_info *reqinfo;
+   tree_cache **treecache;
+   int treecache_len; /* length of cache array */
+   int treecache_num; /* number of current cache entries */
+};
 
 /*  Address cache handling functions.  */
 
@@ -59,6 +113,7 @@ void dump_sess_list(void);
 int init_master_agent(void);
 int agent_check_and_process(int block);
 struct agent_snmp_session  *get_current_agent_session(void);
+void check_outstanding_agent_requests(int status);
 
 /*  Register and de-register agent NSAPs.  */
  

@@ -10,12 +10,13 @@ LIBTARG		= \
 		libucdmibs.$(LIB_EXTENSION)$(LIB_VERSION)
 CLEANTARG	= libucdagent.a libucdmibs.a
 USELIBS		= ../snmplib/libsnmp.$(LIB_EXTENSION)$(LIB_VERSION)
+HELPERLIB	= helpers/libhelpers.$(LIB_EXTENSION)$(LIB_VERSION)
 #LOCAL_LIBS	= -L../snmplib -L.
-LOCAL_LIBS	=
+LOCAL_LIBS	= 
 #LIBS		= $(CC_RUNTIME_ARG) -lsnmp @WRAPLIBS@ @LIBS@
 LIBS		= ../snmplib/libsnmp.$(LIB_EXTENSION)$(LIB_VERSION) @LIBS@
 #AGENT_LIBS	= $(CC_RUNTIME_ARG) -lucdagent -lucdmibs -lsnmp @WRAPLIBS@ $(LIBS) @DLLIBS@
-AGENT_LIBS	= $(LIBTARG) @WRAPLIBS@ $(LIBS) @DLLIBS@
+AGENT_LIBS	= $(LIBTARG) $(HELPERLIB) @WRAPLIBS@ $(LIBS) @DLLIBS@
 CPPFLAGS	= -I.. -I$(srcdir)/.. -I$(srcdir)/../snmplib \
 		  -I$(srcdir) -I. -I$(srcdir)/mibgroup -Imibgroup @CPPFLAGS@
 
@@ -48,7 +49,8 @@ all: subdirs snmpd$(EXEEXT) libucdagent.$(LIB_EXTENSION)$(LIB_VERSION)
 
 
 subdirs:
-	cd mibgroup; $(MAKE); cd ..
+	cd helpers; $(MAKE)
+	cd mibgroup; $(MAKE)
 
 getkstat: getkstat.o
 	$(CC) $(CFLAGS) -o $@ $? $(LOCAL_LIBS) $(LIBS)
@@ -62,13 +64,13 @@ getmibstat: getmibstat.o
 getmibstat.o: mibgroup/kernel_sunos5.c
 	$(CC) $(CFLAGS) -o $@ -D_GETMIBSTAT_TEST -DDODEBUG -c $? 
 
-snmpd$(EXEEXT):	${LAGENTOBJS} $(USELIBS) $(LIBTARG)
-	$(LINK) $(CFLAGS) -o $@ ${LAGENTOBJS} $(LOCAL_LIBS) ${LDFLAGS} ${AGENT_LIBS}  
+snmpd$(EXEEXT):	${LAGENTOBJS} $(USELIBS) $(HELPERLIB) $(LIBTARG)
+	$(LINK) $(CFLAGS) -o $@ ${LAGENTOBJS} $(LOCAL_LIBS) ${LDFLAGS} ${AGENT_LIBS}
 
 
 libucdagent.$(LIB_EXTENSION)$(LIB_VERSION):    ${LLIBAGENTOBJS} libucdmibs.$(LIB_EXTENSION)$(LIB_VERSION)
 	$(LIB_LD_CMD) libucdagent.$(LIB_EXTENSION)$(LIB_VERSION) ${LLIBAGENTOBJS}  $(LIB_LD_LIBS)
-	$(RANLIB) libucdmibs.$(LIB_EXTENSION)$(LIB_VERSION)
+	$(RANLIB) libucdagent.$(LIB_EXTENSION)$(LIB_VERSION)
 
 libucdmibs.$(LIB_EXTENSION)$(LIB_VERSION):    ${LMIBOBJS}
 	$(LIB_LD_CMD) libucdmibs.$(LIB_EXTENSION)$(LIB_VERSION) ${LMIBOBJS}  $(LIB_LD_LIBS)

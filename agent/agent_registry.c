@@ -49,10 +49,13 @@
 #include "agent_registry.h"
 #include "snmp_alarm.h"
 #include "snmp_secmod.h"
+#include "vacm.h"
 
 #include "snmpd.h"
 #include "mibgroup/struct.h"
 #include "mib_module_includes.h"
+#include "helpers/old_api.h"
+#include "helpers/null.h"
 
 #ifdef USING_AGENTX_SUBAGENT_MODULE
 #include "agentx/subagent.h"
@@ -136,6 +139,9 @@ split_subtree(struct subtree *current, oid name[], int name_len )
     for ( ptr = new_sub->next ; ptr != NULL ; ptr=ptr->children )
           ptr->prev = new_sub;
 
+    /* retain original APIv2 registration information */
+    new_sub->reginfo = current->reginfo;
+
     return new_sub;
 }
 
@@ -173,7 +179,6 @@ load_subtree( struct subtree *new_sub )
 	if ( tree2 && snmp_oid_compare( new_sub->end, new_sub->end_len,
 					tree2->start, tree2->start_len ) > 0 )
 	    new2 = split_subtree( new_sub, tree2->start, tree2->start_len );
-
 		/*
 		 * Link the new subtree (less any overlapping region)
 		 *  with the list of existing registrations
@@ -210,8 +215,8 @@ load_subtree( struct subtree *new_sub )
 	if ( snmp_oid_compare( new_sub->start, new_sub->start_len, 
 			       tree1->start,   tree1->start_len) != 0 )
 	    tree1 = split_subtree( tree1, new_sub->start, new_sub->start_len);
-	    if ( tree1 == NULL )
-		return MIB_REGISTRATION_FAILED;
+            if ( tree1 == NULL )
+                return MIB_REGISTRATION_FAILED;
 
 	/*  Now consider the end of this existing subtree:
 	 *	If it matches the new subtree precisely,
@@ -290,9 +295,8 @@ load_subtree( struct subtree *new_sub )
     return 0;
 }
 
-
 int
-register_mib_context(const char *moduleName,
+register_mib_context2(const char *moduleName,
 	     struct variable *var,
 	     size_t varsize,
 	     size_t numvars,
@@ -304,7 +308,8 @@ register_mib_context(const char *moduleName,
 	     struct snmp_session *ss,
 	     const char *context,
 	     int timeout,
-	     int flags)
+	     int flags,
+             handler_registration *reginfo)
 {
   struct subtree *subtree, *sub2;
   int res, i;
@@ -346,6 +351,7 @@ register_mib_context(const char *moduleName,
   subtree->range_subid = range_subid;
   subtree->range_ubound = range_ubound;
   subtree->session = ss;
+  subtree->reginfo = reginfo;
   subtree->flags = (u_char)flags;  /* used to identify instance oids */
   res = load_subtree(subtree);
 
@@ -411,6 +417,27 @@ register_mib_context(const char *moduleName,
                       &reg_parms);
 
   return res;
+}
+
+
+int
+register_mib_context(const char *moduleName,
+                     struct variable *var,
+                     size_t varsize,
+                     size_t numvars,
+                     oid *mibloc,
+                     size_t mibloclen,
+                     int priority,
+                     int range_subid,
+                     oid range_ubound,
+                     struct snmp_session *ss,
+                     const char *context,
+                     int timeout,
+                     int flags) {
+    return register_old_api(moduleName, var, varsize, numvars, mibloc,
+                            mibloclen, priority,
+                            range_subid, range_ubound,
+                            ss, context, timeout, flags);
 }
 
 /* reattach a particular subtree */
@@ -755,11 +782,11 @@ in_a_view(oid		  *name,      /* IN - name of var, OUT - name matched */
   view_parms.errorcode = 0;
 
   if (pdu->flags & UCD_MSG_FLAG_ALWAYS_IN_VIEW)
-    return 0;		/* Enable bypassing of view-based access control */
+    return VACM_SUCCESS; /* Enable bypassing of view-based access control */
 
   /* check for v1 and counter64s, since snmpv1 doesn't support it */
   if (pdu->version == SNMP_VERSION_1 && type == ASN_COUNTER64)
-    return 5;
+    return VACM_NOTINVIEW;
   switch (pdu->version) {
   case SNMP_VERSION_1:
   case SNMP_VERSION_2c:
@@ -768,7 +795,7 @@ in_a_view(oid		  *name,      /* IN - name of var, OUT - name matched */
                         &view_parms);
     return view_parms.errorcode;
   }
-  return 1;
+  return VACM_NOSECNAME;
 }
 
 /* in_a_view: determines if a given snmp_pdu is ever going to be allowed to do
@@ -911,6 +938,8 @@ static struct subtree root_subtrees[] = {
 
 void setup_tree (void)
 {
+    handler_registration *reginfo;
+    
 #ifdef USING_AGENTX_SUBAGENT_MODULE
   int role;
 
@@ -918,13 +947,10 @@ void setup_tree (void)
   ds_set_boolean(DS_APPLICATION_ID, DS_AGENT_ROLE, MASTER_AGENT);
 #endif
 
-  register_mib("", NULL, 0, 0,
-	root_subtrees[0].name,  root_subtrees[0].namelen);
-  register_mib("", NULL, 0, 0,
-	root_subtrees[1].name,  root_subtrees[1].namelen);
-  register_mib("", NULL, 0, 0,
-	root_subtrees[2].name,  root_subtrees[2].namelen);
-
+  register_null(root_subtrees[0].name,  root_subtrees[0].namelen);
+  register_null(root_subtrees[1].name,  root_subtrees[1].namelen);
+  register_null(root_subtrees[2].name,  root_subtrees[2].namelen);
+  
   /* Support for 'static' subtrees (subtrees_old) has now been dropped */
 
   /* No longer necessary to sort the mib tree - this is inherent in
@@ -1122,6 +1148,148 @@ int unregister_signal(int sig) {
     signal(sig, SIG_DFL);
     DEBUGMSGTL(("unregister_signal", "unregistered signal %d\n", sig));
     return SIG_UNREGISTERED_OK;
+}
+
+/***********************************************************************/
+/* New Handler based API */
+/***********************************************************************/
+
+int
+register_handler(handler_registration *reginfo) {
+    mib_handler *handler;
+    DEBUGIF("handler::register") {
+        DEBUGMSGTL(("handler::register", "Registering"));
+        for(handler = reginfo->handler; handler;
+            handler = handler->next) {
+            DEBUGMSG(("handler::register"," %s", handler->handler_name));
+        }
+            
+        DEBUGMSG(("handler::register", " at "));
+        if (reginfo->rootoid) {
+            DEBUGMSGOID(("handler::register", reginfo->rootoid,
+                         reginfo->rootoid_len));
+        } else {
+            DEBUGMSG(("handler::register", "[null]"));
+        }
+        DEBUGMSG(("handler::register", "\n"));
+    }
+    
+    return register_mib_context2(reginfo->handler->handler_name,
+                         NULL, 0, 0,
+                         reginfo->rootoid, reginfo->rootoid_len,
+                         reginfo->priority,
+                         reginfo->range_subid, reginfo->range_ubound,
+                         NULL,
+                         reginfo->contextName,
+                         reginfo->timeout,
+                         0, reginfo);
+}
+
+int
+inject_handler(handler_registration *reginfo, mib_handler *handler) {
+    DEBUGMSGTL(("handler:inject", "injecting %s before %s\n", handler->handler_name, reginfo->handler->handler_name));
+    handler->next = reginfo->handler;
+    if (reginfo->handler)
+        reginfo->handler->prev = handler;
+    reginfo->handler = handler;
+    return SNMPERR_SUCCESS;
+}
+
+int call_handlers(handler_registration *reginfo,
+                  agent_request_info   *reqinfo,
+                  request_info         *requests) {
+    NodeHandler *nh;
+    int status;
+    
+    if (reginfo == NULL || reqinfo == NULL || requests == NULL) {
+        snmp_log(LOG_ERR, "call_handlers() called illegally");
+        return  SNMP_ERR_GENERR;
+    }
+
+    if (reginfo->handler == NULL) {
+        snmp_log(LOG_ERR, "no handler specified.");
+        return  SNMP_ERR_GENERR;
+    }
+        
+    DEBUGMSGTL(("handler:calling", "calling handler %s\n",
+                 reginfo->handler->handler_name));
+    
+    nh = reginfo->handler->access_method;
+    if (!nh) {
+        snmp_log(LOG_ERR, "no handler access method specified.");
+        return SNMP_ERR_GENERR;
+    }
+
+    /* XXX: define acceptable return statuses */
+    status = (*nh)(reginfo->handler, reginfo, reqinfo, requests);
+
+    return status;
+}
+
+inline int call_handler(mib_handler          *next_handler,
+                        handler_registration *reginfo,
+                        agent_request_info   *reqinfo,
+                        request_info         *requests) {
+    NodeHandler *nh;
+    
+    if (next_handler == NULL || reginfo == NULL || reqinfo == NULL ||
+        requests == NULL) {
+        snmp_log(LOG_ERR, "call_next_handler() called illegally");
+        return  SNMP_ERR_GENERR;
+    }
+
+    nh = next_handler->access_method;
+    if (!nh) {
+        snmp_log(LOG_ERR, "no access method specified in handler %s.",
+                 next_handler->handler_name);
+        return SNMP_ERR_GENERR;
+    }
+
+    DEBUGMSGTL(("handler:calling", "calling handler %s\n",
+                 next_handler->handler_name));
+
+    return (*nh)(next_handler, reginfo, reqinfo, requests);
+}
+
+inline int call_next_handler(mib_handler          *current,
+                             handler_registration *reginfo,
+                             agent_request_info   *reqinfo,
+                             request_info         *requests) {
+
+    if (current == NULL || reginfo == NULL || reqinfo == NULL ||
+        requests == NULL) {
+        snmp_log(LOG_ERR, "call_next_handler() called illegally");
+        return  SNMP_ERR_GENERR;
+    }
+
+    return call_handler(current->next, reginfo, reqinfo, requests);
+}
+
+mib_handler *
+create_handler(const char *name, NodeHandler *handler_access_method) {
+    mib_handler *ret = SNMP_MALLOC_TYPEDEF(mib_handler);
+    ret->handler_name = strdup(name);
+    ret->access_method = handler_access_method;
+    return ret;
+}
+
+inline delegated_cache *
+create_delegated_cache(mib_handler               *handler,
+                       handler_registration      *reginfo,
+                       agent_request_info        *reqinfo,
+                       request_info              *requests,
+                       void                      *localinfo) {
+    delegated_cache *ret;
+
+    ret = SNMP_MALLOC_TYPEDEF(delegated_cache);
+    if (ret) {
+        ret->handler = handler;
+        ret->reginfo = reginfo;
+        ret->reqinfo = reqinfo;
+        ret->requests = requests;
+        ret->localinfo = localinfo;
+    }
+    return ret;
 }
 
 #endif /* !WIN32 */
