@@ -1831,6 +1831,14 @@ parse_asntype(FILE *fp,
 		type = OBJID;
 	    }
         }
+	else if (type == OBJECT) {
+	    type = get_token(fp, token, MAXTOKEN);
+	    if (type != IDENTIFIER) {
+	        print_error("Expected IDENTIFIER", token, type);
+		return NULL;
+	    }
+	    type = OBJID;
+	}
 
         if (type == LABEL)
         {

@@ -453,13 +453,13 @@ systemGroup OBJECT-GROUP
          managed systems."
     ::= { snmpMIBGroups  6 }
 
--- snmpBasicNotificationsGroup NOTIFICATION-GROUP
---     OBJECTS    { coldStart,  authenticationFailure }
---     STATUS     current
---     DESCRIPTION
---         "The two notifications which an SNMPv2 entity is required to
---          implement."
---     ::= { snmpMIBGroups  7 }
+snmpBasicNotificationsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS    { coldStart,  authenticationFailure }
+    STATUS     current
+    DESCRIPTION
+        "The two notifications which an SNMPv2 entity is required to
+         implement."
+    ::= { snmpMIBGroups  7 }
 
 snmpOutPkts OBJECT-TYPE
     SYNTAX     Counter32
