@@ -599,7 +599,8 @@ test_keychange_again:
 	}
 
 	binary_to_hex(keychange_buf, keychange_len, &s);
-	fprintf(stdout, "KeyChange string:  %s\n\n", s);
+	fprintf(stdout, "(%s) KeyChange string:  %s\n\n",
+                ((hashtype == usmHMACMD5AuthProtocol)?"MD5":"SHA"),s);
 	SNMP_FREE(s);
 
 	temp_len = properlength;
