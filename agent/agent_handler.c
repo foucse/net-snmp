@@ -191,12 +191,14 @@ handler_add_parent_data(request_info *request, request_parent_data *data)
 }
 
 inline void *
-handler_get_parent_data(request_info *request, char *parent_name)
+handler_get_parent_data(request_info *request, const char *parent_name)
 {
     request_parent_data *ptr;
     for(ptr = request->parent_data;
         ptr && strcmp(ptr->parent_name, parent_name) != 0; ptr = ptr->next);
-    return ptr->data;
+    if (ptr)
+        return ptr->data;
+    return NULL;
 }
 
 inline void
@@ -219,5 +221,32 @@ free_parent_data_sets(request_info *request)
     for(; request; request = request->next) {
         free_parent_data_set(request);
     }
+}
+
+/** Returns a handler from a chain based on the name */
+mib_handler *
+find_handler_by_name(handler_registration *reginfo, char *name) 
+{
+    mib_handler *it;
+    for(it = reginfo->handler; it; it = it->next) {
+        if (strcmp(it->handler_name, name) == 0) {
+            return it;
+        }
+    }
+    return NULL;
+}
+
+/** Returns a handler's void * pointer from a chain based on the name.
+ This probably shouldn't be used by the general public as the void *
+ data may change as a handler evolves.  Handlers should really
+ advertise some function for you to use instead. */
+void *
+find_handler_data_by_name(handler_registration *reginfo,
+                          char *name) 
+{
+    mib_handler *it = find_handler_by_name(reginfo, name);
+    if (it)
+        return it->myvoid;
+    return NULL;
 }
 
