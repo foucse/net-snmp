@@ -169,10 +169,19 @@ sc_generate_keyed_hash(	oid	*authtype,	int    authtypelen,
 			*bufp = buf;
 
 	KMT_KEY_LIST	*kmtkeylist	= NULL;
+#ifdef SNMP_TESTING_CODE
+        int i;
+#endif /* SNMP_TESTING_CODE */
 
 EM(-1); /* */
 
 
+#ifdef SNMP_TESTING_CODE
+        DEBUGP("gener key: ");
+        for(i=0; i< keylen; i++)
+          DEBUGP("%02x",key[i]);
+        DEBUGP("\n");
+#endif /* SNMP_TESTING_CODE */
 	/*
 	 * Sanity check.
 	 */
@@ -277,9 +286,19 @@ sc_check_keyed_hash(	oid	*authtype,	int   authtypelen,
 
 	KMT_KEY_LIST	*kmtkeylist = NULL;
 
+#ifdef SNMP_TESTING_CODE
+ int i;
+#endif /* SNMP_TESTING_CODE */
+
 EM(-1); /* */
 
 
+#ifdef SNMP_TESTING_CODE
+ DEBUGP("check key: ");
+ for(i=0; i< keylen; i++)
+   DEBUGP("%02x",key[i]);
+ DEBUGP("\n");
+#endif /* SNMP_TESTING_CODE */
 	/*
 	 * Sanity check.
 	 */
@@ -364,6 +383,19 @@ sc_encrypt(	oid    *privtype,	int    privtypelen,
 
 	KMT_KEY_LIST	*kmtkeylist = NULL;
 
+#ifdef SNMP_TESTING_CODE
+        char buf[4096];
+
+	sprint_hexstring(buf, iv, ivlen);
+        DEBUGP("encrypt: IV: %s/ ", buf);
+	sprint_hexstring(buf, key, keylen);
+        DEBUGP("%s\n", buf);
+
+	sprint_hexstring(buf, plaintext, 16);
+        DEBUGP("encrypt: string: %s\n", buf);
+#endif /* SNMP_TESTING_CODE */
+        
+
 EM(-1); /* */
 
 
@@ -412,7 +444,7 @@ EM(-1); /* */
 				kmt_keylist_key(kmtkeylist), NULL,
 				plaintext, ptlen,
 				&ciphertext, ctlen,
-				 iv);
+                                iv);
 	QUITFUN(rval, sc_encrypt_quit);
 
 
@@ -468,6 +500,16 @@ sc_decrypt(	oid    *privtype,	int    privtypelen,
 
 	KMT_KEY_LIST	*kmtkeylist = NULL;
 
+#ifdef SNMP_TESTING_CODE
+        char buf[4096];
+
+	sprint_hexstring(buf, iv, ivlen);
+        DEBUGP("decrypt: IV: %s/ ", buf);
+	sprint_hexstring(buf, key, keylen);
+        DEBUGP("%s\n", buf);
+#endif /* SNMP_TESTING_CODE */
+
+
 EM(-1); /* */
 
 
@@ -516,7 +558,8 @@ EM(-1); /* */
 				kmt_keylist_key(kmtkeylist), NULL,
 				ciphertext, ctlen,
 				&plaintext, ptlen,
-				 iv);
+				iv);
+
 	QUITFUN(rval, sc_decrypt_quit);
 
 
