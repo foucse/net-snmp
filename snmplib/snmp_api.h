@@ -397,7 +397,10 @@ void init_snmp __P((char *));
 u_char * snmp_pdu_build __P((struct snmp_pdu *, u_char *, int *));
 int snmpv3_parse(struct snmp_pdu *, u_char *, int *, u_char  **);
 int snmpv3_packet_build(struct snmp_pdu *pdu, u_char *packet, int *out_length, u_char *pdu_data, int pdu_data_len);
-
+int snmpv3_make_report(u_char *out_data, int *out_length,
+			   struct snmp_pdu *pdu,
+			   int error, oid *err_var, int err_var_len,
+			   u_char *engineID, int engineIDLen);
 int snmp_pdu_parse(struct snmp_pdu *pdu, u_char *data, int *length);
 
 void snmp_pdu_add_variable __P((struct snmp_pdu *, oid *, int, u_char, u_char *, int));

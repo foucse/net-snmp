@@ -220,13 +220,17 @@ static void free_request_list __P((struct request_list *));
 void shift_array __P((u_char *, int, int));
 static void snmpv3_calc_msg_flags __P((int, int, u_char *));
 static int snmpv3_build_probe_pdu __P((struct snmp_pdu **));
-static int snmpv3_build __P((struct snmp_session *, struct snmp_pdu *, u_char *, int *));
-static int snmp_build __P((struct snmp_session *, struct snmp_pdu *, u_char *, int *));
-static int snmp_parse __P((struct snmp_session *, struct snmp_pdu *, u_char *, int));
+static int snmpv3_build __P((struct snmp_session *, struct snmp_pdu *, 
+			     u_char *, int *));
+static int snmp_build __P((struct snmp_session *, struct snmp_pdu *, 
+			   u_char *, int *));
+static int snmp_parse __P((struct snmp_session *, struct snmp_pdu *, 
+			   u_char *, int));
 static int snmp_parse_version __P((u_char *, int));
-static void snmp_free_internal_pdu __P((struct snmp_pdu *));
-
 static void * snmp_sess_pointer __P((struct snmp_session *));
+static int snmp_resend_request (struct session_list *slp, 
+				struct request_list *rp, 
+				int incr_retries);
 
 #ifndef HAVE_STRERROR
 char *strerror(err)
@@ -1624,7 +1628,8 @@ snmpv3_parse(pdu, data, length, after_header)
                        msg_sec_model, pdu->securityLevel, msg_data, msg_len,
                        pdu->contextEngineID, &pdu->contextEngineIDLen,
                        pdu->securityName, &pdu->securityNameLen,
-                       &cp, &pdu_buf_len, &max_size_response, NULL);
+                       &cp, &pdu_buf_len, &max_size_response, 
+		       &pdu->securityStateRef);
 
   if (ret_val != USM_ERR_NO_ERROR) {
     snmp_errno = ret_val;
@@ -1651,12 +1656,19 @@ snmpv3_parse(pdu, data, length, after_header)
     ERROR_MSG("error parsing contextEngineID from scopedPdu");
     return -1;
   }
+  /* check that it agrees with engineID returned from USM above */
   if (tmp_buf_len) {
-    pdu->contextEngineID = malloc(tmp_buf_len);
-    pdu->contextEngineIDLen = tmp_buf_len;
-    memcpy(pdu->contextEngineID, tmp_buf, tmp_buf_len);
+    /* BUG: USM is not returning pdu->contextEngineID on discovey probe */
+    if (pdu->contextEngineIDLen == 0) {
+      memcpy(pdu->contextEngineID, tmp_buf, tmp_buf_len);
+      pdu->contextEngineIDLen = tmp_buf_len;
+    }
+    if (tmp_buf_len != pdu->contextEngineIDLen ||
+	memcmp(tmp_buf, pdu->contextEngineID, tmp_buf_len) != 0) {
+      ERROR_MSG("inconsistent engineID information in message");
+      return -1;
+    }
   }
-  /* check that it agrees with engineID returned from USM above ? */
 
   /* parse contextName from scopedPdu */
   tmp_buf_len = SNMP_MAX_CONTEXT_SIZE;
@@ -1681,6 +1693,38 @@ snmpv3_parse(pdu, data, length, after_header)
   if (after_header != NULL)
     *length = tmp_buf_len;
   return ret;
+}
+
+int
+snmpv3_make_report(u_char *out_data, int *out_length,
+                       struct snmp_pdu *pdu,
+                       int error, oid *err_var, int err_var_len,
+                       u_char *engineID, int engineIDLen) {
+
+  long ltmp;
+  char buf[SNMP_MAXBUF];
+  
+  /* unknown incoming security engineID, return ours and a varbind */
+  /* free the current varbind */
+  snmp_free_varbind(pdu->variables);
+  pdu->variables = NULL;
+  pdu->contextEngineID = engineID;
+  pdu->contextEngineIDLen = engineIDLen;
+  pdu->command = SNMP_MSG_REPORT;
+  pdu->errstat = 0;
+  pdu->errindex = 0;
+  pdu->contextName = strdup("");
+  pdu->contextNameLen = strlen(pdu->contextName);
+  /* find the unknown engineID counter */
+  ltmp = snmp_get_statistic(error);
+  /* return  the unknown engineID counter */
+  snmp_pdu_add_variable(pdu, err_var, err_var_len,
+                        ASN_COUNTER, (u_char *) &ltmp, sizeof(ltmp));
+  snmpv3_packet_build(pdu, out_data, out_length, NULL, 0);
+  sprint_objid(buf, err_var, err_var_len);
+  DEBUGP("sending report with:\n  %s = %d\n", buf, ltmp);
+  snmp_free_pdu(pdu);
+  return 1;
 }
 
 /*
@@ -1768,9 +1812,13 @@ snmp_parse(session, pdu, data, length)
 
     case SNMP_VERSION_3:
       result = snmpv3_parse((struct snmp_pdu *)pdu, data, &length, NULL);
-      if (!result) DEBUGP("parsed SNMPv3 message(secName:%s:secLevel:%s)\n",
-                          pdu->securityName, usmSecLevelName[pdu->securityLevel]);
-
+      if (!result) {
+	DEBUGP("parsed SNMPv3 message(secName:%s:secLevel:%s)\n",
+	       pdu->securityName, usmSecLevelName[pdu->securityLevel]);
+      } else {
+	DEBUGP("error parsing SNMPv3 message(secName:%s:secLevel:%s)\n",
+	       pdu->securityName, usmSecLevelName[pdu->securityLevel]);
+      }
       break;
 
     case SNMP_VERSION_sec:
@@ -2504,16 +2552,7 @@ snmp_sess_read(sessp)
 	return;
     }
 
-    if (pdu->command == SNMP_MSG_RESPONSE || pdu->command == SNMP_MSG_REPORT){
-        if (pdu->command == SNMP_MSG_REPORT) {
-          /* handle engineID discovery - */
-          if (sp->contextEngineIDLen == 0 && pdu->contextEngineIDLen) {
-            sp->contextEngineID = malloc(pdu->contextEngineIDLen);
-            memcpy(sp->contextEngineID, pdu->contextEngineID,
-                   pdu->contextEngineIDLen);
-            sp->contextEngineIDLen = pdu->contextEngineIDLen;
-          }
-        }
+    if (pdu->command == SNMP_MSG_RESPONSE || pdu->command == SNMP_MSG_REPORT) {
 	/* call USM to free any securityStateRef supplied with the message */
 	if (pdu->securityStateRef) {
 	  usm_free_usmStateReference(pdu->securityStateRef);
@@ -2525,24 +2564,44 @@ snmp_sess_read(sessp)
 		magic = sp->callback_magic;
 		if (rp->callback) callback = rp->callback;
 		if (rp->cb_data) magic = rp->cb_data;
-	        if (callback == NULL || callback(RECEIVED_MESSAGE, sp, pdu->reqid,
-				 pdu, magic) == 1){
-		    /* successful, so delete request */
-		    if (isp->requests == rp){
-			/* first in list */
-			isp->requests = rp->next_request;
-			if (isp->requestsEnd == rp)
-			    isp->requestsEnd = NULL;
-		    } else {
-			orp->next_request = rp->next_request;
-			if (isp->requestsEnd == rp)
-			    isp->requestsEnd = orp;
+	        if (callback == NULL || 
+		    callback(RECEIVED_MESSAGE,sp,pdu->reqid,pdu,magic) == 1){
+		  /* handle engineID discovery - */
+		  if (!rp->pdu->contextEngineIDLen) { /* engineID probe */
+		    if (!sp->contextEngineIDLen && pdu->contextEngineIDLen) {
+		      sp->contextEngineID = malloc(pdu->contextEngineIDLen);
+		      memcpy(sp->contextEngineID, pdu->contextEngineID,
+			     pdu->contextEngineIDLen);
+		      sp->contextEngineIDLen = pdu->contextEngineIDLen;
+		      /* request satisfied */
+		      if (sp->snmp_synch_state) 
+			sp->snmp_synch_state->waiting = 0; 
 		    }
-		    snmp_free_pdu(rp->pdu);
-		    free((char *)rp);
-		    /* there shouldn't be any more requests with the
-		       same reqid */
+		  } else {
+		    /* trigger immediate retry on other Reports (like
+		     * notInTimeWindow), incr_retries == TRUE to prevent
+		     * inifinite resend
+		     */
+		    if (rp->retries <= sp->retries) 
+		      snmp_resend_request(slp, rp, TRUE);
 		    break;
+		  }
+		  /* successful, so delete request */
+		  if (isp->requests == rp){
+		    /* first in list */
+		    isp->requests = rp->next_request;
+		    if (isp->requestsEnd == rp)
+		      isp->requestsEnd = NULL;
+		  } else {
+		    orp->next_request = rp->next_request;
+		    if (isp->requestsEnd == rp)
+		      isp->requestsEnd = orp;
+		  }
+		  snmp_free_pdu(rp->pdu);
+		  free((char *)rp);
+		  /* there shouldn't be any more requests with the
+		       same reqid */
+		  break;
 		}
 	    }
 	    orp = rp;
@@ -2703,6 +2762,54 @@ snmp_timeout __P((void))
     }
 }
 
+static int
+snmp_resend_request(struct session_list *slp, struct request_list *rp, 
+		    int incr_retries)
+{
+  u_char  packet[PACKET_LENGTH];
+  int length = PACKET_LENGTH;
+  struct timeval tv;
+  struct snmp_session *sp;
+  struct snmp_internal_session *isp;
+  struct timeval now;
+
+  sp = slp->session; isp = slp->internal;
+
+  if (incr_retries) rp->retries++;
+
+  /* retransmit this pdu */
+  if (snmp_build(sp, rp->pdu, packet, &length) < 0){
+    /* this should never happen */
+    return -1;
+  }
+  if (snmp_dump_packet){
+    printf("\nsending %d bytes to %s:%hu:\n", length,
+	   inet_ntoa(rp->pdu->address.sin_addr), ntohs(rp->pdu->address.sin_port));
+    xdump(packet, length, "");
+    printf("\n");
+  }
+
+  if (sendto(isp->sd, (char *)packet, length, 0,
+	     (struct sockaddr *)&rp->pdu->address,
+	     sizeof(rp->pdu->address)) < 0){
+    snmp_errno = SNMPERR_BAD_SENDTO;
+    sp->s_snmp_errno = SNMPERR_BAD_SENDTO;
+    sp->s_errno = errno;
+    snmp_set_detail(strerror(errno));
+    return -1;
+  }
+  else {
+    gettimeofday(&now, (struct timezone *)0);
+    tv = now;
+    rp->time = tv;
+    tv.tv_usec += rp->timeout;
+    tv.tv_sec += tv.tv_usec / 1000000L;
+    tv.tv_usec %= 1000000L;
+    rp->expire = tv;
+  }
+  return 0;
+}
+
 void
 snmp_sess_timeout(sessp)
     void       *sessp;
@@ -2749,41 +2856,7 @@ snmp_sess_timeout(sessp)
     	    freeme = rp;
     	    continue;	/* don't update orp below */
     	} else {
-    	    u_char  packet[PACKET_LENGTH];
-    	    int length = PACKET_LENGTH;
-    	    struct timeval tv;
-
-    	    /* retransmit this pdu */
-    	    rp->retries++;
-    	    if (snmp_build(sp, rp->pdu, packet, &length) < 0){
-    		/* this should never happen */
-    		break;
-    	    }
-    	    if (snmp_dump_packet){
-    		printf("\nsending %d bytes to %s:%hu:\n", length,
-    		       inet_ntoa(rp->pdu->address.sin_addr), ntohs(rp->pdu->address.sin_port));
-    		xdump(packet, length, "");
-    		printf("\n");
-    	    }
-
-    	    if (sendto(isp->sd, (char *)packet, length, 0,
-    		       (struct sockaddr *)&rp->pdu->address,
-    		       sizeof(rp->pdu->address)) < 0){
-		snmp_errno = SNMPERR_BAD_SENDTO;
-		sp->s_snmp_errno = SNMPERR_BAD_SENDTO;
-		sp->s_errno = errno;
-    		snmp_set_detail(strerror(errno));
-    		break;
-    	    }
-    	    else {
-		gettimeofday(&now, (struct timezone *)0);
-		tv = now;
-		rp->time = tv;
-		tv.tv_usec += rp->timeout;
-		tv.tv_sec += tv.tv_usec / 1000000L;
-		tv.tv_usec %= 1000000L;
-		rp->expire = tv;
-    	    }
+	  if (snmp_resend_request(slp, rp, TRUE)) break;
     	}
         }
         orp = rp;
