@@ -741,7 +741,7 @@ u_char *var_vacm_sec2group(struct variable *vp,
     oid *groupSubtree;
     int groupSubtreeLen;
     int secmodel;
-    char secname[32], *cp;
+    char secname[VACMSTRINGLEN], *cp;
 
     write_method = NULL;
     if (memcmp(name, vp->name, sizeof(oid)*vp->namelen) != 0) {
@@ -758,6 +758,8 @@ u_char *var_vacm_sec2group(struct variable *vp,
 	while (groupSubtreeLen-- > 0) {
             if (*groupSubtree > 255)
               return 0; /* illegal value */
+	    if (cp - secname > VACM_MAX_STRING)
+	      return 0;
 	    *cp++ = (char) *groupSubtree++;
 	}
 	*cp = 0;
@@ -824,8 +826,8 @@ u_char *var_vacm_access(struct variable *vp,
     struct vacm_accessEntry *gp;
     int secmodel;
     int seclevel;
-    char groupName[32];
-    char contextPrefix[32];
+    char groupName[VACMSTRINGLEN];
+    char contextPrefix[VACMSTRINGLEN];
     oid *op;
     int len;
     char *cp;
@@ -841,18 +843,22 @@ u_char *var_vacm_access(struct variable *vp,
 
 	op = name+11;
 	len = *op++;
+	if (len > VACMSTRINGLEN)
+	    return NULL;
 	cp = groupName;
 	while (len-- > 0) {
-            if (*op > 255)
-              return 0; /* illegal value */
+	    if (*op > 255)
+		return NULL; /* illegal value */
 	    *cp++ = (char) *op++;
 	}
 	*cp = 0;
 	len = *op++;
+	if (len > VACMSTRINGLEN)
+	    return NULL;
 	cp = contextPrefix;
 	while (len-- > 0) {
-            if (*op > 255)
-              return 0; /* illegal value */
+	    if (*op > 255)
+		return NULL; /* illegal value */
 	    *cp++ = (char) *op++;
 	}
 	*cp = 0;
@@ -873,10 +879,12 @@ u_char *var_vacm_access(struct variable *vp,
 	}
 	else {
 	    len = *op;
+	    if (len > VACMSTRINGLEN)
+		return NULL;
 	    cp = groupName;
 	    while (len-- >= 0) {
                 if (*op > 255)
-                  return 0; /* illegal value */
+		    return NULL; /* illegal value */
 		*cp++ = (char) *op++;
 	    }
 	    *cp = 0;
@@ -885,10 +893,12 @@ u_char *var_vacm_access(struct variable *vp,
 	}
 	else {
 	    len = *op;
+	    if (len > VACMSTRINGLEN)
+		return NULL;
 	    cp = contextPrefix;
 	    while (len-- >= 0) {
                 if (*op > 255)
-                  return 0; /* illegal value */
+		    return NULL; /* illegal value */
 		*cp++ = (char) *op++;
 	    }
 	    *cp = 0;
@@ -973,7 +983,7 @@ u_char *var_vacm_view(struct variable *vp,
 		      WriteMethod **write_method)
 {
     struct vacm_viewEntry *gp;
-    char viewName[32];
+    char viewName[VACM_MAX_STRING];
     oid subtree[MAX_OID_LEN];
     size_t subtreeLen = 0;
     oid *op, *op1;
@@ -991,6 +1001,8 @@ u_char *var_vacm_view(struct variable *vp,
 
 	op = name+12;
 	len = *op++;
+	if (len > VACMSTRINGLEN)
+	  return 0;
 	cp = viewName;
 	while (len-- > 0) {
             if (*op > 255)
@@ -1017,6 +1029,8 @@ u_char *var_vacm_view(struct variable *vp,
 	}
 	else {
 	    len = *op;
+	    if (len > VACMSTRINGLEN)
+	      return 0;
 	    cp = viewName;
 	    while (len-- >= 0) {
                 if (*op > 255)
