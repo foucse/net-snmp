@@ -7,6 +7,7 @@
 #if HAVE_STRING_H
 #include <string.h>
 #endif
+#include <getopt.h>
 
 #include "mibincl.h"
 #include "proxy.h"
@@ -28,6 +29,33 @@ oid testoid[] = { 1,3,6,1,4,1,2021,8888,1 };
 /* this must be standardized somewhere, right? */
 #define MAX_ARGS 128
 
+char *context_string;
+
+static void proxyOptProc(int argc, char *const *argv, int opt)
+{
+    switch (opt) {
+        case 'C':
+            while (*optarg) {
+                switch (*optarg++) {
+                    case 'n':
+                        optind++;
+                        if (optind<argc) {
+                            context_string = argv[optind];
+                        } else {
+                            config_perror("No context name passed to -CN");
+                        }
+                        break;
+                    default:
+                        config_perror("unknown argument passed to -C");
+                        break;
+                }
+            }
+            break;
+        default:
+            /* shouldn't get here */
+    }
+}
+
 void
 proxy_parse_config(const char *token, char *line) {
     /* proxy args [base-oid] [remap-to-remote-oid] */
@@ -37,6 +65,8 @@ proxy_parse_config(const char *token, char *line) {
     char args[MAX_ARGS][SPRINT_MAX_LEN], *argv[MAX_ARGS];
     int argn, arg;
     char *cp;
+
+    context_string = NULL;
     
     DEBUGMSGTL(("proxy_config","entering\n"));
 
@@ -51,7 +81,7 @@ proxy_parse_config(const char *token, char *line) {
     }
     
     DEBUGMSGTL(("proxy_config","parsing args: %d\n", argn));
-    arg = snmp_parse_args(argn, argv, &session, NULL, NULL);
+    arg = snmp_parse_args(argn, argv, &session, "C:", proxyOptProc);
     DEBUGMSGTL(("proxy_config","done parsing args\n"));
 
     if (arg >= argn) {
@@ -120,8 +150,10 @@ proxy_parse_config(const char *token, char *line) {
            sizeof(*simple_proxy_variables));
 
     /* register our node */
-    register_mib("proxy", (struct variable *) newp->variables,
-                 sizeof(struct variable2), 1, newp->name, newp->name_len);
+    register_mib_context("proxy", (struct variable *) newp->variables,
+                         sizeof(struct variable2), 1, newp->name,
+                         newp->name_len, DEFAULT_MIB_PRIORITY, 0, 0,
+                         NULL, context_string, -1, 0);
 }
 
 void
