@@ -315,9 +315,24 @@ var_hrswinst(vp, name, length, exact, var_len, write_method)
 	    ret = (u_char *) nullOid;
 	    break;
 	case HRSWINST_TYPE:
+	{
+#ifdef HAVE_LIBRPM
+	    char *cp;
+	    int type;
+	    string[0] = '\0';
+	    if (headerGetEntry(h, RPMTAG_GROUP, &type, (void **) &cp, NULL) && cp != NULL) {
+		if ( !strncmp( cp, "Base", 4) )
+		    long_return = 2;	/* Operating System */
+		else
+		    long_return = 4;	/* Application */
+	    }
+	    else
+	        long_return = 1;	/* unknown */
+#else
 	    long_return = 1;	/* unknown */
+#endif
 	    ret = (u_char *) &long_return;
-	    break;
+	}   break;
 	case HRSWINST_DATE:
 	{
 #ifdef HAVE_LIBRPM
@@ -346,8 +361,10 @@ var_hrswinst(vp, name, length, exact, var_len, write_method)
 	    ret = NULL;
 	    break;
     }
+#ifdef HAVE_LIBRM
     if (h)
 	headerFree(h);
+#endif
     return ret;
 }
 
