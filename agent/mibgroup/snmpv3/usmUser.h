@@ -45,6 +45,7 @@ int write_usmUserOwnPrivKeyChange __P((int, u_char *,u_char, int, u_char *,oid*,
 int write_usmUserPublic __P((int, u_char *,u_char, int, u_char *,oid*, int));
 int write_usmUserStorageType __P((int, u_char *,u_char, int, u_char *,oid*, int));
 int write_usmUserStatus __P((int, u_char *,u_char, int, u_char *,oid*, int));
+void usm_parse_config_usmUser(char *token, char *line);
 
 /* Only load this structure when this .h file is called in the snmp_vars.c 
    file in tha agent subdirectory of the source tree */

@@ -14,6 +14,7 @@
 #include "snmpusm.h"
 #include "snmpv3.h"
 #include "snmp-tc.h"
+#include "read_config.h"
 
 #include "usmUser.h"
 
@@ -33,6 +34,20 @@ static unsigned int usmUserSpinLock=0;
 void init_usmUser(void) {
   /* initialize the user list */
   userList = usm_create_initial_user();
+  snmpd_register_config_handler("usmUser",
+                                usm_parse_config_usmUser, NULL);
+}
+
+void usm_parse_config_usmUser(char *token, char *line) {
+  struct usmUser *uptr;
+
+  uptr = usm_read_user(line);
+  userList = usm_add_user(uptr, userList);
+}
+
+void shutdown_usmUser(void) {
+  /* save the user base */
+  usm_save_users(userList, "usmUser", "snmpd");
 }
   
 /* given a user's information, generate the index OID for it */
@@ -750,9 +765,6 @@ write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, nam
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT) {
-      size = var_val_len;
-      asn_parse_string(var_val, &bigsize, &var_val_type,
-                       uptr->userPublicString, &size);
       /* don't allow creations here */
       if ((uptr = usm_parse_user(name, name_len)) == NULL) {
         return SNMP_ERR_NOSUCHNAME;
@@ -763,6 +775,9 @@ write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, nam
       if (uptr->userPublicString == NULL) {
         return SNMP_ERR_GENERR;
       }
+      size = var_val_len;
+      asn_parse_string(var_val, &bigsize, &var_val_type,
+                       uptr->userPublicString, &size);
       uptr->userPublicString[var_val_len] = 0;
       DEBUGP("setting public string: %d - %s\n", var_val_len,
              uptr->userPublicString);
@@ -786,7 +801,8 @@ write_usmUserStorageType(action, var_val, var_val_type, var_val_len, statP, name
   static oid objid[30];
   static struct counter64 c64;
   int size, bigsize=1000;
-
+  struct usmUser *uptr;
+  
   if (var_val_type != ASN_INTEGER){
       DEBUGP("write to usmUserStorageType not ASN_INTEGER\n");
       return SNMP_ERR_WRONGTYPE;
@@ -796,11 +812,18 @@ write_usmUserStorageType(action, var_val, var_val_type, var_val_len, statP, name
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT){
+      /* don't allow creations here */
+      if ((uptr = usm_parse_user(name, name_len)) == NULL) {
+        return SNMP_ERR_NOSUCHNAME;
+      }
       size = sizeof(long_ret);
       asn_parse_int(var_val, &bigsize, &var_val_type, &long_ret, size);
-      /* Here, the variable has been stored in long_ret for
-      you to use, and you have just been asked to do something with
-      it... Your code goes here. */
+      if ((long_ret == ST_VOLATILE || long_ret == ST_NONVOLATILE) &&
+          (uptr->userStorageType == ST_VOLATILE ||
+           uptr->userStorageType == ST_NONVOLATILE))
+        uptr->userStorageType = long_ret;
+      else
+        return SNMP_ERR_INCONSISTENTVALUE;
   }
   return SNMP_ERR_NOERROR;
 }
