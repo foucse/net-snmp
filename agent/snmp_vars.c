@@ -1487,7 +1487,11 @@ var_ifEntry(vp, name, length, exact, var_len, write_method)
 	    long_return = ifnet.if_flags & IFF_UP ? 1 : 2;
 	    return (u_char *) &long_return;
 	case IFLASTCHANGE:
-#ifdef freebsd2
+/* XXX - SNMP's ifLastchange is time when op. status changed
+ * FreeBSD's if_lastchange is time when packet was input or output
+ * (at least in 2.1.0-RELEASE. Changed in later versions of the kernel?)
+ */
+#ifdef freebsd2_no_no_no
 
           if ((ifnet.if_lastchange.tv_sec == 0 ) &&
               (ifnet.if_lastchange.tv_usec == 0))
@@ -1503,7 +1507,11 @@ var_ifEntry(vp, name, length, exact, var_len, write_method)
 #endif
           return (u_char *) &long_return;
 	case IFINOCTETS:
+#ifdef freebsd2
+          long_return = (u_long)  ifnet.if_ibytes;
+#else
 	    long_return = (u_long)  ifnet.if_ipackets * 308; /* XXX */
+#endif
 	    return (u_char *) &long_return;
 	case IFINUCASTPKTS:
 	    long_return = (u_long)  ifnet.if_ipackets;
@@ -1532,7 +1540,11 @@ var_ifEntry(vp, name, length, exact, var_len, write_method)
 #endif
 	    return (u_char *) &long_return;
 	case IFOUTOCTETS:
+#ifdef freebsd2
+          long_return = (u_long)  ifnet.if_obytes;
+#else
 	    long_return = (u_long)  ifnet.if_opackets * 308; /* XXX */
+#endif
 	    return (u_char *) &long_return;
 	case IFOUTUCASTPKTS:
 	    long_return = (u_long)  ifnet.if_opackets;
@@ -2079,7 +2091,9 @@ var_ipAddrEntry(vp, name, length, exact, var_len, write_method)
     u_char		    *cp;
     int			    lowinterface=0;
     short                   interface;
+#ifndef freebsd2
     static struct ifnet ifnet, lowin_ifnet;
+#endif
 #ifndef sunV3
     static struct in_ifaddr in_ifaddr, lowin_ifaddr;
 #endif sunV3
@@ -2088,15 +2102,24 @@ var_ipAddrEntry(vp, name, length, exact, var_len, write_method)
 
     bcopy((char *)vp->name, (char *)current, (int)vp->namelen * sizeof(oid));
 
+#ifndef freebsd2
     Interface_Scan_Init();
+#else
+      Address_Scan_Init();
+#endif
     for (;;) {
 
 #ifdef sunV3
 	if (Interface_Scan_Next(&interface, (char *)0, &ifnet) == 0) break;
 	cp = (u_char *)&(((struct sockaddr_in *) &(ifnet.if_addr))->sin_addr.s_addr);
 #else
+#ifndef freebsd2
 	if (Interface_Scan_Next(&interface, (char *)0, &ifnet, &in_ifaddr) == 0) break;
+#else
+      if (Address_Scan_Next(&interface, &in_ifaddr) == 0) break;
+#endif
 	cp = (u_char *)&(((struct sockaddr_in *) &(in_ifaddr.ia_addr))->sin_addr.s_addr);
+
 #endif
 
 	op = current + 10;
@@ -2158,7 +2181,7 @@ var_ipAddrEntry(vp, name, length, exact, var_len, write_method)
 #ifdef sunV3
 	    long_return = ntohl(((struct sockaddr_in *) &lowin_ifnet.ifu_broadaddr)->sin_addr.s_addr) & 1;
 #else
-	    long_return = ntohl(((struct sockaddr_in *) &lowin_ifaddr.ia_addr)->sin_addr.s_addr) & 1;
+          long_return = ntohl(((struct sockaddr_in *) &lowin_ifaddr.ia_broadaddr)->sin_addr.s_addr) & 1;
 #endif
 	    return(u_char *) &long_return;	   
 	default:
@@ -3362,12 +3385,16 @@ struct in_ifaddr *Retin_ifaddr;
 		 *  Try to find an address for this interface
 		 */
 
+#ifndef freebsd2_noluck
 		KNLookup(N_IN_IFADDR, (char *)&ia, sizeof(ia));
 		while (ia) {
 		    klookup(ia ,  (char *)&in_ifaddr, sizeof(in_ifaddr));
 		    if (in_ifaddr.ia_ifp == ifnetaddr) break;
 		    ia = in_ifaddr.ia_next;
 		}
+#else
+              klookup(ifnet.if_addrlist,(char *)&in_ifaddr, sizeof(in_ifaddr));
+#endif
 
 #if !defined(netbsd1) && !defined(freebsd2)
 		ifnet.if_addrlist = (struct ifaddr *)ia;     /* WRONG DATA TYPE; ONLY A FLAG */
@@ -3409,7 +3436,7 @@ struct ifnet *Retifnet;
 {
         short i;
 
-	if (saveIndex != Index) {	/* Optimization! */
+      if (1 || saveIndex != Index) {  /* NO! Optimization! */
 	    Interface_Scan_Init();
 	    while (Interface_Scan_Next(&i, Name, Retifnet)) {
 		if (i == Index) break;
@@ -3434,7 +3461,7 @@ struct in_ifaddr *Retin_ifaddr;
 {
 	short i;
 
-	if (saveIndex != Index) {	/* Optimization! */
+      if (1 || saveIndex != Index) {  /* NO! Optimization! */
 	    Interface_Scan_Init();
 	    while (Interface_Scan_Next(&i, Name, Retifnet, Retin_ifaddr)) {
 		if (i == Index) break;
@@ -3524,6 +3551,57 @@ u_char *EtherAddr;
 	}
 	return(0);	/* DONE */
 }
+
+#ifdef freebsd2
+static struct in_ifaddr *in_ifaddraddr;
+
+Address_Scan_Init()
+{
+    KNLookup (N_IN_IFADDR, (char *)&in_ifaddraddr, sizeof(in_ifaddraddr));
+}
+
+/* NB: Index is the number of the corresponding interface, not of the address */
+int Address_Scan_Next(Index, Retin_ifaddr)
+short *Index;
+struct in_ifaddr *Retin_ifaddr;
+{
+      struct in_ifaddr in_ifaddr;
+      struct ifnet ifnet,*ifnetaddr;  /* NOTA: same name as another one */
+      short index=1;
+
+      while (in_ifaddraddr) {
+          /*
+           *      Get the "in_ifaddr" structure
+           */
+          klookup(in_ifaddraddr, (char *)&in_ifaddr, sizeof in_ifaddr);
+          in_ifaddraddr = in_ifaddr.ia_next;
+
+          if (Retin_ifaddr)
+              *Retin_ifaddr = in_ifaddr;
+
+              /*
+               * Now, more difficult, find the index of the interface to which
+               * this address belongs
+               */
+
+              KNLookup (N_IFNET, (char *)&ifnetaddr, sizeof(ifnetaddr));
+              while (ifnetaddr && ifnetaddr != in_ifaddr.ia_ifp) {
+                      klookup(ifnetaddr, (char *)&ifnet, sizeof ifnet);
+                      ifnetaddr = ifnet.if_next;
+                      index++;
+              }
+
+              /* XXX - might not find it? */
+
+              if (Index)
+                  *Index = index;
+
+          return(1);  /* DONE */
+      }
+      return(0);          /* EOF */
+}
+
+#endif
 
 #else /* solaris2 */
 

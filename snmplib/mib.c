@@ -1004,6 +1004,8 @@ sprint_objid(buf, objid, objidlen)
 	}
     }
     strcpy(buf, cp);
+
+      return buf;
 }
 
 print_objid(objid, objidlen)

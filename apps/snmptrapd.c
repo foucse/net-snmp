@@ -260,10 +260,10 @@ int snmp_input(op, session, reqid, pdu, magic)
 	    if (Print){
 		time (&timer);
 		tm = localtime (&timer);
-		printf("%.4d-%.2d-%.2d %.2d:%.2d:%.2d %s:\n\t%s Trap (%d) Uptime: %s\n",
+              printf("%.4d-%.2d-%.2d %.2d:%.2d:%.2d %s:\n\t%s Trap %s (%d) Uptime: %s\n",
 		       tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
 		       tm->tm_hour, tm->tm_min, tm->tm_sec,
-		       inet_ntoa(ntohl(pdu->agent_addr.sin_addr.s_addr)),
+                     inet_ntoa(pdu->agent_addr.sin_addr),
  		       sprint_objid (oid_buf, pdu->enterprise, pdu->enterprise_length),
 		       trap_description(pdu->trap_type), pdu->specific_type,
 		       uptime_string(pdu->time, buf));
@@ -476,8 +476,8 @@ main(argc, argv)
     while(1){
 	numfds = 0;
 	FD_ZERO(&fdset);
-	numfds = sd + 1;
-	FD_SET(sd, &fdset);
+      numfds = 0; /* sd + 1; */
+/*    FD_SET(sd, &fdset);     */
 	block = 0;
 	tvp = &timeout;
 	timerclear(tvp);
