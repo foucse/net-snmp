@@ -78,7 +78,8 @@ struct snmp_pdu {
 
     struct variable_list *variables;
 };
-
+#define USM_AUTH_KU_LEN     32
+#define USM_PRIV_KU_LEN     32
 struct snmp_session {
     u_char  *community;	/* community for outgoing requests. */
     int	    community_len;  /* Length of community name. */
@@ -88,8 +89,8 @@ struct snmp_session {
     int	    contextNameLen;  /* Length of contextName */
     u_char  *securityName;	/* on behalf of this principal */
     int	    securityNameLen;  /* Length of securityName. */
-    u_char  securityAuthKey[16];  /* Ku for authentication protocol */
-    u_char  securityPrivKey[16];  /* Ku for privacy protocol */
+    u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol */
+    u_char  securityPrivKey[USM_PRIV_KU_LEN];  /* Ku for privacy protocol */
     int	    securityModel;
     int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
     int	    retries;	/* Number of retries before timeout. */
