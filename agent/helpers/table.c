@@ -164,6 +164,9 @@ table_helper_handler(mib_handler * handler,
     for (request = requests; request; request = request->next) {
         struct variable_list *var = request->requestvb;
 
+        DEBUGMSGOID(("verbose:table", var->name, var->name_length));
+        DEBUGMSG(("verbose:table", "\n"));
+
         if (request->processed) {
             DEBUGMSG(("helper:table", "already processed\n"));
             continue;
@@ -257,12 +260,19 @@ table_helper_handler(mib_handler * handler,
 
         if (var->name_length > oid_column_pos) {
             if (var->name[oid_column_pos] < tbl_info->min_column) {
-                /*
-                 * fix column, truncate useless index info 
-                 */
-                var->name_length = oid_column_pos;
-                tbl_req_info->colnum = tbl_info->min_column;
-            } else if (var->name[oid_column_pos] > tbl_info->max_column) {
+                if(reqinfo->mode == MODE_GETNEXT) {
+                    /*
+                     * fix column, truncate useless index info 
+                     */
+                    var->name_length = oid_column_pos;
+                    tbl_req_info->colnum = tbl_info->min_column;
+                }
+                else
+                    out_of_range = 1;
+            } else if (var->name[oid_column_pos] > tbl_info->max_column)
+                out_of_range = 1;
+
+            if(out_of_range) {
                 /*
                  * this is out of range...  remove from requests, free
                  * memory 
