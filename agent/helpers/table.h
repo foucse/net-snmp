@@ -36,6 +36,15 @@ typedef struct column_info_t {
 
 } column_info;
 
+typedef struct variable_list * (FirstDataPoint)(void **loop_context,
+                                                void **data_context,
+                                                struct variable_list *);
+typedef struct variable_list * (NextDataPoint)(void **,
+                                               void **data_context,
+                                               struct variable_list *);
+typedef void (FreeLoopContext)(void *);
+typedef void (FreeDataContext)(void *);
+
 typedef struct _table_registration_info {
    struct variable_list *indexes; /* list of varbinds with only 'type' set */
    unsigned int number_indexes;   /* calculated automatically */
@@ -48,6 +57,13 @@ typedef struct _table_registration_info {
    unsigned int max_column;
 
    column_info *valid_columns;    /* more details on columns */
+
+   /* used by the table_iterator helper */
+   /* XXXWWW: move these to an iterator specific struct */
+   FirstDataPoint  *get_first_data_point;
+   NextDataPoint   *get_next_data_point;
+   FreeLoopContext *free_loop_context;
+   FreeDataContext *free_data_context;
 
    /* get_first_index *() */
   /* unsigned int auto_getnext; */
@@ -82,6 +98,13 @@ unsigned int closest_column(unsigned int current, column_info *valid_columns);
 NodeHandler table_helper_handler;
 
 #define table_helper_add_index(tinfo, type) snmp_varlist_add_variable(&tinfo->indexes, NULL, 0, type, NULL, 0);
+
+
+int
+check_getnext_reply(request_info *request, oid *prefix,
+                    size_t prefix_len,
+                    struct variable_list *newvar,
+                    struct variable_list **outvar);
 
 #ifdef __cplusplus
 };

@@ -441,3 +441,44 @@ update_indexes_from_variable_list( table_request_info *tri )
 	return build_oid_noalloc(tri->index_oid, sizeof(tri->index_oid),
 													 &tri->index_oid_len, NULL, 0, tri->indexes);
 }
+
+/* checks the original request against the current data being passed
+   in if its greater than the request oid but less than the current
+   valid return, set the current valid return to the new value.
+
+   returns 1 if outvar was replaced with the oid from newvar (success).
+   returns 0 if not.
+   */
+int
+check_getnext_reply(request_info *request,
+                    oid   *prefix,
+                    size_t prefix_len,
+                    struct variable_list *newvar,
+                    struct variable_list **outvar) {
+    static oid myname[MAX_OID_LEN];
+    static int myname_len;
+    
+    build_oid_noalloc(myname, MAX_OID_LEN, &myname_len,
+                      prefix, prefix_len, newvar);
+    /* is the build of the new indexes less than our current result */
+    if ((!(*outvar) || snmp_oid_compare(myname + prefix_len,
+                                        myname_len - prefix_len,
+                                        (*outvar)->name,
+                                        (*outvar)->name_length) < 0)) {
+        /* and greater than the requested oid */
+        if (snmp_oid_compare(myname, myname_len,
+                             request->requestvb->name,
+                             request->requestvb->name_length) > 0) {
+            /* the new result must be better than the old */
+            if (!*outvar)
+                *outvar = snmp_clone_varbind(newvar);
+            snmp_set_var_objid(*outvar, myname, myname_len);
+                
+            return 1;
+        }
+    }
+    return 0;
+}
+
+    
+                    
