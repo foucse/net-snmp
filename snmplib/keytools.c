@@ -22,7 +22,7 @@
  * FIX	Need to name hash type?
  */
 int
-generate_kul(	u_char *engineID,
+generate_kul(	u_char *engineID,       u_int engineIDLen,
 		u_char *Ku,		u_int kulen,
 		u_char **Kul,		u_int *kullen)
 {

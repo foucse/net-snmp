@@ -15,7 +15,7 @@
 /*
  * Prototypes.h
  */
-int	generate_kul __P((	u_char	*engineID,
+int	generate_kul __P((	u_char	*engineID,      u_int   engineIDLen,
 				u_char	*Ku,		u_int	kulen,
 				u_char	**Kul,		u_int	*kullen));
 
