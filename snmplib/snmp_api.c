@@ -1568,7 +1568,7 @@ snmpv3_parse(pdu, data, length, after_header)
     tmp_buf_len = *length;
     *after_header = data;
   }
-  ret = snmp_pdu_parse(pdu, data, length);
+  ret = snmp_pdu_parse((struct internal_snmp_pdu *)pdu, data, length);
   if (after_header != NULL)
     *length = tmp_buf_len;
   return ret;
