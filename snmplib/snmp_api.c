@@ -2938,10 +2938,7 @@ snmp_free_pdu(pdu)
     _snmp_free(pdu->enterprise);
     _snmp_free(pdu->community);
     _snmp_free(pdu->contextEngineID);
-    /* _snmp_free(pdu->securityEngineID);	/* */
-	/*  FIX	securityEngineID is being free'd twice in snmp{get,walk}.
-	 *	But, where is the first time... ?
-	 */
+    _snmp_free(pdu->securityEngineID);
     _snmp_free(pdu->contextName);
     _snmp_free(pdu->securityName);
     if (pdu->srcParty && pdu->srcParty != pdu->srcPartyBuf) 

@@ -362,6 +362,12 @@ snmp_clone_pdu(pdu)
 	memmove(newpdu->contextEngineID, pdu->contextEngineID,
                 pdu->contextEngineIDLen);
     }
+    if (pdu->securityEngineID){
+	newpdu->securityEngineID = (u_char *)malloc(pdu->securityEngineIDLen);
+	newpdu->securityEngineIDLen = pdu->securityEngineIDLen;
+	memmove(newpdu->securityEngineID, pdu->securityEngineID,
+                pdu->securityEngineIDLen);
+    }
     if (pdu->contextName){
 	newpdu->contextName = (u_char *)malloc(pdu->contextNameLen);
 	newpdu->contextNameLen = pdu->contextNameLen;
