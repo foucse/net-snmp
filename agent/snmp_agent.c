@@ -845,6 +845,8 @@ free_agent_snmp_session(struct agent_snmp_session *asp)
 	snmp_free_pdu(asp->orig_pdu);
     if (asp->pdu)
 	snmp_free_pdu(asp->pdu);
+    if (asp->reqinfo)
+        free_agent_request_info(asp->reqinfo);
     if (asp->treecache) {
         delete_subtree_cache(asp);
         free(asp->treecache);
@@ -1359,13 +1361,15 @@ delete_request_infos(request_info *reqlist) {
         /* don't delete varbind */
         saveit = reqlist;
         reqlist = reqlist->next;
-        free(reqlist);
+        if (saveit->parent_data)
+            free_all_list_data(saveit->parent_data);
+        free(saveit);
     }
 }
 
 void
 delete_subtree_cache(struct agent_snmp_session  *asp) {
-    while(asp->treecache_num > 0) {
+    while(asp->treecache_num >= 0) {
         /* don't delete subtrees */
         delete_request_infos(asp->treecache[asp->treecache_num]
                              ->requests_begin);
@@ -1915,3 +1919,15 @@ free_agent_data_sets(agent_request_info *ari)
   if (ari)
     free_all_list_data(ari->agent_data);
 }
+
+inline void
+free_agent_request_info(agent_request_info *ari)
+{
+    if (ari) {
+        if (ari->agent_data)
+            free_all_list_data(ari->agent_data);
+        free(ari);
+    }
+}
+
+    

@@ -161,6 +161,7 @@ free_agent_data_set(agent_request_info *agent);
 
 inline void
 free_agent_data_sets(agent_request_info *agent);
+inline void free_agent_request_info(agent_request_info *ari);
 
 #ifdef __cplusplus
 }
