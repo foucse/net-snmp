@@ -66,7 +66,9 @@ struct snmp_pdu {
 
     int	    command;	/* Type of this PDU */
 
-    long  reqid;	/* Request id */
+    long  reqid;	/* Request id - note: not incremented on retries */
+    long  msgid;        /* Message id for V3 messages 
+                         * note: incremented for each retry */
     long  errstat;	/* Error status (non_repeaters in GetBulk) */
     long  errindex;	/* Error index (max_repetitions in GetBulk) */
 
@@ -141,6 +143,7 @@ typedef int (*snmp_callback) __P((int, struct snmp_session *, int, struct snmp_p
 #define SNMP_DEFAULT_TIMEOUT	    -1
 #define SNMP_DEFAULT_REMPORT	    0
 #define SNMP_DEFAULT_REQID	    0
+#define SNMP_DEFAULT_MSGID	    0
 #define SNMP_DEFAULT_ERRSTAT	    -1
 #define SNMP_DEFAULT_ERRINDEX	    -1
 #define SNMP_DEFAULT_ADDRESS	    0

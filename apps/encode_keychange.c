@@ -32,12 +32,6 @@ static char *rcsid = "$Id$";	/* */
 extern char     *optarg;
 extern int      optind, optopt, opterr;
 
-#if !defined(__linux__)
-extern int	optreset;
-#endif
-
-
-
 /*
  * Globals, &c...
  */
@@ -147,9 +141,6 @@ EM(-1);	/* */
 		argc -= 1; argv += 1;
                 if (optarg) { argc -= 1; argv += 1; optarg = NULL; }
 		optind = 1;
-#if !defined(__linux__)
-		optreset = 1;
-#endif
 
 	}  /* endwhile getopt */
 

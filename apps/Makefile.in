@@ -3,7 +3,7 @@
 # snmptrapd, snmptable, snmpset, snmpgetnext, and other utilities.
 #
 
-TARG		= snmpget snmpgetnext snmpset snmppass			\
+TARG		= snmpget snmpgetnext snmpset snmpusm			\
 			snmpwalk snmpbulkwalk snmptable			\
 			snmptrap					\
 			snmptranslate snmpstatus snmpdelta snmptest	\
@@ -64,8 +64,8 @@ snmptrap:    snmptrap.o $(TRAPSPECIAL) $(PARSEOBJS) $(USELIBS)
 snmpset:    snmpset.o $(PARSEOBJS) $(USELIBS)
 	${CC} -o $@ snmpset.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
-snmppass:    snmppass.o $(PARSEOBJS) $(USELIBS)
-	${CC} -o $@ snmppass.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
+snmpusm:    snmpusm.o $(PARSEOBJS) $(USELIBS)
+	${CC} -o $@ snmpusm.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
 
 snmpgetnext:    snmpgetnext.o $(PARSEOBJS) $(USELIBS)
 	${CC} -o $@ snmpgetnext.o $(PARSEOBJS) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 

@@ -10,6 +10,12 @@ AC_ARG_ENABLE(eol-terminated-comments,
                                   by an end of line condition.],
     AC_DEFINE(MIB_COMMENT_IS_EOL_TERMINATED))
 AC_ARG_ENABLE(debugging,[  --enable-debugging              Outputs extra debugging information.],AC_DEFINE(DODEBUG))
+AC_ARG_ENABLE(testing-code,
+[  --enable-testing-code           Enables some code sections that should 
+                                  only be used for testing of certain
+                                  SNMP functionalities.  This should *not* 
+                                  be turned on for production use.  Ever.],
+    AC_DEFINE(SNMP_TESTING_CODE))
 AC_ARG_ENABLE(shared,[  --enable-shared                 Compile and install shared libraries.],with_shared="yes",with_shared="no")
 AC_ARG_ENABLE(privacy,[  --disable-privacy               Don't compile in support for privacy.])
 if test "x$enable_privacy" != "xno"; then

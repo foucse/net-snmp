@@ -14,8 +14,6 @@
 #include "transform_oids.h"
 
 
-
-
 /*******************************************************************-o-******
  * generate_Ku
  *
@@ -68,7 +66,7 @@ generate_Ku(	oid	*hashtype,	u_int  hashtype_len,
 			*bufp;
 
 	void		*context = NULL;
-
+        
 EM(-1); /* */
 
 
@@ -86,7 +84,7 @@ EM(-1); /* */
 	/*
 	 * Determine transform type.
 	 */
-	if ( ISTRANSFORM(hashtype, HMACMD5Auth) ) {
+	if ( ISTRANSFORM(hashtype, HMACMD5Auth)) {
 		transform = KMT_ALG_HMAC_MD5;	
 		kmt_hash  = kmt_s_md5;
 
@@ -122,6 +120,14 @@ EM(-1); /* */
 	}
 
 	rval = kmt_hash(KMT_CRYPT_MODE_FINAL, &context, NULL, 0, &Ku, kulen);
+
+#ifdef SNMP_TESTING_CODE
+        DEBUGP("generating Ku (from %s): ", P);
+        for(i=0; i < *kulen; i++)
+          DEBUGP("%02x",Ku[i]);
+        DEBUGP("\n");
+#endif /* SNMP_TESTING_CODE */
+
 	QUITFUN(rval, generate_Ku_quit);
 
 
@@ -193,7 +199,8 @@ generate_kul(	oid	*hashtype,	u_int  hashtype_len,
 
 	char		 buf[SNMP_MAXBUF];
 	void		*context = NULL;
-
+        int              i;
+        
 EM(-1); /* */
 
 
@@ -211,7 +218,7 @@ EM(-1); /* */
 	/*
 	 * Determine transform type.
 	 */
-	if ( ISTRANSFORM(hashtype, HMACMD5Auth) ) {
+	if ( ISTRANSFORM(hashtype, HMACMD5Auth)) {
 		transform	= KMT_ALG_HMAC_MD5;	
 		properlength	= BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
 		kmt_hash	= kmt_s_md5;
@@ -246,6 +253,14 @@ EM(-1); /* */
 			&context,
 			buf,	nbytes,
 			&Kul,	kul_len);
+
+#ifdef SNMP_TESTING_CODE
+        DEBUGP("generating Kul (from Ku): ");
+        for(i=0; i < *kul_len; i++)
+          DEBUGP("%02x",Kul[i]);
+        DEBUGP("\n");
+#endif /* SNMP_TESTING_CODE */
+
 	QUITFUN(rval, generate_kul_quit);
 		
 
@@ -297,6 +312,9 @@ _KEYTOOLS_NOT_AVAILABLE
  *
  *		*kcstring_len will be returned as exactly twice that same
  *		length though the input buffer may be larger.
+ *
+ * XXX FIX:     Does not handle varibable length keys.
+ * XXX FIX:     Does not handle keys larger than the hash algorithm used.
  */
 int
 encode_keychange(	oid	*hashtype,	u_int  hashtype_len,
@@ -366,18 +384,22 @@ EM(-1); /* */
 	 */
 	nbytes = properlength;
 
-	if ( ISDF(RANDOMZEROS) ) {
-		memset(kcstring, 0, nbytes);	/* XXX  For testing only! */
+#ifdef SNMP_TESTING_CODE
+	if ( ISDF(RANDOMZEROS)) {
+		memset(kcstring, 0, nbytes);
 		DEBUGP(	"** Using all zero bits for \"random\" delta of "
 			"the keychange string! **\n");
 
 	} else {
+#endif /* SNMP_TESTING_CODE */
 		rval = sc_random(kcstring, &nbytes);
 		QUITFUN(rval, encode_keychange_quit);
 		if (nbytes != properlength) {
 			QUITFUN(SNMPERR_GENERR, encode_keychange_quit);
 		}
+#ifdef SNMP_TESTING_CODE
 	}
+#endif /* SNMP_TESTING_CODE */
 
 
 	rval = kmt_hash(KMT_CRYPT_MODE_INIT|KMT_CRYPT_MODE_UPDATE,
@@ -451,6 +473,8 @@ _KEYTOOLS_NOT_AVAILABLE
  *		output.  Thus the new key length will be equal to the old
  *		key length.
  */
+
+/* XXX:  if the newkey is not long enough, it should be freed and remalloced */
 int
 decode_keychange(	oid	*hashtype,	u_int  hashtype_len,
 			u_char	*oldkey,	u_int  oldkey_len,

@@ -179,6 +179,7 @@ usm_set_usmStateReference_sec_level (ref, sec_level)
 
 
 
+#ifdef SNMP_TESTING_CODE
 /*******************************************************************-o-******
  * emergency_print
  *
@@ -213,8 +214,7 @@ emergency_print (u_char *field, u_int length)
 	fflush (0);
 
 }  /* end emergency_print() */
-
-
+#endif /* SNMP_TESTING_CODE */
 
 
 /*******************************************************************-o-******
@@ -837,7 +837,9 @@ EM(-1);
 
 	ptr_len = *wholeMsgLen = theTotalLength;
 
+#ifdef SNMP_TESTING_CODE
 	memset (&ptr[globalDataLen], 0xFF, theTotalLength-globalDataLen);
+#endif /* SNMP_TESTING_CODE */
 
 
 	/* 
@@ -2490,18 +2492,45 @@ usm_set_password(char *token, char *line)
     return;
   }
     
-  cp = read_config_read_octet_string(cp, &engineID, &engineIDLen);
-  if (cp == NULL) {
-    config_perror("invalid engineID specifier");
-    return;
-  }
+  DEBUGP("comparing: %s and %s\n", cp, WILDCARDSTRING);
+  if (strncmp(cp, WILDCARDSTRING, strlen(WILDCARDSTRING)) == 0) {
+    /* match against all engineIDs we know about */
+    cp = skip_token(cp);
+    for(user = userList; user != NULL; user = user->next) {
+      if (strcmp(user->secName, nameBuf) == 0) {
+        usm_set_user_password(user, token, cp);
+      }
+    }
+  } else {
+    cp = read_config_read_octet_string(cp, &engineID, &engineIDLen);
+    if (cp == NULL) {
+      config_perror("invalid engineID specifier");
+      return;
+    }
 
-  user = usm_get_user(engineID, engineIDLen, nameBuf);
-  if (user == NULL) {
-    config_perror("not a valid user/engineID pair");
-    return;
+    user = usm_get_user(engineID, engineIDLen, nameBuf);
+    if (user == NULL) {
+      config_perror("not a valid user/engineID pair");
+      return;
+    }
+    usm_set_user_password(user, token, cp);
   }
+}
 
+/* uses the rest of LINE to configure USER's password of type TOKEN */
+void
+usm_set_user_password(struct usmUser *user, char *token, char *line) {
+  char		 *cp = line;
+  char		  nameBuf[SNMP_MAXBUF];
+  u_char	 *engineID = user->engineID;
+  int		  nameLen,
+                  engineIDLen = user->engineIDLen;
+
+  u_char	**key;
+  int		 *keyLen;
+  u_char	  userKey[SNMP_MAXBUF_SMALL];
+  int		  userKeyLen = SNMP_MAXBUF_SMALL;
+  int		  type, ret;
 
   /*
    * Retrieve the "old" key and set the key type.
@@ -2531,7 +2560,6 @@ usm_set_password(char *token, char *line)
     keyLen = &user->privKeyLen;
     type = 2;
   }
-  
 
   if (*key) {
     /* (destroy and) free the old key */
@@ -2539,20 +2567,17 @@ usm_set_password(char *token, char *line)
     free(*key);
   }
 
-
   if (type == 0) {
     /* convert the password into a key 
      */
     ret = generate_Ku(	user->authProtocol, user->authProtocolLen,
 			cp, strlen(cp),
 			userKey, &userKeyLen );
-
   
     if (ret != SNMPERR_SUCCESS) {
       config_perror("setting key failed (in sc_genKu())");
       return;
     }
-
   } else if (type == 1) {
     cp = read_config_read_octet_string(cp, (u_char **) &userKey, &userKeyLen);
     
@@ -2560,7 +2585,6 @@ usm_set_password(char *token, char *line)
       config_perror("invalid user key");
       return;
     }
-
   }
   
   if (type < 2) {
@@ -2570,7 +2594,10 @@ usm_set_password(char *token, char *line)
 			engineID, engineIDLen,
 			userKey, userKeyLen,
 			*key, keyLen );
-    /* XXX  Check for error? */
+    if (ret != SNMPERR_SUCCESS) {
+      config_perror("setting key failed (in generate_kul())");
+      return;
+    }
   
     /* (destroy and) free the old key */
     memset(userKey, 0, SNMP_MAXBUF_SMALL);
