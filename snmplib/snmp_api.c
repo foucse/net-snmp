@@ -2102,7 +2102,6 @@ snmp_parse(session, pdu, data, length)
         ERROR_MSG("unsupported/unknown message header type");
 	return -1;
     }
-    pdu->version = version;
 
     if (result == 0) {
       snmp_errno = 0;

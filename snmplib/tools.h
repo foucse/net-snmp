@@ -88,7 +88,7 @@
 #define USM_LENGTH_OID_TRANSFORM	10
 
 #define ISTRANSFORM(ttype, toid)					\
-	!compare(ttype, USM_LENGTH_OID_TRANSFORM,			\
+	!snmp_oid_compare(ttype, USM_LENGTH_OID_TRANSFORM,		\
 		usm ## toid ## Protocol, USM_LENGTH_OID_TRANSFORM)
 
 #define ENGINETIME_MAX	2147483647	/* ((2^31)-1) */

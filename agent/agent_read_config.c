@@ -58,6 +58,7 @@ void init_agent_read_config __P((void))
                           snmpd_parse_config_authtrap, NULL,
                           "1 | 2\t\t(1 = enable, 2 = disable)");
 
+  register_config_handler("snmpd","trapsink",
                           snmpd_parse_config_trapsink, snmpd_free_trapsinks,
                           "host");
   register_config_handler("snmpd","trap2sink",

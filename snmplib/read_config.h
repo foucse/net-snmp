@@ -31,9 +31,8 @@ struct config_line {
    void			(*free_func) __P((void));
    struct config_line	 *next;
    char			  config_time;	/* {NORMAL,PREMIB,EITHER}_CONFIG */
+   char                  *help;
 };
-
-
 
 void read_config __P((char *, struct config_line *, int));
 void read_configs __P((void));

@@ -469,11 +469,8 @@ send_trap_pdu(pdu)
         if (snmp_send(sink->sesp, mypdu) == 0) {
           snmp_perror ("snmpd: send_trap_pdu");
         }
-#ifdef USING_MIBII_SNMP_MIB_MODULE       
-        snmp_outtraps++;
-#endif
+        snmp_increment_statistic(STAT_SNMPOUTTRAPS);
       }
-      snmp_increment_statistic(STAT_SNMPOUTTRAPS);
       sink = sink->next;
     }
     DEBUGP("  done\n");
@@ -627,6 +624,7 @@ main(argc, argv)
         struct usmUser *user, *userListPtr;
         char           *pid_file = NULL;
         FILE           *PID;
+        int             dont_zero_log = 0;
 
 	logfile[0]		= 0;
 	optconfigfile		= NULL;

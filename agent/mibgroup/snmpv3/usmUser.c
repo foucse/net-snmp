@@ -40,7 +40,8 @@ void
 init_usmUser(void)
 {
   snmpd_register_config_handler("usmUser",
-                                usm_parse_config_usmUser, NULL);
+                                usm_parse_config_usmUser, NULL,
+                                "internal use only");
 }
 
 void
@@ -253,7 +254,7 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
 #define MAX_NEWNAME_LEN 128
     oid newname[MAX_NEWNAME_LEN];
     len = (*length < vp->namelen) ? *length : vp->namelen;
-    rtest = compare(name, len, vp->name, len);
+    rtest = snmp_oid_compare(name, len, vp->name, len);
     if (rtest > 0 ||
 /*      (rtest == 0 && !exact && (int) vp->namelen+1 < (int) *length) || */
         (exact == 1 && rtest != 0)) {
@@ -271,7 +272,7 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
       for(nptr = usm_get_userList(), pptr = NULL, uptr = NULL; nptr != NULL;
           pptr = nptr, nptr = nptr->next) {
         indexOid = usm_generate_OID(vp->name, vp->namelen, nptr, &len);
-        result = compare(name, *length, indexOid, len);
+        result = snmp_oid_compare(name, *length, indexOid, len);
         DEBUGP("usmUser: Checking user: %s - ", nptr->name);
         for(i = 0; i < nptr->engineIDLen; i++)
           DEBUGP(" %x",nptr->engineID[i]);
@@ -603,12 +604,12 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
 
       /* check the objid for validity */
       /* only allow sets to perform a change to usmNoAuthProtocol */
-      if (compare(objid, size, usmNoAuthProtocol,
+      if (snmp_oid_compare(objid, size, usmNoAuthProtocol,
                   sizeof(usmNoAuthProtocol)/sizeof(oid)) != 0)
         return SNMP_ERR_INCONSISTENTVALUE;
       
       /* if the priv protocol is not usmNoPrivProtocol, we can't change */
-      if (compare(uptr->privProtocol, uptr->privProtocolLen, usmNoPrivProtocol,
+      if (snmp_oid_compare(uptr->privProtocol, uptr->privProtocolLen, usmNoPrivProtocol,
                   sizeof(usmNoPrivProtocol)/sizeof(oid)) != 0)
         return SNMP_ERR_INCONSISTENTVALUE;
 
@@ -751,7 +752,7 @@ write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, nam
 
       /* check the objid for validity */
       /* only allow sets to perform a change to usmNoPrivProtocol */
-      if (compare(objid, size, usmNoPrivProtocol,
+      if (snmp_oid_compare(objid, size, usmNoPrivProtocol,
                   sizeof(usmNoPrivProtocol)/sizeof(oid)) != 0)
         return SNMP_ERR_INCONSISTENTVALUE;
       

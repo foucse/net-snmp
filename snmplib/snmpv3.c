@@ -411,26 +411,38 @@ init_snmpv3(char *type) {
   gettimeofday(&snmpv3starttime, NULL);
   setup_engineID(NULL, NULL);
   /* handle engineID setup before everything else which may depend on it */
-  register_premib_handler(type,"engineID", engineID_conf, NULL);
-  register_premib_handler(type,"oldEngineID", oldengineID_conf, NULL);
-  register_config_handler(type,"engineBoots", engineBoots_conf, NULL);
-  register_config_handler("snmp","defSecurityName", snmpv3_secName_conf, NULL);
-  register_config_handler("snmp","defContext", snmpv3_context_conf, NULL);
-  register_config_handler("snmp","defAuthType", snmpv3_authtype_conf, NULL);
-  register_config_handler("snmp","defPrivType", snmpv3_privtype_conf, NULL);
-  register_config_handler("snmp","defPassphrase", snmpv3_passphrase_conf, NULL);
+  register_premib_handler(type,"engineID", engineID_conf, NULL, "string");
+  register_premib_handler(type,"oldEngineID", oldengineID_conf, NULL,
+                          "len hexEngineId");
+  register_config_handler(type,"engineBoots", engineBoots_conf, NULL, "num");
+  register_config_handler("snmp","defSecurityName", snmpv3_secName_conf, NULL,
+                          "name");
+  register_config_handler("snmp","defContext", snmpv3_context_conf, NULL,
+                          "string");
+  register_config_handler("snmp","defAuthType", snmpv3_authtype_conf, NULL,
+                          "MD5|SHA");
+  register_config_handler("snmp","defPrivType", snmpv3_privtype_conf, NULL,
+                          "DES (currently the only possible value)");
+  register_config_handler("snmp","defPassphrase", snmpv3_passphrase_conf, NULL,
+                          "passphrase");
   register_config_handler("snmp","defAuthPassphrase",
-                          snmpv3_passphrase_conf, NULL);
+                          snmpv3_passphrase_conf, NULL, "passphrase");
   register_config_handler("snmp","defPrivPassphrase",
-                          snmpv3_passphrase_conf, NULL);
+                          snmpv3_passphrase_conf, NULL, "passphrase");
   register_config_handler("snmp","defSecurityLevel", snmpv3_secLevel_conf,
-                          NULL);
-  register_config_handler(type,"userSetAuthPass", usm_set_password, NULL);
-  register_config_handler(type,"userSetPrivPass", usm_set_password, NULL);
-  register_config_handler(type,"userSetAuthKey", usm_set_password, NULL);
-  register_config_handler(type,"userSetPrivKey", usm_set_password, NULL);
-  register_config_handler(type,"userSetAuthLocalKey", usm_set_password, NULL);
-  register_config_handler(type,"userSetPrivLocalKey", usm_set_password, NULL);
+                          NULL, "noAuthNoPriv|authNoPriv|authPriv");
+  register_config_handler(type,"userSetAuthPass", usm_set_password, NULL,
+                          "secname engineIDLen engineID pass");
+  register_config_handler(type,"userSetPrivPass", usm_set_password, NULL,
+                          "secname engineIDLen engineID pass");
+  register_config_handler(type,"userSetAuthKey", usm_set_password, NULL,
+                          "secname engineIDLen engineID KuLen Ku");
+  register_config_handler(type,"userSetPrivKey", usm_set_password, NULL,
+                          "secname engineIDLen engineID KuLen Ku");
+  register_config_handler(type,"userSetAuthLocalKey", usm_set_password, NULL,
+                          "secname engineIDLen engineID KulLen Kul");
+  register_config_handler(type,"userSetPrivLocalKey", usm_set_password, NULL,
+                          "secname engineIDLen engineID KulLen Kul");
 #if		!defined(USE_INTERNAL_MD5)
 	sc_init();
 #endif		/* !USE_INTERNAL_MD5 */

@@ -482,7 +482,7 @@ snmp_parse_args(argc, argv, session)
         break;
 
       case 'H':
-        init_snmp();
+        init_snmp("snmpapp");
         fprintf(stderr, "Configuration directives understood:\n");
         read_config_print_usage("  ");
         exit(0);

@@ -1909,13 +1909,13 @@ usm_check_secLevel(int level, struct usmUser *user)
 EM(-1); 
 
   if ( level == SNMP_SEC_LEVEL_AUTHPRIV
-	&& (compare(user->privProtocol, user->privProtocolLen,
+	&& (snmp_oid_compare(user->privProtocol, user->privProtocolLen,
 		usmNoPrivProtocol, sizeof(usmNoPrivProtocol)/sizeof(oid))==0) )
   {
     return 1;
   } 
   if ( (level == SNMP_SEC_LEVEL_AUTHPRIV || level == SNMP_SEC_LEVEL_AUTHNOPRIV)
-	&& (compare(user->authProtocol, user->authProtocolLen,
+	&& (snmp_oid_compare(user->authProtocol, user->authProtocolLen,
 		usmNoAuthProtocol, sizeof(usmNoAuthProtocol)/sizeof(oid))==0) )
   {
     return 1;
@@ -1953,13 +1953,13 @@ usm_check_secLevel_vs_protocols(int level,
 EM(-1); 
 
   if ( level == SNMP_SEC_LEVEL_AUTHPRIV
-	&& (compare(privProtocol, privProtocolLen, usmNoPrivProtocol,
+	&& (snmp_oid_compare(privProtocol, privProtocolLen, usmNoPrivProtocol,
               			sizeof(usmNoPrivProtocol)/sizeof(oid))==0) )
   {
     return 1;
   }
   if ( (level == SNMP_SEC_LEVEL_AUTHPRIV || level == SNMP_SEC_LEVEL_AUTHNOPRIV)
-	&& (compare(authProtocol, authProtocolLen, usmNoAuthProtocol,
+	&& (snmp_oid_compare(authProtocol, authProtocolLen, usmNoAuthProtocol,
               			sizeof(usmNoAuthProtocol)/sizeof(oid))==0) )
   {
     return 1;
