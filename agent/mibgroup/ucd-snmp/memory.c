@@ -443,7 +443,7 @@ unsigned char *var_extensible_mem(struct variable *vp,
       return((u_char *) (&long_ret));
     case MEMAVAILREAL:
 #ifdef linux
-	long_ret = memory(meminfo_used);
+	long_ret = memory(meminfo_free);
 #else
       long_ret = pagetok((int) total.t_arm);
 #endif
