@@ -915,8 +915,10 @@ snmpv3_build(session, pdu, packet, out_length)
     register u_char	*packet;
     int			*out_length;
 {
-  snmpv3_packet_build(pdu, packet, out_length, NULL, 0);
+  int ret;
+  ret = snmpv3_packet_build(pdu, packet, out_length, NULL, 0);
   session->s_snmp_errno = snmp_errno;
+  return ret;
 }
 
 u_char *
@@ -1397,7 +1399,7 @@ snmpv3_parse(pdu, data, length, after_header)
   u_char *sec_params;
   u_char *msg_data;
   u_char *cp;
-  int asn_len, sec_params_len;
+  int asn_len, sec_params_len, ret;
 
   /* message is an ASN.1 SEQUENCE */
   data = asn_parse_header(data, length, &type);
@@ -1536,11 +1538,13 @@ snmpv3_parse(pdu, data, length, after_header)
   }
 
   if (after_header != NULL) {
-    /* don't parse the pdu, just return a pointer to what's after the header */
+    tmp_buf_len = *length;
     *after_header = data;
-    return 0;
   }
-  return snmp_pdu_parse(pdu, data, length);
+  ret = snmp_pdu_parse(pdu, data, length);
+  if (after_header != NULL)
+    *length = tmp_buf_len;
+  return ret;
 }
 
 /*
@@ -3034,3 +3038,16 @@ oid *snmp_duplicate_objid(oid *objToCopy, int objToCopyLen) {
   return returnOid;
 }
 
+/* generic statistics counter functions */
+static int statistics[MAX_STATS];
+
+void snmp_increment_statistic(int which) {
+  if (which >= 0 && which < MAX_STATS)
+    statistics[which]++;
+}
+
+int snmp_get_statistic(int which) {
+  if (which >= 0 && which < MAX_STATS)
+    return statistics[which];
+  return -1;
+}

@@ -372,7 +372,10 @@ void snmp_pdu_add_variable __P((struct snmp_pdu *, oid *, int, u_char, u_char *,
 int hex_to_binary __P((u_char *, u_char *));
 int ascii_to_binary __P((u_char *, u_char *));
 int snmp_add_var __P((struct snmp_pdu *, oid*, int, char, char *));
-oid *snmp_duplicate_objid(oid *objToCopy, int);
+oid  *snmp_duplicate_objid(oid *objToCopy, int);
+void  snmp_increment_statistic(int which);
+int   snmp_get_statistic(int which);
+  
 #ifdef __STDC__
 void DEBUGP __P((const char *, ...));
 #else
@@ -453,3 +456,25 @@ void   snmp_sess_error      __P((void *, int *, int *, char **));
  
 #endif /* SNMP_API_H */
 
+/* generic statistic counters */
+
+/* snmpv3 statistics */
+
+/* mpd stats */
+#define   STAT_SNMPUNKNOWNSECURITYMODELS     0
+#define   STAT_SNMPINVALIDMSGS               1
+#define   STAT_SNMPUNKNOWNPDUHANDLERS        2
+#define   STAT_MPD_STATS_START               STAT_SNMPUNKNOWNSECURITYMODELS
+#define   STAT_MPD_STATS_END                 STAT_SNMPUNKNOWNPDUHANDLERS
+
+/* usm stats */
+#define   STAT_USMSTATSUNSUPPORTEDSECLEVELS  3
+#define   STAT_USMSTATSNOTINTIMEWINDOWS      4
+#define   STAT_USMSTATSUNKNOWNUSERNAMES      5
+#define   STAT_USMSTATSUNKNOWNENGINEIDS      6
+#define   STAT_USMSTATSWRONGDIGESTS          7
+#define   STAT_USMSTATSDECRYPTIONERRORS      8
+#define   STAT_USM_STATS_START               STAT_USMSTATSUNSUPPORTEDSECLEVELS
+#define   STAT_USM_STATS_END                 STAT_USMSTATSDECRYPTIONERRORS
+
+#define MAX_STATS                            8
