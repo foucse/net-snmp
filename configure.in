@@ -654,9 +654,7 @@ fi
 dnl AC_CHECK_LIB(ucb, bzero)
 
 dnl zlib is required for newer versions of rpm
-if test "x$ac_cv_lib_rpm_rpmdbOpen" = "xyes"; then
-  AC_CHECK_LIB(z, zlibVersion)
-fi
+AC_CHECK_LIB(z, zlibVersion)
 dnl
 dnl with rpm3 or higher, we need db1 to exist
 dnl
