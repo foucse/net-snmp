@@ -316,8 +316,9 @@ void
 init_snmpv3(char *type) {
   gettimeofday(&snmpv3starttime, NULL);
   setup_engineID(NULL);
+  /* handle engineID setup before everything else which may depend on it */
+  register_premib_handler(type,"engineID", engineID_conf, NULL);
   register_config_handler(type,"engineBoots", engineBoots_conf, NULL);
-  register_config_handler(type,"engineID", engineID_conf, NULL);
   register_config_handler("snmp","defSecurityName", snmpv3_secName_conf, NULL);
   register_config_handler("snmp","defContext", snmpv3_context_conf, NULL);
   register_config_handler("snmp","defAuthType", snmpv3_authtype_conf, NULL);
