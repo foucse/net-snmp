@@ -7,6 +7,8 @@
 #ifndef SNMP_AGENT_H
 #define SNMP_AGENT_H
 
+#include "snmp_impl.h"
+
 #define SNMP_MAX_PDU_SIZE 64000 /* local constraint on PDU size sent by agent
                                   (see also SNMP_MAX_MSG_SIZE in snmp_api.h) */
 
@@ -56,6 +58,8 @@ typedef struct tree_cache_s {
 #define MODE_GET              SNMP_MSG_GET
 #define MODE_GETNEXT          SNMP_MSG_GETNEXT
 #define MODE_GETBULK          SNMP_MSG_GETBULK
+#define MODE_IS_GET(x)        (x & ASN_CONTEXT)
+
 #define MODE_SET_BEGIN        -1
 #define MODE_SET_RESERVE1     RESERVE1
 #define MODE_SET_RESERVE2     RESERVE2
@@ -63,11 +67,13 @@ typedef struct tree_cache_s {
 #define MODE_SET_COMMIT       COMMIT
 #define MODE_SET_FREE         FREE
 #define MODE_SET_UNDO         UNDO
+#define MODE_IS_SET(x)         (!MODE_IS_GET(x))
 
 typedef struct agent_request_info_s {
    int    mode;
    struct snmp_pdu *pdu;                 /* pdu contains authinfo, eg */
    struct agent_snmp_session *asp;       /* may not be needed */
+   void *state_reference; /* store state info common to this request */
    /* ... */
 } agent_request_info;
 
