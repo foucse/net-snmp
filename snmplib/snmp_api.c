@@ -1921,14 +1921,21 @@ snmpv3_make_report(u_char *out_data, int *out_length,
   pdu->errindex		 	= 0;
   pdu->contextName		= strdup("");
   pdu->contextNameLen		= strlen(pdu->contextName);
+
+  /* reports shouldn't cache previous data. */
+  if (pdu->securityStateRef) {
+    usm_free_usmStateReference(pdu->securityStateRef);
+    pdu->securityStateRef = NULL;
+  }
+  
   if (error != STAT_USMSTATSNOTINTIMEWINDOWS) 
     pdu->securityLevel          = SNMP_SEC_LEVEL_NOAUTH;
 
-  /* find the unknown engineID counter
+  /* find the appropriate error counter
    */
   ltmp = snmp_get_statistic(error);
 
-  /* return  the unknown engineID counter
+  /* return the appropriate error counter
    */
   snmp_pdu_add_variable(pdu, err_var, err_var_len,
                         ASN_COUNTER, (u_char *) &ltmp, sizeof(ltmp));
