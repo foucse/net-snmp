@@ -122,16 +122,20 @@ void snmp_agent_parse_config (char *, char *);
 struct agent_snmp_session  *init_agent_snmp_session( struct snmp_session *, struct snmp_pdu *);
 void free_agent_snmp_session( struct agent_snmp_session * );
 void remove_and_free_agent_snmp_session(struct agent_snmp_session *asp);
+#ifdef SNMP_NEED_REQUEST_LIST
 void free_agent_snmp_session_by_session(struct snmp_session *sess,
 				  void (*free_request)(struct request_list *));
+#endif
 int getNextSessID(void);
 void dump_sess_list(void);
 int init_master_agent(void);
 int agent_check_and_process(int block);
 struct agent_snmp_session  *get_current_agent_session(void);
 void check_outstanding_agent_requests(int status);
-int set_request_error(agent_request_info *reqinfo, request_info *request,
+int set_mode_request_error(int mode, request_info *request,
                       int error_value);
+int set_request_error(agent_request_info *reqinfo, request_info *request,
+                       int error_value);
 int set_all_requests_error(agent_request_info *reqinfo, request_info *requests,
                            int error_value);
 int marker_uptime( marker_t pm );

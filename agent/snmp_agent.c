@@ -1809,6 +1809,16 @@ int set_request_error(agent_request_info *reqinfo, request_info *request,
     if (!request || !reqinfo)
         return error_value;
 
+    return set_request_error(reqinfo->mode, request, error_value);
+}
+
+int set_mode_request_error(int mode, request_info *request,
+                       int error_value) {
+    if (!request)
+        return error_value;
+
+    request->processed = 1;
+
     switch(error_value) {
         case SNMP_NOSUCHOBJECT:
         case SNMP_NOSUCHINSTANCE:
@@ -1816,7 +1826,7 @@ int set_request_error(agent_request_info *reqinfo, request_info *request,
             /* these are exceptions that should be put in the varbind
                in the case of a GET but should be translated for a SET
                into a real error status code and put in the request */
-            switch (reqinfo->mode) {
+            switch (mode) {
                 case MODE_GET:
                     request->requestvb->type = error_value;
                     return error_value;
