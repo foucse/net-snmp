@@ -1988,20 +1988,19 @@ _snmp_build(struct snmp_session *session,
 	    pdu->community_len = session->community_len;
 	}
 #else /* !NO_ZEROLENGTH_COMMUNITY */
-	if (! (pdu->community_len != 0 &&
-	       pdu->command == SNMP_MSG_RESPONSE )) {
-	/* copy session community exactly to pdu community */
-	    if (0 == session->community_len) {
-		SNMP_FREE(pdu->community); pdu->community = 0;
+	if (pdu->community_len == 0 && pdu->command != SNMP_MSG_RESPONSE) {
+	    /* copy session community exactly to pdu community */
+	    if (session->community_len == 0) {
+		SNMP_FREE(pdu->community);
 	    }
 	    else if (pdu->community_len == session->community_len) {
 		memmove(pdu->community, session->community,
 			    session->community_len);
 	    }
 	    else {
-	    SNMP_FREE(pdu->community);
-	    pdu->community = (u_char *)malloc(session->community_len);
-	    memmove(pdu->community, session->community,
+		SNMP_FREE(pdu->community);
+		pdu->community = (u_char *)malloc(session->community_len);
+		memmove(pdu->community, session->community,
                         session->community_len);
 	    }
 	    pdu->community_len = session->community_len;
