@@ -350,7 +350,7 @@ EM(-1); /* */
 		QUITFUN(SNMPERR_GENERR, encode_keychange_quit);
 	}
 
-	properlength = MIN(oldkey_len, properlength);
+	properlength = SNMP_MIN(oldkey_len, properlength);
 
 	/*
 	 * Use the old key and some random bytes to encode the new key
