@@ -17,10 +17,11 @@
  * FIX  Resolve the broken KMT API issue.
  * 	kmt_s_* prototypes stolen from KMT/algs/kmt_hash.h.
  */
-static int (*kmt_hash) __P((
-		const int	  mode,		void  	 **context,
-		const u_int8_t	 *data,		const int  data_len,     
-		u_int8_t	**digest,	int	  *digest_len));
+int (*kmt_hash) __P((
+	const int	  mode,		void  	 **context,
+	const u_int8_t	 *data,		const int  data_len,     
+	u_int8_t	**digest,	int	  *digest_len));
+
 
 extern int (*kmt_s_md5) __P((
 		const int	  mode,		void  	 **context,

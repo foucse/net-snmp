@@ -90,6 +90,7 @@ malloc_zero(u_long size)
 }  /* end malloc_zero() */
 
 
+
 /*******************************************************************-o-******
  * memdup
  *
@@ -98,19 +99,21 @@ malloc_zero(u_long size)
  *      from     Pointer to copy memory from.
  *      size     Size of the data to be copied.
  *      
- * Returns SNMPERR_SUCCESS on success
-       and SNMPERR_GENERR  on failure   
+ * Returns
+ *	SNMPERR_SUCCESS	On success.
+ *      SNMPERR_GENERR	On failure.
  */
 int
-memdup(u_char **to, u_char *from, u_int size) {
+memdup(u_char **to, u_char *from, u_int size)
+{
   if (to == NULL)
     return SNMPERR_GENERR;
   if ((*to = malloc(size)) == NULL)
     return SNMPERR_GENERR;
   memcpy(*to, from, size);
   return SNMPERR_SUCCESS;
-}
 
+}  /* end memdup() */
 
 
 

@@ -7,8 +7,36 @@
 
 
 #define USM_LENGTH_EXPANDED_PASSPHRASE	(1024 * 1024)	/* 1Meg. */
+
 #define USM_LENGTH_KU_HASHBLOCK		64		/* In bytes. */
 
+
+
+/*
+ * Simple hash function pointer, and the internal hash functions offered
+ * by KMT.
+ *
+ * FIX  Resolve the broken KMT API issue.
+ * 	kmt_s_* prototypes stolen from KMT/algs/kmt_hash.h.
+ */
+int (*kmt_hash) __P((
+	const int	  mode,		void  	 **context,
+	const u_int8_t	 *data,		const int  data_len,     
+	u_int8_t	**digest,	int	  *digest_len));
+
+
+extern int (*kmt_s_md5) __P((
+		const int	  mode,		void  	 **context,
+		const u_int8_t	 *data,		const int  data_len,     
+		u_int8_t	**digest,	int	  *digest_len));
+extern int (*kmt_s_sha1) __P((
+		const int	  mode,		void  	 **context,
+		const u_int8_t	 *data,		const int  data_len,     
+		u_int8_t	**digest,	int	  *digest_len));
+extern int (*kmt_s_ripemd) __P((
+		const int	  mode,		void  	 **context,
+		const u_int8_t	 *data,		const int  data_len,     
+		u_int8_t	**digest,	int	  *digest_len));
 
 
 

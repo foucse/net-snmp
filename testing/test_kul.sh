@@ -9,7 +9,7 @@
 #
 
 
-. ./test_tools.sh
+. ./eval_tools.sh
 
 VERIFY ktest
 

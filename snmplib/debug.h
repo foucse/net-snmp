@@ -59,7 +59,7 @@ static u_int snmp_debug =	DF(ON) | DF(EM)		/* */
 	}								\
 };
 
-#define EM(em)			  em_printClause(em, (_EM_FD, ""));
+#define EM(em)			  em_printClause(em, (_EM_FD, " "));
 #define EM0(em, fmt)		  em_printClause(em, (_EM_FD, fmt));
 #define EM1(em, fmt, arg1)	  em_printClause(em, (_EM_FD, fmt, arg1));
 #define EM2(em, fmt, arg1, arg2)  em_printClause(em, (_EM_FD, fmt, arg1, arg2));
