@@ -44,3 +44,11 @@
 + hardaker/Sep 23
     Actually, the usm code should be careful about backing out of a set
     (currently at COMMIT, it happens regardless of past or future fails).
+
+* hardaker/Sep 23
+    The EngineBoots incrementer needs to be reset upon a engineID change.
+
++ hardaker/Sep 23
+    When cloning, what do we do when a malloc fails in mid stream?  Do 
+    we need to revert all the back to the pre-attempt version of the
+    user?  Probably, and this needs to be fixed in snmpusm.c.
