@@ -166,11 +166,6 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
           pi->sec_model = pdu->securityModel;
           pi->securityName = pdu->securityName;
           pi->packet_end = data + length;
-          /* check the incoming engineID against ours */
-          if (engineIDLen != pdu->contextEngineIDLen ||
-              engineID == NULL || pdu->contextEngineID == NULL ||
-              memcmp(engineID, pdu->contextEngineID, engineIDLen))
-            ret_err = SNMP_ERR_UNKNOWNENGINEID;
           if (ret_err) {
             switch(ret_err) {
               case SNMP_ERR_UNSUPPORTEDSECURITYLEVEL:
