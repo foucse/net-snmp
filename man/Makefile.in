@@ -58,7 +58,7 @@ install:  installdirs $(MAN1) $(MAN1G) $(MAN3) $(MAN5) $(MAN5G) $(MAN8)
 	@$(INSTALL) $(MAN1) $(man1dir)
 	@for i in $(MAN1) ; do echo "install:  installed $$i in $(man1dir)" ; done
 	@$(INSTALL) $(MAN1G) $(man1dir)
-	@for i in $(MAN1G) ; echo "install:  installed $$i in $(man1dir)" ; done
+	@for i in $(MAN1G) ; do echo "install:  installed $$i in $(man1dir)" ; done
 	@$(INSTALL) $(MAN3) $(man3dir)
 	@for i in $(MAN3) ; do echo "install:  installed $$i in $(man3dir)" ; done
 	@$(INSTALL) $(MAN3G) $(man3dir)
