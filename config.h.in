@@ -279,6 +279,12 @@
 /* Define if you have the <ioctls.h> header file.  */
 #undef HAVE_IOCTLS_H
 
+/* Define if you have the <kmt.h> header file.  */
+#undef HAVE_KMT_H
+
+/* Define if you have the <kmt_algs.h> header file.  */
+#undef HAVE_KMT_ALGS_H
+
 /* Define if you have the <kstat.h> header file.  */
 #undef HAVE_KSTAT_H
 

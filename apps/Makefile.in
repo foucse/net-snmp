@@ -13,7 +13,7 @@ LIBS=	 -L../snmplib $(CC_RUNTIME_ARG) -lsnmp @LIBS@
 
 PARSEOBJS=snmp_parse_args.o
 
-CPPFLAGS=@CPPFLAGS@ -I.. -I$(srcdir)/.. -I$(srcdir)/../snmplib
+CPPFLAGS=-I.. -I$(srcdir)/.. -I$(srcdir)/../snmplib @CPPFLAGS@
 CC = @CC@ $(CPPFLAGS)
 
 all: $(TARG) $(SBINTARG) subdirs

@@ -134,7 +134,7 @@ AC_DEFUN(AC_ADD_SEARCH_PATH,[
        LDFLAGS="-L$1/lib $LDFLAGS"
      fi
      if test -d $1/include; then
-       CFLAGS="-I$1/include $CFLAGS"
+	CPPFLAGS="-I$1/include $CPPFLAGS"
      fi
   fi
 ])

@@ -575,8 +575,8 @@ AC_CHECK_LIB(kvm, kvm_read)
 dnl Check for nlist in mld (irix)
 AC_CHECK_LIB(mld, nlist)
 dnl Check for security related functions
-AC_CHECK_LIB(kmt, kmt_init)
 AC_CHECK_LIB(crypto, SSLeay_version)
+AC_CHECK_LIB(kmt, kmt_init)
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -605,6 +605,8 @@ dnl for HostRes (HP-UX at least)
 AC_CHECK_HEADERS(sys/dkio.h sys/diskio.h sys/pstat.h linux/hdreg.h pkglocs.h)
 dnl WIN32
 AC_CHECK_HEADERS(winsock.h io.h)
+dnl KMT
+AC_CHECK_HEADERS(kmt.h kmt_algs.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_OFF_T

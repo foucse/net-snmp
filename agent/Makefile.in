@@ -6,8 +6,9 @@ TARG=	 snmpd
 USELIBS= ../snmplib/libsnmp.$(SHLIB_EXTENSION)$(SHLIB_VERSION)
 LIBS=	 -L../snmplib $(CC_RUNTIME_ARG) -lsnmp @LIBS@
 
-CPPFLAGS=@CPPFLAGS@ -I.. -I$(srcdir)/.. -I$(srcdir)/../snmplib \
-	-I$(srcdir) -I. -I$(srcdir)/mibgroup -Imibgroup
+CPPFLAGS=-I.. -I$(srcdir)/.. -I$(srcdir)/../snmplib \
+	-I$(srcdir) -I. -I$(srcdir)/mibgroup -Imibgroup \
+	@CPPFLAGS@
 
 CC = @CC@ $(CPPFLAGS)
 
