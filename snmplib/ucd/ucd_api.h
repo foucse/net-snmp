@@ -2,9 +2,13 @@
 #ifndef _UCD_UCD_API_H
 #define _UCD_UCD_API_H
 
+#ifndef OPAQUE_SPECIAL_TYPES
 #define OPAQUE_SPECIAL_TYPES
+#endif
 #define MAX_OID_LEN  128
 
+#define USM_AUTH_KU_LEN     32
+#define USM_PRIV_KU_LEN     32
 
 typedef u_long oid;
 
@@ -105,5 +109,70 @@ struct snmp_pdu {
     void * securityStateRef;
 };
 
+
+struct snmp_session;
+typedef int (*snmp_callback) (int, struct snmp_session *, int, struct snmp_pdu *, void *);
+
+struct snmp_session {
+	/*
+	 * Protocol-version independent fields
+	 */
+    long  version;
+    int	    retries;	/* Number of retries before timeout. */
+    long    timeout;    /* Number of uS until first timeout, then exponential backoff */
+    u_long  flags;
+    struct  snmp_session *subsession;
+    struct  snmp_session *next;
+
+    char    *peername;	/* Domain name or dotted IP address of default peer */
+    u_short remote_port;/* UDP port number of peer. */
+    u_short local_port; /* My UDP port number, 0 for default, picked randomly */
+    /* Authentication function or NULL if null authentication is used */
+    u_char    *(*authenticator) (u_char *, size_t *, u_char *, size_t);
+    snmp_callback callback; /* Function to interpret incoming data */
+    /* Pointer to data that the callback function may consider important */
+    void    *callback_magic;
+
+    int     s_errno;        /* copy of system errno */
+    int     s_snmp_errno;   /* copy of library errno */
+    long    sessid;         /* Session id - AgentX only */
+
+	/*
+	 * SNMPv1 & SNMPv2c fields
+	 */
+    u_char  *community;	        /* community for outgoing requests. */
+    size_t  community_len;      /* Length of community name. */
+
+    size_t  rcvMsgMaxSize;	/*  Largest message to try to receive.  */
+    size_t  sndMsgMaxSize;	/*  Largest message to try to send.  */
+  
+	/*
+	 * SNMPv3 fields
+	 */
+    u_char  isAuthoritative;    /* are we the authoritative engine? */
+    u_char  *contextEngineID;	/* authoritative snmpEngineID */
+    size_t  contextEngineIDLen; /* Length of contextEngineID */
+    u_int   engineBoots;        /* initial engineBoots for remote engine */
+    u_int   engineTime;         /* initial engineTime for remote engine */
+    char    *contextName;	/* authoritative contextName */
+    size_t  contextNameLen;     /* Length of contextName */
+    u_char  *securityEngineID;	/* authoritative snmpEngineID */
+    size_t  securityEngineIDLen;  /* Length of contextEngineID */
+    char    *securityName;	/* on behalf of this principal */
+    size_t  securityNameLen;    /* Length of securityName. */
+    oid     *securityAuthProto; /* auth protocol oid */
+    size_t  securityAuthProtoLen; /* Length of auth protocol oid */
+    u_char  securityAuthKey[USM_AUTH_KU_LEN];  /* Ku for auth protocol XXX */
+    size_t  securityAuthKeyLen; /* Length of Ku for auth protocol */
+    oid     *securityPrivProto; /* priv protocol oid */
+    size_t  securityPrivProtoLen; /* Length of priv protocol oid */
+    u_char  securityPrivKey[USM_PRIV_KU_LEN];  /* Ku for privacy protocol XXX */
+    size_t  securityPrivKeyLen; /* Length of Ku for priv protocol */
+    int	    securityModel;
+    int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
+
+    /* security module specific */
+    void    *securityInfo;
+};
 
 #endif /* _UCD_UCD_API_H */

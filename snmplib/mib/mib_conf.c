@@ -22,7 +22,7 @@
 
 #include <net-snmp/mib_api.h>
 
-#include "asn1.h"
+#include "ucd/ucd_api.h"
 #include "read_config.h"
 #include "snmp_debug.h"
 #include "default_store.h"

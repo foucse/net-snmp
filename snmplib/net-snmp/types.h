@@ -22,12 +22,11 @@
 #define ASN_SET             ((u_char)0x11)
 
 #define ASN_UNIVERSAL       ((u_char)0x00)
+#define ASN_PRIMITIVE       ((u_char)0x00)
+#define ASN_CONSTRUCTOR     ((u_char)0x20)
 #define ASN_APPLICATION     ((u_char)0x40)
 #define ASN_CONTEXT         ((u_char)0x80)
 #define ASN_PRIVATE         ((u_char)0xC0)
-
-#define ASN_PRIMITIVE       ((u_char)0x00)
-#define ASN_CONSTRUCTOR     ((u_char)0x20)
 
 
         /* Defined types: SMIv1 - RFC 1155 */
@@ -62,5 +61,29 @@ struct counter64 {
 typedef struct counter64 integer64;
 typedef struct counter64 unsigned64;
 
+
+#define SNMP_MSG_GET        (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x0)
+#define SNMP_MSG_GETNEXT    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x1)
+#define SNMP_MSG_RESPONSE   (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x2)
+#define SNMP_MSG_SET        (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x3)
+#define SNMP_MSG_TRAP       (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x4)
+#define SNMP_MSG_GETBULK    (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x5)
+#define SNMP_MSG_INFORM     (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x6)
+#define SNMP_MSG_TRAP2      (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x7)
+#define SNMP_MSG_REPORT     (ASN_CONTEXT | ASN_CONSTRUCTOR | 0x8)
+
+
+
+#define SNMP_VERSION_1      0
+#define SNMP_VERSION_2c    1
+#define SNMP_VERSION_2u    2 		/* Not supported */
+#define SNMP_VERSION_3     3   
+#define SNMP_VERSION_sec   128		/* Not supported */
+#define SNMP_VERSION_2p    129		/* Not supported */
+#define SNMP_VERSION_2star 130		/* Not supported */
+
+#define SNMP_DEFAULT_VERSION         -1		
+#define SNMP_VERSION_ANY             -2		
+#define SNMP_VERSION_ANYC            -3		/* Any Community-based */
 
 #endif /* _NET_SNMP_TYPES_H */

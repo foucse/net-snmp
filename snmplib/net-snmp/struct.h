@@ -26,6 +26,9 @@
 #define TRUE 1
 #endif
 
+
+#include <net-snmp/types.h>
+
 #include <smi.h>
 typedef SmiNode netsnmp_mib;
 
@@ -65,6 +68,13 @@ struct netsnmp_varbind_s {
     netsnmp_value       *value;
 };
 
+
+typedef struct netsnmp_comminfo_s {
+    int                  ref_count;
+    u_char              *string;
+    u_char               buf[NETSNMP_NAMEBUF_LEN];
+} netsnmp_comminfo;
+
 struct netsnmp_pdu_s {
           /* Incomplete, and subject to change.... */
     int                  version;
@@ -73,6 +83,7 @@ struct netsnmp_pdu_s {
     int                  errstatus;
     int                  request;
     netsnmp_varbind     *varbind_list;
+    netsnmp_comminfo    *community;
 };
 
 #endif /* _NET_SNMP_STRUCT_H */

@@ -206,10 +206,19 @@ ucd_convert_pdu( struct snmp_pdu *p )
 	return NULL;
     }
     pdu->errstatus = p->errstat;
+    if (-1 == pdu->errstatus ) {
+	pdu->errstatus = 0;		/* Here or elsewhere ? */
+    }
     pdu->errindex  = p->errindex;
+    if (-1 == pdu->errindex ) {
+	pdu->errindex = 0;		/* Here or elsewhere ? */
+    }
     pdu->request   = p->reqid ;
 
 	/* XXX - handle admin-specific info */
+    if (p->community) {
+	(void)community_set_cstring(pdu, p->community);
+    }
 
     if (p->variables) {
 	pdu->varbind_list = ucd_convert_vblist(p->variables);

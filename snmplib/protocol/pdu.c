@@ -62,14 +62,20 @@ pdu_create(int version, int command)
     *
     *  Free a PDU structure
     *
-    *  The PDU should not be regarded as valid
+    *  The pointer should not be regarded as valid
     *  once this routine has been called.
     */
 void
 pdu_free(netsnmp_pdu *pdu)
 {
+    if (pdu->community) {
+	cinfo_free(pdu->community);
+	pdu->community = NULL;
+    }
 
     vblist_free(pdu->varbind_list);
+    pdu->varbind_list = NULL;
+
     free( pdu );
     return;
 }
