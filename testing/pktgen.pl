@@ -1,5 +1,5 @@
-
-use Convert::BER;
+#!/usr/bin/perl
+use Convert::BER(BER_CONSTRUCTOR,BER_CONTEXT);
 use Getopt::Std;
 
 my $pktTmpl = 
@@ -182,7 +182,7 @@ sub pkt_compile_ber_encode_arg {
 	    if ($val =~ /^\w+$/) { 
 		# CHOICE was specified by symbolic enumeration 
                 # $arg is not yet defined because there may be sub-objs
-		$type = [ SEQUENCE => $rval ];
+		$type = [ SEQUENCE => BER_CONSTRUCTOR | BER_CONTEXT | $rval ];
 	    } else {
 		# in this case the entire CHOICE is given by $rval
                 # we need to put it in the BER buffer so SEQUENCE will wrap it
@@ -198,12 +198,12 @@ sub pkt_compile_ber_encode_arg {
     if (not defined $arg) {
 	my $def = $obj->{DEF};
 	if (defined $def) {
-	    print "handling def of $tag\n";
+	    print "handling def of $tag\n" if $opt_D;
 	    my @sub_args;
 	    foreach my $sub_obj (@{$def}) {
-		print "\thandling recurse call for $sub_obj->{TAG}\n";
 		push(@sub_args,pkt_compile_ber_encode_arg($sub_obj,$data));
 	    }
+	    # handle a constructed string (e.g., msgSecParam)
 	    if ($type eq 'STRING') {
 		$arg = [$type => sub {my $b = new Convert::BER(@sub_args);$b->buffer}];
 	    } else {

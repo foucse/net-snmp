@@ -5,10 +5,11 @@ support of future testing needs.  The functional goal of the tool is
 to allow arbitrarily contructed (both legal and illegal message
 content) V3 messages to be encoded. These messages may then be issued
 to a remote SNMPv3 engine as unsolicited messages or as a response in
-order to verify that the remote engine responds correctly to a wide
-range of possible input traffic. Specifically, test messages can be
-constructed which will exercise the error Reporting facility specified
-in SNMPv3.
+order to verify that the remote engine correctly handles a wide range
+of possible input traffic. For example, test messages can be
+constructed which will exercise the error reporting facility specified
+in SNMPv3 and check that all reportable conditions are detected and
+handled correctly.
 
 Below is a condensed data description of the SNMPv3 message
 format. The field names defined below can be added to a file along
@@ -16,9 +17,12 @@ with values to define the packet to be sent. The value syntax is
 flexible to allow raw hex, enumerated symbolic values or other more
 familiar ways of expressing the value of a given field. Default, v3
 oriented values are defined for all fields so that a very minimal
-description can be used to produce a v3 message.
+description can be used to produce a v3 message. INTEGER fields with
+no explicit default will default to zero (0). OBJECT_ID and STRING
+fields with no explicit default will default to a zero length object
+("").
 
-The tool is implemented in perl and requires the Convert::BER module
+The tool is implemented in Perl and requires the Convert::BER module
 to be installed.
 
 ---data field names and enumerstions--------------------
@@ -28,30 +32,38 @@ SEQUENCE snmpV3Msg {
     SEQUENCE msgGlobalData {
         INTEGER msgID;
         INTEGER msgMaxSize {1472};
-        OCTSTR msgFlags[1]
+        STRING msgFlags[1]
            {reportableFlag(0x04) authFlag(0x01) privFlag(0x02)};
         INTEGER msgSecModel {snmpv3(3)};
     };
-    OCTSTR msgSecParam  {
+    STRING msgSecParam  {
         SEQUENCE secParams {
-            OCTSTR msgEngineID;
+            STRING msgEngineID;
             INTEGER msgEngineBoots;
             INTEGER msgEngineTime;
-            OCTSTR msgUserName;
-            OCTSTR msgAuthParam;
-            OCTSTR msgPrivParam;
+            STRING msgUserName;
+            STRING msgAuthParam;
+            STRING msgPrivParam;
         };
     };
     SEQUENCE scopedPDU {
-        OCTSTR contextEngineID;
-        OCTSTR contextName;
+        STRING contextEngineID;
+        STRING contextName;
         CHOICE(GET|GETNEXT|RESPONSE|SET|TRAP|GETBULK|INFORM|TRAPv2|REPORT) pduData {
             INTEGER reqID;
-            INTEGER errStat|nonRepeaters {noError(0) tooBig(1) };
+            INTEGER errStat|nonRepeaters 
+               {noError(0) tooBig(1) noSuchName (2),
+                badValue(3), readOnly(4), genErr(5),
+                noAccess(6), wrongType(7), wrongLength(8),
+                wrongEncoding(9), wrongValue(10),
+                noCreation(11), inconsistentValue(12),
+                resourceUnavailable(13), commitFailed(14),
+                undoFailed(15), authorizationError(16),
+                notWritable(17), inconsistentName(18)};
             INTEGER errInd|maxRepetitions;
             SEQUENCE_OF varbindList {
 	        SEQUENCE varbind {
-                   OID objectID;
+                   OBJECT_ID objectID;
                    BER value;
                 };
             };
@@ -59,19 +71,90 @@ SEQUENCE snmpV3Msg {
    };
 };
 
+the packet description file may contain any of the field names
+described above. For constructed fields(i.e,SEQUENCE,CHOICE, and
+possibly STRING), if the containing field is asssigned a value then
+any contained fields will be ignored. For example if the scopedPDU
+SEQUENCE is directly assigned a value then any assignment to
+contextEngineID, contextName, etc. will be ignored.
+
+If the packet description file does not contain a value for a
+particular field then the packet genrator will attempt to resolve a
+value for it. If it is a constructed field its definition is derived
+from its sub-fields, or if it is a simple field (i.e., no sub fields
+defined) then its value will be the default for that field. If a field
+above has an enumeration list, the first enumeration is assumed to be
+the default. If no enumeration or explicit default is defined, then
+the value will be 0 for INTEGER and zero length object for STRING,
+SEQUENCE, OBJECT_ID, etc..
+
+The value formats supported for each field are quite flexible to allow
+full control over the content of the packet. Each data type supports
+various syntax for its value definition. These are as follow.
+
+constructed fields (SEQUENCE, CHOICE, STRING)
+
+# basic octet assignment, will be wrapped with fields type tag and length
+<field> => 0x[0-9A-F]*  
+
+# literal octet assignment, no wrapping with type tag or length
+<field> => <0x[0-9A-F]*>
+
+# symbolic type enumeration, <symbol> is mapped to <val> used as type tag
+# i.e., pduData => GETNEXT; tag equals BER_CONSTRUCTOR|BER_CONTEXT|<val>
+<field> => <symbol>
+
+# symbolic type enumeration with octet assignment, length is calculated
+<field> => <symbol>:0x[0-9A-F]*
+
+# literal type, with octet assignment, type tag will be exactly as provided
+# for byte defined before the ':', length is calculated
+<field> => (0x[0-9A-F]{2}|(0..255)):0x[0-9A-F]*
+
+# interpolated string, will be wrapped with fields type tag and length
+<field> => "<string>"
+
+# literal string, will be wrapped with fields type tag and length
+<field> => '<string>'
+
+# function will be called and returned value will be wrapped with 
+# the given field's type tag and length, may also push post-processing 
+# task on (LIFO) stack to be executed against packet after construction
+<field> => &function(<args>)
+
+BER field value syntax
+# for BER objects (e.g., 'value' in 'varbind') value is defined
+# as a TYPE/VALUE pair. TYPE = (NULL|INTEGER|STRING|OBJECT_ID)
+<BER field> => [ <TYPE> => <VALUE> ]
+
+non-constructed fields
+
+# symbolic value enumeration, <symbol> is mapped to <val> used as value
+<integer> => <symbol>
+
+# basic integer assignment
+<integer> => [-+]?[0-9]+
+
+# dotted decimal object id assignment
+<obj_id> => [.]?([0-9]+.)*[0-9]+
+
 example packet descr
 
 ----packet.txt---
-msgFlags => reportableFlag; # or 0x04
-msgID => 43;
-# the secParams field can be given in hex or each field defined seperately
-#secParams => 0x3019040C800007e5746573746974000201010201ef040004000400;
-msgEngineID => 0x040C800007e574657374697400;
+msgID => 1;
+msgFlags => reportableFlag|authFlag; # or 0x05
+# literal definition, will not be wrapped in string
+msgEngineID => <0x040C800007e574657374697400>;
 msgEngineBoots => 1;
 msgEngineTime => 1;
-msgUserName => initial;
-contextEngineID => 0x040C800007e574657374697400;
-contextName => "default";
-pduData => GETNEXT; 
-varbind => 0x3000;
+msgUserName => 'initial';
+# function is called with given params, will push post process tasks on stack
+msgAuthParam => &pkt_auth_param('MD5','passphrase')
+# octet assignment, will be wrapped in string tag and length
+contextEngineID => 0x800007e574657374697400;
+contextName => "default\0";
+pduData => GETNEXT;
+reqID => 2; 
+objectID => .0
+value => [NULL => 0]
 ------------------------
