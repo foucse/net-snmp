@@ -493,8 +493,7 @@ EM(-1); /* */
 	}
 
 	properlength = oldkey_len;
-
-
+        *newkey_len = properlength;
 
 	/*
 	 * Use the old key and the given KeyChange TC string to recover
@@ -516,8 +515,6 @@ EM(-1); /* */
 	while (nbytes++ < properlength) {
 		*newkey++ = *newkey ^ *bufp++;
 	}
-
-
 
 decode_keychange_quit:
 	if (rval != SNMPERR_SUCCESS) {
