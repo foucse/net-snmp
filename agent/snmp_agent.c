@@ -107,6 +107,34 @@ static void dump_var (var_name, var_name_len, statType, statP, statLen)
     fprintf (stdout, "    >> %s\n", buf);
 }
 
+int
+snmp_agent_make_report(u_char *out_data, int *out_length,
+                       struct snmp_pdu *pdu,
+                       int error, oid *err_var, int err_var_len,
+                       u_char *engineID, int engineIDLen) {
+
+  long ltmp;
+  
+  /* unknown incoming security engineID, return ours and a varbind */
+  /* free the current varbind */
+  snmp_free_varbind(pdu->variables);
+  pdu->variables = NULL;
+  pdu->contextEngineID = engineID;
+  pdu->contextEngineIDLen = engineIDLen;
+  pdu->command = SNMP_MSG_REPORT;
+  pdu->errstat = 0;
+  pdu->errindex = 0;
+  pdu->contextName = strdup("");
+  pdu->contextNameLen = strlen(pdu->contextName);
+  /* find the unknown engineID counter */
+  ltmp = snmp_get_statistic(error);
+  /* return  the unknown engineID counter */
+  snmp_pdu_add_variable(pdu, err_var, err_var_len,
+                        ASN_INTEGER, (u_char *) &ltmp, sizeof(ltmp));
+  snmpv3_packet_build(pdu, out_data, out_length, NULL, 0);
+  snmp_free_pdu(pdu);
+  return 1;
+}
 
 
 int
@@ -135,6 +163,11 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
     int             engineIDLen;
     struct usmUser  *userList = NULL, *user = NULL;
     static oid      unknownEngineID[] = {1,3,6,1,6,3,12,1,1,1};
+    static oid      notInTimeWindow[] = {1,3,6,1,6,3,12,1,1,2};
+    static oid      unknownUserName[] = {1,3,6,1,6,3,12,1,1,3};
+    static oid      wrongDigest[]     = {1,3,6,1,6,3,12,1,1,5};
+    static oid      decryptionError[] = {1,3,6,1,6,3,12,1,1,6};
+#define ERROR_STAT_LENGTH 10
     static long     ltmp;
     struct variable_list *vp, *ovp;
     int ret_err;
@@ -162,29 +195,44 @@ snmp_agent_parse(data, length, out_data, out_length, sourceip)
           pi->sec_model = pdu->securityModel;
           pi->securityName = pdu->securityName;
           pi->packet_end = data + length;
-          if (ret_err == SNMP_ERR_UNKNOWNENGINEID) {
-            /* unknown incoming security engineID, return ours and a varbind */
-            /* free the current varbind */
-            snmp_free_varbind(pdu->variables);
-            pdu->variables = NULL;
-            pdu->contextEngineID = engineID;
-            pdu->contextEngineIDLen = engineIDLen;
-            pdu->command = SNMP_MSG_REPORT;
-            pdu->errstat = 0;
-            pdu->errindex = 0;
-            pdu->contextName = strdup("");
-            pdu->contextNameLen = strlen(pdu->contextName);
-            /* increment the unknown engineID counter */
-            ltmp = snmp_increment_statistic(STAT_USMSTATSUNKNOWNENGINEIDS);
-            /* return  the unknown engineID counter */
-            snmp_pdu_add_variable(pdu, unknownEngineID,
-                                  sizeof(unknownEngineID)/sizeof(oid),
-                                  ASN_INTEGER, (u_char *) &ltmp, sizeof(ltmp));
-            snmpv3_packet_build(pdu, out_data, out_length, NULL, 0);
-            snmp_free_pdu(pdu);
-            return 1;
+          if (ret_err) {
+            switch(ret_err) {
+              case SNMP_ERR_UNKNOWNENGINEID:
+                return snmp_agent_make_report(out_data, out_length, pdu,
+                                              STAT_USMSTATSUNKNOWNENGINEIDS,
+                                              unknownEngineID,
+                                              ERROR_STAT_LENGTH,
+                                              engineID, engineIDLen);
+              case SNMP_ERR_NOTINTIMEWINDOW:
+                return snmp_agent_make_report(out_data, out_length, pdu,
+                                              STAT_USMSTATSNOTINTIMEWINDOWS,
+                                              notInTimeWindow,
+                                              ERROR_STAT_LENGTH,
+                                              engineID, engineIDLen);
+              case SNMP_ERR_UNKNOWNSECURITYNAME:
+                return snmp_agent_make_report(out_data, out_length, pdu,
+                                              STAT_USMSTATSUNKNOWNUSERNAMES,
+                                              unknownUserName,
+                                              ERROR_STAT_LENGTH,
+                                              engineID, engineIDLen);
+              case SNMP_ERR_AUTHENTICATIONFAILURE:
+                return snmp_agent_make_report(out_data, out_length, pdu,
+                                              STAT_USMSTATSWRONGDIGESTS,
+                                              wrongDigest,
+                                              ERROR_STAT_LENGTH,
+                                              engineID, engineIDLen);
+              case SNMP_ERR_DECRYPTIONERROR:
+                return snmp_agent_make_report(out_data, out_length, pdu,
+                                              STAT_USMSTATSDECRYPTIONERRORS,
+                                              decryptionError,
+                                              ERROR_STAT_LENGTH,
+                                              engineID, engineIDLen);
+              default:
+                ERROR_MSG("parse error");
+                free(engineID);
+                return 0;
+            }
           }
-          free(engineID);
         } else {
           /* authenticates message and returns length if valid */
           pi->community_len = COMMUNITY_MAX_LEN;
