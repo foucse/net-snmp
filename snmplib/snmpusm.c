@@ -1631,10 +1631,9 @@ usm_get_user_from_list(char *engineID, int engineIDLen,
     name = noName;
   for (ptr = userList; ptr != NULL; ptr = ptr->next) {
     if (!strcmp(ptr->name, name) &&
-        ((ptr->engineIDLen == engineIDLen) ||
-         (ptr->engineID == NULL && engineID == NULL) ||
+        ptr->engineIDLen == engineIDLen &&
+        ((ptr->engineID == NULL && engineID == NULL) ||
          (ptr->engineID != NULL && engineID != NULL &&
-          ptr->engineIDLen == engineIDLen &&
           memcmp(ptr->engineID, engineID, engineIDLen) == 0)))
       return ptr;
   }
@@ -1656,8 +1655,11 @@ usm_get_user_from_list(char *engineID, int engineIDLen,
 struct usmUser *
 usm_add_user(struct usmUser *user)
 {
-  userList = usm_add_user_to_list(user, userList);
-  return userList;
+  struct usmUser *uptr;
+  uptr = usm_add_user_to_list(user, userList);
+  if (uptr != NULL)
+    userList = uptr;
+  return uptr;
 }
 
 struct usmUser *
@@ -1694,6 +1696,14 @@ usm_add_user_to_list(struct usmUser *user,
           strlen(nptr->name) == strlen(user->name) &&
           strcmp(nptr->name, user->name) > 0)
         break;
+
+      if (nptr->engineIDLen == user->engineIDLen &&
+          ((nptr->engineID == NULL && user->engineID == NULL) ||
+           memcmp(nptr->engineID, user->engineID, user->engineIDLen) == 0) &&
+          strlen(nptr->name) == strlen(user->name) &&
+          strcmp(nptr->name, user->name) == 0)
+        /* the user is an exact match of a previous entry.  Bail */
+        return NULL;
     }
   }
 
