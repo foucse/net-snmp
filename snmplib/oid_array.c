@@ -182,7 +182,7 @@ Replace_oid_data(oid_array a, void *entry )
     /*
      * search
      */
-    if ((index = binary_search(entry, t, 1)) == -1)
+    if ((index = binary_search(&entry, t, 1)) == -1)
         return 0;
 
     new_data = TABLE_INDEX(t, index);
