@@ -108,6 +108,10 @@ memdup(u_char **to, u_char *from, u_int size)
 {
   if (to == NULL)
     return SNMPERR_GENERR;
+  if (from == NULL) {
+    *to = NULL;
+    return SNMPERR_SUCCESS;
+  }
   if ((*to = malloc(size)) == NULL)
     return SNMPERR_GENERR;
   memcpy(*to, from, size);
