@@ -122,7 +122,7 @@ struct objgroup {
     char *name;
     int line;
     struct objgroup *next;
-} *objgroups = NULL;
+} *objgroups = NULL, *objects = NULL, *notifs = NULL;
 
 #define SYNTAX_MASK     0x80
 /* types of tokens
@@ -401,10 +401,10 @@ static struct enum_list *parse_enumlist (FILE *, struct enum_list **);
 static struct range_list *parse_ranges(FILE *fp, struct range_list **);
 static struct node *parse_asntype (FILE *, char *, int *, char *);
 static struct node *parse_objecttype (FILE *, char *);
-static struct node *parse_objectgroup (FILE *, char *, int, struct node *);
+static struct node *parse_objectgroup (FILE *, char *, int, struct objgroup **);
 static struct node *parse_notificationDefinition (FILE *, char *);
 static struct node *parse_trapDefinition (FILE *, char *);
-static struct node *parse_compliance (FILE *, char *, struct node *);
+static struct node *parse_compliance (FILE *, char *);
 static struct node *parse_capabilities(FILE *, char *);
 static struct node *parse_moduleIdentity (FILE *, char *);
 static struct node *parse_macro(FILE *, char *);
@@ -2090,13 +2090,12 @@ parse_objecttype(FILE *fp,
  *   - WJH 10/96
  */
 static struct node *
-parse_objectgroup(FILE *fp,
-		  char *name, int what, struct node *nnp)
+parse_objectgroup(FILE *fp, char *name, int what, struct objgroup **ol)
 {
     int type;
     char token[MAXTOKEN];
     char quoted_string_buffer[MAXQUOTESTR];
-    struct node *np, *tnp;
+    struct node *np;
 
     np = alloc_node(current_module);
     if (np == NULL) return(NULL);
@@ -2108,18 +2107,17 @@ parse_objectgroup(FILE *fp,
 	    goto skip;
 	}
 	do {
+	    struct objgroup *o;
 	    type = get_token(fp, token, MAXTOKEN);
 	    if (type != LABEL) {
 		print_error("Bad identifier", token, type);
 		goto skip;
 	    }
-	    tnp = nnp;
-	    while (tnp)
-	    	if (!label_compare(token, tnp->label))
-		    break;
-		else
-		    tnp = tnp->next;
-	    if (!tnp) print_error("Unknown object", token, type);
+	    o = (struct objgroup *)malloc(sizeof(struct objgroup));
+	    o->line = Line;
+	    o->name = strdup(token);
+	    o->next = *ol;
+	    *ol = o;
 	    type = get_token(fp, token, MAXTOKEN);
 	} while (type == COMMA);
 	if (type != RIGHTBRACKET) {
@@ -2356,7 +2354,7 @@ static int eat_syntax(FILE *fp, char *token, int maxtoken)
     return nexttype;
 }
 
-static int compliance_lookup(const char *name, int modid, struct node *np)
+static int compliance_lookup(const char *name, int modid)
 {
     if (modid == -1) {
 	struct objgroup *op = malloc(sizeof(struct objgroup));
@@ -2371,7 +2369,7 @@ static int compliance_lookup(const char *name, int modid, struct node *np)
 
 static struct node *
 parse_compliance(FILE *fp,
-		 char *name, struct node *nnp)
+		 char *name)
 {
     int type;
     char token[MAXTOKEN];
@@ -2418,8 +2416,9 @@ parse_compliance(FILE *fp,
     while (type == MODULE) {
 	int modid = -1;
 	struct tree *tp;
+	char modname[MAXTOKEN];
 	type = get_token(fp, token, MAXTOKEN);
-	if (type == LABEL) {
+	if (type == LABEL && strcmp(token, module_name(current_module, modname))) {
 	    modid = read_module_internal(token);
 	    if (modid != MODULE_LOADED_OK && modid != MODULE_ALREADY_LOADED) {
 	    	print_error("Unknown module", token, type);
@@ -2440,7 +2439,7 @@ parse_compliance(FILE *fp,
 		    print_error("Bad group name", token, type);
 		    goto skip;
 		}
-		if (!compliance_lookup(token, modid, nnp))
+		if (!compliance_lookup(token, modid))
 		    print_error("Unknown group", token, type);
 		type = get_token(fp, token, MAXTOKEN);
 	    } while (type == COMMA);
@@ -2457,7 +2456,7 @@ parse_compliance(FILE *fp,
 		    print_error("Bad group name", token, type);
 		    goto skip;
 		}
-		if (!compliance_lookup(token, modid, nnp))
+		if (!compliance_lookup(token, modid))
 		    print_error("Unknown group", token, type);
 		type = get_token(fp, token, MAXTOKEN);
 	    }
@@ -2467,7 +2466,7 @@ parse_compliance(FILE *fp,
 		    print_error("Bad object name", token, type);
 		    goto skip;
 		}
-		if (!compliance_lookup(token, modid, nnp))
+		if (!compliance_lookup(token, modid))
 		    print_error("Unknown group", token, type);
 		type = get_token(fp, token, MAXTOKEN);
 		if (type == SYNTAX)
@@ -3321,7 +3320,30 @@ new_module (const char *name,
 }
 
 
+static void
+scan_objlist(struct node *root, struct objgroup *list, const char *error)
+{
+    int oLine = Line;
 
+    while (list) {
+	struct objgroup *gp = list;
+	struct node *np;
+	list = list->next;
+	np = root;
+	while (np)
+	    if (label_compare(np->label, gp->name))
+		np = np->next;
+	    else
+		break;
+	if (!np) {
+	    Line = gp->line;
+	    print_error(error, gp->name, QUOTESTRING);
+	}
+	free(gp->name);
+	free(gp);
+    }
+    Line = oLine;
+}
 
 /*
  * Parses a mib file and returns a linked list of nodes found in the file.
@@ -3340,7 +3362,7 @@ parse(FILE *fp,
 #define IN_MIB                2
     int state = BETWEEN_MIBS;
     struct node *np, *nnp;
-    struct objgroup *oldgroups;
+    struct objgroup *oldgroups = NULL, *oldobjects = NULL, *oldnotifs = NULL;
 
     DEBUGMSGTL(("parse-file", "Parsing file:  %s...\n", File));
 
@@ -3365,29 +3387,16 @@ parse(FILE *fp,
             }
 	    else {
 		struct module *mp;
-		int oLine = Line;
 #ifdef TEST
 		printf("\nNodes for Module %s:\n", name);
 		print_nodes( stdout, root );
 #endif
-		while (objgroups) {
-		    struct objgroup *gp = objgroups;
-		    objgroups = objgroups->next;
-		    np = root;
-		    while (np)
-		        if (label_compare(np->label, gp->name))
-			    np = np->next;
-			else
-			    break;
-		    if (!np) {
-		        Line = gp->line;
-		        print_error("Undefined group", gp->name, QUOTESTRING);
-		    }
-		    free(gp->name);
-		    free(gp);
-		}
+		scan_objlist(root, objgroups, "Undefined OBJECT-GROUP");
+		scan_objlist(root, objects, "Undefined OBJECT");
+		scan_objlist(root, notifs, "Undefined NOTIFICATION");
 		objgroups = oldgroups;
-		Line = oLine;
+		objects = oldobjects;
+		notifs = oldnotifs;
 		for (mp = module_head; mp; mp = mp->next)
 		    if (mp->modid == current_module) break;
 		do_linkup(mp, root);
@@ -3452,6 +3461,8 @@ parse(FILE *fp,
             state = IN_MIB;
             current_module = which_module( name );
 	    oldgroups = objgroups;
+	    oldobjects = objects;
+	    oldnotifs = notifs;
             if ( current_module == -1 ) {
                 new_module(name, File);
                 current_module = which_module(name);
@@ -3468,14 +3479,14 @@ parse(FILE *fp,
             }
             break;
         case OBJGROUP:
-            nnp = parse_objectgroup(fp, name, OBJECTS, root);
+            nnp = parse_objectgroup(fp, name, OBJECTS, &objects);
             if (nnp == NULL){
                 print_error("Bad parse of OBJECT-GROUP", NULL, type);
                 return NULL;
             }
             break;
         case NOTIFGROUP:
-            nnp = parse_objectgroup(fp, name, NOTIFICATIONS, root);
+            nnp = parse_objectgroup(fp, name, NOTIFICATIONS, &notifs);
             if (nnp == NULL){
                 print_error("Bad parse of NOTIFICATION-GROUP", NULL, type);
                 return NULL;
@@ -3496,7 +3507,7 @@ parse(FILE *fp,
             }
             break;
         case COMPLIANCE:
-            nnp = parse_compliance(fp, name, root);
+            nnp = parse_compliance(fp, name);
             if (nnp == NULL){
                 print_error("Bad parse of MODULE-COMPLIANCE", NULL, type);
                 return NULL;
