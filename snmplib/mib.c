@@ -922,6 +922,7 @@ found:
     return (++*out_len);
 }
 
+char *
 sprint_objid(buf, objid, objidlen)
     char *buf;
     oid	    *objid;
@@ -952,58 +953,34 @@ sprint_objid(buf, objid, objidlen)
     } else {
 	cp = tempbuf;
 	if (((int) (strlen(tempbuf)) > ((int) strlen((char *)RFC1213_MIB_text)))
-#ifdef SVR4
 	    && !memcmp(tempbuf, (char *)RFC1213_MIB_text,
 		     strlen((char *)RFC1213_MIB_text))){
-#else
-	    && !bcmp(tempbuf, (char *)RFC1213_MIB_text,
-		     strlen((char *)RFC1213_MIB_text))){
-#endif
 	    cp += sizeof(RFC1213_MIB_text);
 	}
 	if (((int) (strlen(tempbuf))) >
                    ((int)strlen((char *)EXPERIMENTAL_MIB_text))
-#ifdef SVR4
 	    && !memcmp(tempbuf, (char *) EXPERIMENTAL_MIB_text,
 		     strlen((char *)EXPERIMENTAL_MIB_text))){
-#else
-	    && !bcmp(tempbuf, (char *) EXPERIMENTAL_MIB_text,
-		     strlen((char *)EXPERIMENTAL_MIB_text))){
-#endif
             cp += sizeof(EXPERIMENTAL_MIB_text);
 	}
 	if (((int)(strlen(tempbuf))) > ((int)strlen((char *)PRIVATE_MIB_text))
-#ifdef SVR4
 	    && !memcmp(tempbuf, (char *) PRIVATE_MIB_text,
 		     strlen((char *)PRIVATE_MIB_text))){
-#else
-	    && !bcmp(tempbuf, (char *) PRIVATE_MIB_text,
-		     strlen((char *)PRIVATE_MIB_text))){
-#endif
             cp += sizeof(PRIVATE_MIB_text);
 	}
 	if (((int)(strlen(tempbuf)) > ((int)strlen((char *)PARTY_MIB_text)))
-#ifdef SVR4
 	    && !memcmp(tempbuf, (char *) PARTY_MIB_text,
 		     strlen((char *)PARTY_MIB_text))){
-#else
-	    && !bcmp(tempbuf, (char *) PARTY_MIB_text,
-		     strlen((char *)PARTY_MIB_text))){
-#endif
             cp += sizeof(PARTY_MIB_text);
 	}
 	if (((int)(strlen(tempbuf)) > ((int)strlen((char *)SECRETS_MIB_text)))
-#ifdef SVR4
 	    && !memcmp(tempbuf, (char *) SECRETS_MIB_text,
 		     strlen((char *)SECRETS_MIB_text))){
-#else
-	    && !bcmp(tempbuf, (char *) SECRETS_MIB_text,
-		     strlen((char *)SECRETS_MIB_text))){
-#endif
             cp += sizeof(SECRETS_MIB_text);
 	}
     }
     strcpy(buf, cp);
+    return buf;
 }
 
 print_objid(objid, objidlen)

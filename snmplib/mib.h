@@ -253,5 +253,4 @@ struct	mib_egpNeighEntry {
 #define MIB_EGPNEIGHSTATE_UP		4
 #define MIB_EGPNEIGHSTATE_CEASE		5
 
-
-
+char *sprint_objid();
