@@ -686,13 +686,14 @@ main(argc, argv)
           usm_add_user(user);
         }
         usm_set_reportErrorOnUnknownID(1);
-	init_snmpv3("snmpd");	/* register the v3 handlers */
 	init_agent();		/* register our .conf handlers */
+	init_snmpv3("snmpd");	/* register the v3 handlers */
 	register_mib_handlers();/* snmplib .conf handlers */
 	read_premib_configs();	/* read pre-mib-reading .conf handlers */
 	init_mib();		/* initialize the mib structures */
 	update_config(0);	/* read in config files and register HUP */
-
+        init_usm_post_config();
+        init_snmpv3_post_config();
 
 	/* Read in the persistent information cache.
 	 */
