@@ -233,9 +233,6 @@ get_default_secLevel(void)
   return defaultSecurityLevel;
 }
 
-
-
-
 /*******************************************************************-o-******
  * setup_engineID
  *
@@ -255,10 +252,11 @@ get_default_secLevel(void)
  * Line syntax:
  *	engineID <text> | NULL
  *
- * XXX	Should text be treated as a NULL-terminated printable string?
  * XXX	What if a node has multiple interfaces?
- * XXX	What if multiple engines all choose the same address?  There must
- *	  be some additional enumeration.  (Static counter?)
+ * XXX	What if multiple engines all choose the same address?
+ *      (answer:  You're screwed, because you might need a kul database
+ *       which is dependant on the current engineID.  Enumeration and other
+ *       tricks won't work). 
  */
 int
 setup_engineID(char **eidp, char *text)
@@ -349,9 +347,6 @@ EM(-1);
   return len;
 
 }  /* end setup_engineID() */
-
-
-
 
 /*******************************************************************-o-******
  * engineBoots_conf
@@ -504,9 +499,6 @@ shutdown_snmpv3(char *type)
 
 }  /* shutdown_snmpv3() */
 
-
-
-
 int
 snmpv3_local_snmpEngineBoots(void)
 {
@@ -528,7 +520,6 @@ snmpv3_local_snmpEngineBoots(void)
  *
  * Store engineID in buf; return the length.
  *
- * XXX  Combine this with snmpv3_generate_engineID()?
  */
 int
 snmpv3_get_engineID(char *buf, int buflen)
@@ -544,9 +535,6 @@ snmpv3_get_engineID(char *buf, int buflen)
   return engineIDLength;
 
 }  /* end snmpv3_get_engineID() */
-
-
-
 
 
 /*******************************************************************-o-******
@@ -582,8 +570,6 @@ snmpv3_generate_engineID(int *length)
   return newID;
 
 }  /* end snmpv3_generate_engineID() */
-
-
 
 /* snmpv3_local_snmpEngineTime(): return the number of seconds since the
    snmpv3 engine last incremented engine_boots */
