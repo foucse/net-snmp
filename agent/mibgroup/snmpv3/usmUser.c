@@ -20,6 +20,13 @@
  /* needed for the write_ functions to find the start of the index */
 #define USM_MIB_LENGTH 12
 
+/* misc protocol oids */
+static oid usmNoAuthProtocol[]      = { 1,3,6,1,6,3,10,1,1,1 };
+static oid usmNoPrivProtocol[]      = { 1,3,6,1,6,3,10,1,2,1 };
+static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
+static oid usmDESPrivProtocol[]     = { 1,3,6,1,6,3,10,1,2,2 };
+  
+/* local storage */
 static struct usmUser *userList=NULL;
 static unsigned int usmUserSpinLock=0;
 
@@ -443,7 +450,7 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
       return SNMP_ERR_INCONSISTENTNAME;
 
     /* set the cloneFrom OID */
-    if ((oidptr = snmp_duplicate_objid(objid, size)) == NULL)
+    if ((oidptr = snmp_duplicate_objid(objid, size/sizeof(oid))) == NULL)
       return SNMP_ERR_GENERR;
 
     /* do the actual cloning */
@@ -454,14 +461,6 @@ write_usmUserCloneFrom(action, var_val, var_val_type, var_val_len, statP, name, 
 
     usm_cloneFrom_user(cloneFrom, uptr);
     
-  } else { 
-    /* Else we create a new user based on this cloneFromValue */
-    
-
-
-    /* Here, the variable has been stored in objid for
-       you to use, and you have just been asked to do something with
-       it... Your code goes here. */
   }
   return SNMP_ERR_NOERROR;
 }
@@ -482,6 +481,8 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
   static oid objid[30];
   static struct counter64 c64;
   int size, bigsize=1000;
+  static oid *optr;
+  struct usmUser *uptr;
 
   if (var_val_type != ASN_OBJECT_ID){
       DEBUGP("write to usmUserAuthProtocol not ASN_OBJECT_ID\n");
@@ -494,9 +495,31 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
   if (action == COMMIT){
       size = sizeof(objid);
       asn_parse_objid(var_val, &bigsize, &var_val_type, objid, &size);
-      /* Here, the variable has been stored in objid for
-      you to use, and you have just been asked to do something with
-      it... Your code goes here. */
+
+      /* don't allow creations here */
+      if ((uptr = usm_parse_user(name, name_len)) == NULL)
+        return SNMP_ERR_NOSUCHNAME;
+
+      /* check the objid for validity */
+      /* only allow sets to perform a change to usmNoAuthProtocol */
+      if (compare(objid, size, usmNoAuthProtocol,
+                  sizeof(usmNoAuthProtocol)/sizeof(oid)) != 0)
+        return SNMP_ERR_INCONSISTENTVALUE;
+      
+      /* if the priv protocol is not usmNoPrivProtocol, we can't change */
+      if (compare(uptr->privProtocol, uptr->privProtocolLen, usmNoPrivProtocol,
+                  sizeof(usmNoPrivProtocol)/sizeof(oid)) != 0)
+        return SNMP_ERR_INCONSISTENTVALUE;
+
+      /* finally, we can do it */
+      optr = uptr->authProtocol;
+      if ((uptr->authProtocol = snmp_duplicate_objid(objid, size))
+          == NULL) {
+        uptr->authProtocol = optr;
+        return SNMP_ERR_GENERR;
+      }
+      free(optr);
+      uptr->authProtocolLen = size;
   }
   return SNMP_ERR_NOERROR;
 }
@@ -587,6 +610,8 @@ write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, nam
   static oid objid[30];
   static struct counter64 c64;
   int size, bigsize=1000;
+  static oid *optr;
+  struct usmUser *uptr;
 
   if (var_val_type != ASN_OBJECT_ID){
       DEBUGP("write to usmUserPrivProtocol not ASN_OBJECT_ID\n");
@@ -599,9 +624,26 @@ write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, nam
   if (action == COMMIT){
       size = sizeof(objid);
       asn_parse_objid(var_val, &bigsize, &var_val_type, objid, &size);
-      /* Here, the variable has been stored in objid for
-      you to use, and you have just been asked to do something with
-      it... Your code goes here. */
+
+      /* don't allow creations here */
+      if ((uptr = usm_parse_user(name, name_len)) == NULL)
+        return SNMP_ERR_NOSUCHNAME;
+
+      /* check the objid for validity */
+      /* only allow sets to perform a change to usmNoPrivProtocol */
+      if (compare(objid, size, usmNoPrivProtocol,
+                  sizeof(usmNoPrivProtocol)/sizeof(oid)) != 0)
+        return SNMP_ERR_INCONSISTENTVALUE;
+      
+      /* finally, we can do it */
+      optr = uptr->privProtocol;
+      if ((uptr->privProtocol = snmp_duplicate_objid(objid, size))
+          == NULL) {
+        uptr->privProtocol = optr;
+        return SNMP_ERR_GENERR;
+      }
+      free(optr);
+      uptr->privProtocolLen = size;
   }
   return SNMP_ERR_NOERROR;
 }
@@ -708,6 +750,9 @@ write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, nam
       return SNMP_ERR_WRONGLENGTH;
   }
   if (action == COMMIT) {
+      size = var_val_len;
+      asn_parse_string(var_val, &bigsize, &var_val_type,
+                       uptr->userPublicString, &size);
       /* don't allow creations here */
       if ((uptr = usm_parse_user(name, name_len)) == NULL) {
         return SNMP_ERR_NOSUCHNAME;
@@ -718,9 +763,6 @@ write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, nam
       if (uptr->userPublicString == NULL) {
         return SNMP_ERR_GENERR;
       }
-      size = var_val_len;
-      asn_parse_string(var_val, &bigsize, &var_val_type,
-                       uptr->userPublicString, &size);
       uptr->userPublicString[var_val_len] = 0;
       DEBUGP("setting public string: %d - %s\n", var_val_len,
              uptr->userPublicString);
