@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <net-snmp/struct.h>
+#include <net-snmp/utils.h>
 
 #define	NETSNMP_MIBERR_NOERROR		 0
 #define	NETSNMP_MIBERR_GENERROR		-1
@@ -52,6 +53,9 @@ netsnmp_varbind mib_varbind(     netsnmp_mib mib, int value );
 void            mib_tree_walk(   mibtree_callback callback, void* data);
 void            mib_tree_dump(   FILE *fp );
 
+	/* Output routines */
+
+int   mib_bprint( netsnmp_buf buf,    netsnmp_mib mib );
 char *mib_sprint( char *buf, int len, netsnmp_mib mib );
 void  mib_fprint( FILE *fp,           netsnmp_mib mib );
 void  mib_print(                      netsnmp_mib mib );

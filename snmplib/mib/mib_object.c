@@ -21,6 +21,7 @@
 #include <ctype.h>
 
 #include <net-snmp/mib_api.h>
+#include <net-snmp/utils.h>
 
 #ifndef SPRINT_MAX_LEN
 #define SPRINT_MAX_LEN 512
@@ -196,15 +197,16 @@ netsnmp_oid mib_objectid( netsnmp_mib mib )
    /**
     *
     *  Print the name of the MIB object in the buffer provided.
-    *  Returns a pointer to this name if successful, NULL otherwise.
+    *  Returns 0 if successful, -ve otherwise.
     */
-char *mib_sprint( char *buf, int len, netsnmp_mib mib )
+int   mib_bprint( netsnmp_buf buf, netsnmp_mib mib )
 {
     SmiNode *node   = (SmiNode*)mib;
     SmiModule *module;
 
-    if ( mib == NULL ) {
-	return NULL;
+    if (( mib == NULL ) ||
+        ( buf == NULL )) {
+	return -1;
     }
 
 		/*
@@ -213,28 +215,64 @@ char *mib_sprint( char *buf, int len, netsnmp_mib mib )
 
     module = smiGetNodeModule( node );
     if ( module == NULL ) {
-	return NULL;
+	return -1;
     }
     if ((  node->name   == NULL ) ||
         ( *node->name   == '\0' ) ||
         (  module->name == NULL ) ||
         ( *module->name == '\0' )) {
-	return NULL;
+	return -1;
     }
-    if ( strlen(node->name) + strlen(module->name) +2 >= len ) {
-	return NULL;
-    }
-    snprintf(buf, len, "%s::%s", module->name, node->name );
 
-    return buf;
+    if ( buffer_append_string( buf, module->name ) < 0 ) { return -1; }
+    if ( buffer_append_string( buf, "::"         ) < 0 ) { return -1; }
+    if ( buffer_append_string( buf, node->name   ) < 0 ) { return -1; }
+
+    return 0;
 }
+
+   /**
+    *
+    *  Print the name of the MIB object in the buffer provided.
+    *  Returns a pointer to this name if successful, NULL otherwise.
+    */
+char *mib_sprint( char *str_buf, int len, netsnmp_mib mib )
+{
+    netsnmp_buf buf;
+    char *cp = NULL;
+
+    buf = buffer_new( str_buf, len, NETSNMP_BUFFER_NOFREE );
+    if ( buf == NULL ) {
+	return NULL;
+    }
+    if ( mib_bprint( buf, mib ) == 0 ) {
+	cp = buffer_string( buf );
+    }
+    buffer_free( buf );
+    return cp;
+}
+	
+   /**
+    *
+    *  Print the name of the MIB object to the file specified.
+    */
 void mib_fprint( FILE *fp, netsnmp_mib mib )
 {
-    char buf[ SPRINT_MAX_LEN ];
-    if (mib_sprint( buf, SPRINT_MAX_LEN, mib ) != NULL ) {
-	fprintf( fp, "%s", buf );
+    netsnmp_buf buf;
+
+    buf = buffer_new( NULL, 0, 0 );
+    if ( buf == NULL ) {
+	return;
     }
+    if (mib_bprint( buf, mib ) == 0 ) {
+	fprintf( fp, "%s", buf->string );
+    }
+    buffer_free( buf );
 }
+   /**
+    *
+    *  Print the name of the MIB object.
+    */
 void mib_print( netsnmp_mib mib )
 {
     mib_fprint( stdout, mib );

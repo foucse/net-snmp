@@ -39,15 +39,9 @@
 #endif
 
 #include <net-snmp/mib_api.h>
+#include <net-snmp/utils.h>
 #include <smi.h>
 
-
-	/*
-	 * Move these to a different library module 
-	 */
-extern char* util_remove_token( char *old_list, char *token,    char sep );
-extern char* util_remove_list(  char *old_list, char *rem_list, char sep );
-extern char* util_add_token(    char *old_list, char *token,    char sep );
 
 static int _mib_load_dir( char *dir );
 

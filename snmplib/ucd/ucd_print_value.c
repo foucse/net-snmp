@@ -5,7 +5,7 @@
  *	Temporary inclusion of old UCD-SNMP routines
  *	(until we can develop the Net-SNMP replacements)
  *
-/*******************************
+ *******************************/
 
 #include <config.h>
 
