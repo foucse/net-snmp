@@ -1,0 +1,39 @@
+/*******************************
+ *
+ *	net-snmp/utils.h
+ *
+ *	Net-SNMP library - General utilities
+ *
+ *******************************/
+
+#ifndef _NET_SNMP_UTILS_H
+#define _NET_SNMP_UTILS_H
+
+#include <stdio.h>
+#include <net-snmp/struct.h>
+
+	/* Buffer handling */
+
+#define	NETSNMP_BUFFER_RESIZE		 0x1
+#define	NETSNMP_BUFFER_NOFREE		 0x2
+#define	NETSNMP_BUFFER_NULLTERM		 0x3
+
+typedef struct netsnmp_buf_t {
+    char *string;
+    int   cur_len;
+    int   max_len;
+    int   flags;
+} *netsnmp_buf;
+
+netsnmp_buf buffer_new( char *string, unsigned int len, unsigned int flags);
+int         buffer_append(        netsnmp_buf buf, char *string, int len  );
+int         buffer_append_string( netsnmp_buf buf, char *string           );
+int         buffer_append_char(   netsnmp_buf buf, char  ch               );
+char*       buffer_string(        netsnmp_buf buf                         );
+void        buffer_free(          netsnmp_buf buf                         );
+
+char *list_add_token(     char *list, char *token,  char sep );
+char *list_remove_token(  char *list, char *token,  char sep );
+char *list_remove_tokens( char *list, char *remove, char sep );
+
+#endif /* _NET_SNMP_UTILS_H */
