@@ -241,12 +241,13 @@ table_data_set_helper_handler(
         if (row)
             data = (table_data_set_storage *) row->data;
         if (!row || !table_info || !data) {
-            if (MODE_IS_SET(reqinfo->mode) {
+            if (MODE_IS_SET(reqinfo->mode)) {
                 /* ack */
                 /* XXXWWW creation */
                 set_request_error(reqinfo, requests, SNMP_ERR_NOSUCHNAME);
             }
             continue;
+        }
 
         data = table_data_set_find_column(data, table_info->colnum);
         
