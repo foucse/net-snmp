@@ -23,151 +23,12 @@
 
 #include <net-snmp/var_api.h>
 #include <ucd/ucd_api.h>
+#include <ucd/ucd_convert.h>
+
 
 #ifndef SPRINT_MAX_LEN
 #define SPRINT_MAX_LEN 512
 #endif
-
-
-
-
-   /*
-    *
-    *  Set the OID to the UCD-style list of subidentifier values specified.
-    *
-    *  Returns 0 if successful, -ve otherwise.
-    *
-    */
-int var_set_oid_ucd( netsnmp_oid *oid, u_long *name, int len )
-{
-    u_int name2[ MAX_OID_LEN ];
-    int i;
-
-    for ( i=0; i<len; i++ ) {
-	name2[i] = name[i];
-    }
-    return var_set_oid_value( oid, name2, len );
-}
-
-
-   /*
-    *
-    *  Create a new OID structure and set it to the UCD-style value specified.
-    *  Returns a pointer to this if successful, NULL otherwise.
-    *
-    *  The calling routine is responsible for freeing this memory
-    *  when it is not longer required.
-    */
-netsnmp_oid*
-var_create_oid_ucd( u_long *name, int len )
-{
-    netsnmp_oid *oid;
-
-    oid = var_create_oid();
-
-    if (var_set_oid_ucd( oid, name, len ) < 0 ) {
-	if ( oid ) {
-	    free( oid );
-	}
-	oid = NULL;
-    }
-    return oid;
-}
-
-
-netsnmp_value*
-var_convert_ucd2net_value( struct variable_list *v )
-{
-    netsnmp_value *val;
-
-    val = (netsnmp_value*)calloc(1, sizeof( netsnmp_value ));
-    if ( val == NULL ) {
-	return NULL;
-    }
-
-    val->type = v->type;
-
-		/*
-		 * OBJECT ID values use the appropriate internal data
-		 *   structure, rather than the UCD-style raw values,
-		 *   so this needs to be handled separately.
-		 */
-    if ( v->type == ASN_OBJECT_ID ) {
-	val->val.oid = var_create_oid_ucd( v->val.objid, v->val_len/sizeof(oid));
-        val->len     = sizeof( netsnmp_oid );
-	return val;
-    }
-
-    val->len  = v->val_len;
-    if ( v->val.string != v->buf ) {
-	val->val.string = v->val.string;
-	v->val.string   = NULL;		/* XXX - ish.... */
-    }
-    else {
-	val->val.string = val->valbuf;
-	memcpy( v->buf, val->valbuf, NETSNMP_VALBUF_LEN );
-    }
-
-    return val;
-}
-
-netsnmp_varbind*
-var_convert_ucd2net_varbind( struct variable_list *v )
-{
-    netsnmp_varbind *vb;
-
-    vb = (netsnmp_varbind*)calloc(1, sizeof( netsnmp_varbind ));
-    if ( vb == NULL ) {
-	return NULL;
-    }
-    vb->oid   = var_create_oid_ucd( v->name, v->name_length );
-    if ( vb->oid == NULL ) {
-	var_free_varbind( vb );
-	return NULL;
-    }
-
-		/*
-		 * OBJECT ID values use the appropriate internal data
-		 *   structure, rather than the UCD-style raw values,
-		 *   so this needs to be handled separately.
-		 */
-    if ( v->type == ASN_OBJECT_ID ) {
-	vb->value = var_create_value();
-	if ( vb->value ) {
-	    vb->value->val.oid = var_create_oid_ucd( v->val.objid, v->val_len/sizeof(oid));
-	    vb->value->len     = sizeof( netsnmp_oid );
-	    vb->value->type    = ASN_OBJECT_ID;
-	}
-    }
-    else {
-	vb->value = var_create_set_value( v->val.string, v->val_len, v->type );
-    }
-    if ( vb->value == NULL ) {
-	var_free_varbind( vb );
-	return NULL;
-    }
-
-    return vb;
-}
-
-netsnmp_varbind*
-var_convert_ucd2net_vblist( struct variable_list *var )
-{
-    netsnmp_varbind *varbind, *vblist;
-    struct variable_list *v;
-
-    vblist = NULL;
-    for ( v = var; v!=NULL; v=v->next_variable ) {
-	varbind = var_convert_ucd2net_varbind( v );
-	if ( vblist == NULL ) {
-	    vblist=varbind;
-	}
-	else {
-	    (void)vblist_add_varbind( vblist, varbind );
-	}
-    }
-    return vblist;
-}
 
 
 
@@ -180,11 +41,11 @@ char *sprint_value (char *buf, oid *objid, int objidlen, struct variable_list *v
     char          *cp;
     netsnmp_oid   *o;
 
-    val = var_convert_ucd2net_value( var );
+    val = ucd_convert_value( var );
     if ( val == NULL ) {
 	return NULL;
     }
-    o = var_create_oid_ucd( objid, objidlen );
+    o = ucd_convert_oid( objid, objidlen );
     mib = mib_find_by_oid( o );
 
     cp = var_sprint_value( buf, SPRINT_MAX_LEN, val, mib );
@@ -206,7 +67,7 @@ void print_value (oid *objid, int objidlen, struct variable_list *var)
 char *sprint_objid (char *buf, oid *objid, int objidlen)
 {
     return var_sprint_oid( buf, SPRINT_MAX_LEN,
-			var_create_oid_ucd(objid, objidlen));
+			ucd_convert_oid(objid, objidlen));
 }
 int
 sprint_realloc_objid(u_char **buf, size_t *buf_len,
@@ -216,7 +77,7 @@ sprint_realloc_objid(u_char **buf, size_t *buf_len,
     char *cp;
 
     cp = var_sprint_oid( *buf, *buf_len,
-			var_create_oid_ucd(objid, objidlen));
+			ucd_convert_oid(objid, objidlen));
     if ( !cp ) {
 	return 0;
     }
@@ -243,7 +104,7 @@ char *sprint_variable_list (char *buf, oid *objid, int objidlen, struct variable
 
 
     memset( val_buf, 0, SPRINT_MAX_LEN );
-    vblist = var_convert_ucd2net_vblist( var );
+    vblist = ucd_convert_vblist( var );
     cp = vblist_sprint( val_buf, SPRINT_MAX_LEN, vblist );
     if ( cp ) {
 	strcpy( buf, cp );
@@ -260,12 +121,12 @@ char *sprint_variable (char *buf, oid *objid, int objidlen, struct variable_list
     netsnmp_varbind *varbind;
     char *cp;
 
-    varbind = var_convert_ucd2net_varbind( var );
+    varbind = ucd_convert_varbind( var );
     if ( varbind == NULL ) {
 	return NULL;
     }
     var_free_oid( varbind->oid );
-    varbind->oid = var_create_oid_ucd( objid, objidlen );
+    varbind->oid = ucd_convert_oid( objid, objidlen );
     if ( varbind->oid == NULL ) {
 	var_free_varbind( varbind );
 	return NULL;
@@ -308,6 +169,13 @@ void fprint_variable (FILE *fp, oid *objid, int objidlen, struct variable_list *
 void print_variable (oid *objid, int objidlen, struct variable_list *var)
 {
     fprint_variable( stdout, objid, objidlen, var );
+}
+void print_pdu (struct snmp_pdu *pdu)
+{
+    netsnmp_pdu *p;
+    p = ucd_convert_pdu( pdu );
+    pdu_print( p );
+    /* pdu_free( p ); */
 }
 
 
