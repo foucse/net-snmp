@@ -34,14 +34,19 @@ AC_ARG_WITH(out_mib_modules,[  --with-out-mib-modules=\"list\"   Compile without
 
 AC_ARG_WITH(libwrap,
 [  --with-libwrap[=LIBPATH]        Compile in libwrap (tcp_wrappers) support.],
-    if test "x$withval" != "x" -a -d "$withval"; then
-        LIBS="-L$withval -lwrap $LIBS"
-    elif test "x$withval" eq "xyes"; then
-	LIBS="-lwrap $LIBS"
-    else
-        LIBS="$withval $LIBS"
-    fi
+    LIBS="-lwrap $LIBS"
     AC_DEFINE(USE_LIBWRAP)
+    AC_ADD_SEARCH_PATH($withval)
+)
+
+AC_ARG_WITH(KMT,
+[  --with-KMT=PATH                 Look for libkmt in PATH/lib.],
+    AC_ADD_SEARCH_PATH($withval)
+)
+
+AC_ARG_WITH(SSLeay,
+[  --with-SSLeay=PATH              Look for SSLeay installation in PATH.],
+    AC_ADD_SEARCH_PATH($withval)
 )
 
 dnl Only define if specifically chosen as --without (ie, default to true). 
