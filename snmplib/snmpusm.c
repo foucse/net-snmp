@@ -1555,7 +1555,10 @@ usm_process_in_msg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 
 void
 init_usm_post_config(void) {
-  initialUser = usm_create_initial_user();
+  initialUser = usm_create_initial_user("initial", usmHMACMD5AuthProtocol,
+                                        USM_LENGTH_OID_TRANSFORM,
+                                        usmDESPrivProtocol,
+                                        USM_LENGTH_OID_TRANSFORM);
   if (initialUser->engineID)
     free(initialUser->engineID);
   initialUser->engineID = NULL;
@@ -1904,16 +1907,17 @@ usm_create_user(void) {
    USM document.
 */
 struct usmUser *
-usm_create_initial_user(void)
+usm_create_initial_user(char *name, oid *authProtocol, int authProtocolLen,
+                        oid *privProtocol, int privProtocolLen)
 {
   struct usmUser *newUser  = usm_create_user();
   if (newUser == NULL)
     return NULL;
 
-  if ((newUser->name = strdup("initial")) == NULL)
+  if ((newUser->name = strdup(name)) == NULL)
     return usm_free_user(newUser);
 
-  if ((newUser->secName = strdup("initial")) == NULL)
+  if ((newUser->secName = strdup(name)) == NULL)
     return usm_free_user(newUser);
 
   if ((newUser->engineID = snmpv3_generate_engineID(&newUser->engineIDLen)) == NULL)
@@ -1927,20 +1931,19 @@ usm_create_initial_user(void)
 
   if (newUser->privProtocol)
     free(newUser->privProtocol);
-  if ((newUser->privProtocol = (oid *) malloc(sizeof(usmDESPrivProtocol)))
+  if ((newUser->privProtocol = (oid *) malloc(privProtocolLen*sizeof(oid)))
       == NULL)
     return usm_free_user(newUser);
-  newUser->privProtocolLen = sizeof(usmDESPrivProtocol)/sizeof(oid);
-  memcpy(newUser->privProtocol, usmDESPrivProtocol, sizeof(usmDESPrivProtocol));
+  newUser->privProtocolLen = privProtocolLen;
+  memcpy(newUser->privProtocol, privProtocol, privProtocolLen*sizeof(oid));
 
   if (newUser->authProtocol)
     free(newUser->authProtocol);
-  if ((newUser->authProtocol = (oid *) malloc(sizeof(usmHMACMD5AuthProtocol)))
+  if ((newUser->authProtocol = (oid *) malloc(authProtocolLen*sizeof(oid)))
       == NULL)
     return usm_free_user(newUser);
-  newUser->authProtocolLen = sizeof(usmHMACMD5AuthProtocol)/sizeof(oid);
-  memcpy(newUser->authProtocol, usmHMACMD5AuthProtocol,
-         sizeof(usmHMACMD5AuthProtocol));
+  newUser->authProtocolLen = authProtocolLen;
+  memcpy(newUser->authProtocol, authProtocol, authProtocolLen*sizeof(oid));
 
   newUser->userStatus = RS_ACTIVE;
   newUser->userStorageType = ST_READONLY;
