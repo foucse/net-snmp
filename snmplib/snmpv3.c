@@ -48,9 +48,11 @@
 #include "scapi.h"
 #include "tools.h"
 
-static int		 engineBoots	 = 1;
-static char		*engineID	 = NULL;
-static int		 engineIDLength	 = 0;
+static int		 engineBoots	   = 1;
+static unsigned char	*engineID	   = NULL;
+static int		 engineIDLength	   = 0;
+static unsigned char	*oldEngineID	   = NULL;
+static int		 oldEngineIDLength = 0;
 static struct timeval	 snmpv3starttime;
 
 /* 
@@ -289,8 +291,8 @@ engineBoots_conf(char *word, char *cptr)
  *	*word
  *	*cptr
  *
- * FIX	cptr should be treated as a non-printable octet string, or perhaps
- *	converted from a printable hex string...  (?)
+ * This function reads a string from the configuration file and uses that
+ * string to initialize the engineID.  It's assumed to be human readable.
  */
 void
 engineID_conf(char *word, char *cptr)
@@ -299,7 +301,16 @@ engineID_conf(char *word, char *cptr)
   DEBUGP("initialized engineID with: %s\n",cptr);
 }
 
+/* engineID_old_conf(char *, char *):
 
+   Reads a octet string encoded engineID into the oldEngineID and
+   oldEngineIDLen pointers.
+*/
+void
+oldengineID_conf(char *word, char *cptr)
+{
+  read_config_read_octet_string(cptr, &oldEngineID, &oldEngineIDLength);
+}
 
 
 /*******************************************************************-o-******
@@ -318,6 +329,7 @@ init_snmpv3(char *type) {
   setup_engineID(NULL);
   /* handle engineID setup before everything else which may depend on it */
   register_premib_handler(type,"engineID", engineID_conf, NULL);
+  register_premib_handler(type,"oldEngineID", oldengineID_conf, NULL);
   register_config_handler(type,"engineBoots", engineBoots_conf, NULL);
   register_config_handler("snmp","defSecurityName", snmpv3_secName_conf, NULL);
   register_config_handler("snmp","defContext", snmpv3_context_conf, NULL);
@@ -351,9 +363,18 @@ init_snmpv3_post_config(void) {
 
   int engineIDLen;
   u_char *engineID;
+  u_char line[SNMP_MAXBUF_SMALL];
+
+  engineID = snmpv3_generate_engineID(&engineIDLen);
+
+  /* if our engineID has changed at all, the boots record must be set to 1 */
+  if (engineIDLen != oldEngineIDLength ||
+      oldEngineID == NULL || engineID == NULL ||
+      memcmp(oldEngineID, engineID, engineIDLen) != 0) {
+    engineBoots = 1;
+  }
 
   /* set our local engineTime in the LCD timing cache */
-  engineID = snmpv3_generate_engineID(&engineIDLen);
   set_enginetime(engineID, engineIDLen, 
                  snmpv3_local_snmpEngineBoots(), 
                  snmpv3_local_snmpEngineTime(),
@@ -371,13 +392,26 @@ init_snmpv3_post_config(void) {
 void
 shutdown_snmpv3(char *type)
 {
-	char            line[SNMP_MAXBUF_SMALL];
+  char line[SNMP_MAXBUF_SMALL];
+  char buf[SNMP_MAXBUF_SMALL];
+  char engineID[SNMP_MAXBUF_SMALL];
+  int  engineIDLen;
 
-	sprintf(line, "engineBoots %d", engineBoots);
-	read_config_store(type, line);
+  sprintf(line, "engineBoots %d", engineBoots);
+  read_config_store(type, line);
 
+  engineIDLen = snmpv3_get_engineID(engineID, SNMP_MAXBUF_SMALL);
+
+  if (engineIDLen) {
+    /* store the engineID used for this run */
+    sprintf(line, "oldEngineID ");
+    read_config_save_octet_string(line+strlen(line), engineID,
+                                  engineIDLen);
+    read_config_store(type, line);
+  }
+        
 #if		!defined(USE_INTERNAL_MD5) 
-	sc_shutdown();
+  sc_shutdown();
 #endif		/* !USE_INTERNAL_MD5 */
 
 }  /* shutdown_snmpv3() */
