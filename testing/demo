@@ -64,7 +64,7 @@ done
 export PATH=../apps:../agent:$PATH
 
 noAuthArgs="-p 1600 -n default -u initial -l noAuthNoPriv -v 3"
-AuthArgs="-p 1600 -n default -u initial -a MD5 -A $defpass -l authNoPriv -v 3"
+AuthArgs="-p 1600 -n default -u initial -a MD5 -A "$defpass" -l authNoPriv -v 3"
 host=localhost
 
 # simple commands
@@ -242,22 +242,22 @@ TITLE "Send crypted packets." \
 SETDEBUGGING 1
 TITLE "Perform a get with shark."
 DOIT snmpget -p 1600 -n default -u shark -l noAuthNoPriv -v 3 $host $sysUpTime
-DOIT snmpget -p 1600 -n default -u shark -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u shark -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 ## FIX: CRYPT
 TITLE "Perform a get with shark2."
 DOIT snmpget -p 1600 -n default -u shark2 -l noAuthNoPriv -v 3 $host $sysUpTime
-DOIT snmpget -p 1600 -n default -u shark2 -l authNoPriv -a SHA -A $defpass -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u shark2 -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
 
 ## FIX: CRYPT
 TITLE "Perform a get with stingray."
 DOIT snmpget -p 1600 -n default -u stingray -l noAuthNoPriv -v 3 $host $sysUpTime
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 ## FIX: CRYPT
 TITLE "Perform a get with stingray2."
 DOIT snmpget -p 1600 -n default -u stingray2 -l noAuthNoPriv -v 3 $host $sysUpTime
-DOIT snmpget -p 1600 -n default -u stingray2 -l authNoPriv -a SHA -A $defpass -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u stingray2 -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
 
 SETDEBUGGING 0
 
@@ -266,7 +266,7 @@ SETDEBUGGING 0
 #
 
 TITLE "Send AuthNoPriv messages with a user configured for AuthPriv."
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 #
 # Malformed packets (wrong key)
@@ -274,7 +274,7 @@ DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A $defpass -v 
 
 ## FIX: CRYPT
 TITLE "Send malformed crypted packets and examine the result for proper information."
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a SHA -A $defpass -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a SHA -A "$defpass" -v 3 $host $sysUpTime
 
 #
 # Key Change
@@ -283,8 +283,8 @@ DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a SHA -A $defpass -v 
 TITLE "Demonstrate KeyChange."\
       "Change kul for a user at the remote node:"
 
-oldkey=`ktest -q -l -P $defpass -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
-newkey=`ktest -q -l -P new_$defpass -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
+oldkey=`ktest -q -l -P "$defpass" -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
+newkey=`ktest -q -l -P "new_$defpass" -E 0x$engineidstr | grep MD5 | awk '{print $NF}'`
 
 keychange=`ktest -k -N $newkey -O $oldkey | grep string | awk '{print $NF}'`
 
@@ -297,10 +297,10 @@ DOIT $snmpset usmUserPrivKeyChange.$stingrayoid x $keychange
 TITLE "Perform a get using stingray to demonstrate it fails."\
       "(using old key)"
 ## FIX: authpriv
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 TITLE "Perform a get using stingray to demonstrate it succeeds." "(using new key)"
-DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A new_$defpass -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A "new_$defpass" -v 3 $host $sysUpTime
 
 #
 # Cloning an account
@@ -308,7 +308,7 @@ DOIT snmpget -p 1600 -n default -u stingray -l authNoPriv -a MD5 -A new_$defpass
 
 TITLE "Use an admin user to clone a new account that has additional priveleges."
 CREATEUSER whale $sharkoid
-DOIT snmpget -p 1600 -n default -u whale -l authNoPriv -a MD5 -A $defpass -v 3 $host $sysUpTime
+DOIT snmpget -p 1600 -n default -u whale -l authNoPriv -a MD5 -A "$defpass" -v 3 $host $sysUpTime
 
 #
 # engineID & time discovery
