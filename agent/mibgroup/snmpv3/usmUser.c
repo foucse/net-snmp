@@ -347,16 +347,10 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
       return NULL;
 
     case USMUSERAUTHKEYCHANGE:
-      *write_method = write_usmUserAuthKeyChange;
-      if (uptr) {
-        *string = 0; /* always return a NULL string */
-        *var_len = strlen(string);
-        return (unsigned char *) string;
-      }
-      return NULL;
-
     case USMUSEROWNAUTHKEYCHANGE:
-      *write_method = write_usmUserOwnAuthKeyChange;
+      /* we treat these the same, and let the calling module
+         distinguish between them */
+      *write_method = write_usmUserAuthKeyChange;
       if (uptr) {
         *string = 0; /* always return a NULL string */
         *var_len = strlen(string);
@@ -373,16 +367,10 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
       return NULL;
 
     case USMUSERPRIVKEYCHANGE:
-      *write_method = write_usmUserPrivKeyChange;
-      if (uptr) {
-        *string = 0; /* always return a NULL string */
-        *var_len = strlen(string);
-        return (unsigned char *) string;
-      }
-      return NULL;
-
     case USMUSEROWNPRIVKEYCHANGE:
-      *write_method = write_usmUserOwnPrivKeyChange;
+      /* we treat these the same, and let the calling module
+         distinguish between them */
+      *write_method = write_usmUserPrivKeyChange;
       if (uptr) {
         *string = 0; /* always return a NULL string */
         *var_len = strlen(string);
@@ -649,6 +637,13 @@ write_usmUserAuthProtocol(action, var_val, var_val_type, var_val_len, statP, nam
  *	SNMP_ERR_NOSUCHNAME	
  *	SNMP_ERR_GENERR
  *
+ * Note: This function handles both the usmUserAuthKeyChange and
+ *       usmUserOwnAuthKeyChange objects.  We are not passed the name
+ *       of the user requseting the keychange, so we leave this to the
+ *       calling module to verify when and if we should be called.  To
+ *       change this would require a change in the mib module API to
+ *       pass in the securityName requesting the change.
+ *
  * XXX:  should handle action=UNDO's.
  */
 int
@@ -666,16 +661,23 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
   struct usmUser        *uptr;
   unsigned char          buf[SNMP_MAXBUF_SMALL];
   int                    buflen = SNMP_MAXBUF_SMALL;
-  
-  DEBUGP("write_usmUserAuthKeyChange action=%d\n", action);
 
+  char                  *fnAuthKey    = "write_usmUserAuthKeyChange",
+                        *fnOwnAuthKey = "write_usmUserOwnAuthKeyChange",
+                        *fname;
+  
+  if (name[USM_MIB_LENGTH-1] == 6)
+    fname = fnAuthKey;
+  else
+    fname = fnOwnAuthKey;
+  
   if (var_val_type != ASN_OCTET_STR) {
-    DEBUGP("write to usmUserAuthKeyChange not ASN_OCTET_STR\n");
+    DEBUGP("write to %s not ASN_OCTET_STR\n", fname);
     return SNMP_ERR_WRONGTYPE;
   }
 
   if (var_val_len > sizeof(string)) {
-    DEBUGP("write to usmUserAuthKeyChange: bad length\n");
+    DEBUGP("write to %s: bad length\n", fname);
     return SNMP_ERR_WRONGLENGTH;
   }
 
@@ -690,14 +692,16 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
     }
 
     /* Change the key. */
-    DEBUGP("changing auth key for user %s\n", uptr->secName);
+    DEBUGP("%s: changing auth key for user %s\n", fname, uptr->secName);
 
     if (decode_keychange(uptr->authProtocol, uptr->authProtocolLen,
                          uptr->authKey, uptr->authKeyLen,
                          string, size,
                          buf, &buflen) != SNMPERR_SUCCESS) {
+      DEBUGP("%s: ... failed\n", fname);
         return SNMP_ERR_GENERR;
     }
+    DEBUGP("%s: ... succeeded\n", fname);
     SNMP_FREE(uptr->authKey);
     memdup(&uptr->authKey, buf, buflen);
     uptr->authKeyLen = buflen;
@@ -705,50 +709,6 @@ write_usmUserAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, na
 
   return SNMP_ERR_NOERROR;
 } /* end write_usmUserAuthKeyChange() */
-
-int
-write_usmUserOwnAuthKeyChange(action, var_val, var_val_type, var_val_len, statP, name, name_len)
-   int      action;
-   u_char   *var_val;
-   u_char   var_val_type;
-   int      var_val_len;
-   u_char   *statP;
-   oid      *name;
-   int      name_len;
-{
-  /* variables we may use later */
-  static unsigned char string[SNMP_MAXBUF];
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
-  struct usmUser *uptr;
-
-  if (var_val_type != ASN_OCTET_STR){
-      DEBUGP("write to usmUserOwnAuthKeyChange not ASN_OCTET_STR\n");
-      return SNMP_ERR_WRONGTYPE;
-  }
-  if (var_val_len > sizeof(string)){
-    DEBUGP("write to usmUserOwnAuthKeyChange: bad length\n");
-    return SNMP_ERR_WRONGLENGTH;
-  }
-  if (action == COMMIT){
-    /* parse the incoming string (key) out of the data */
-    size = sizeof(string);
-    asn_parse_string(var_val, &bigsize, &var_val_type, string, &size);
-
-      /* don't allow creations here */
-    if ((uptr = usm_parse_user(name, name_len)) == NULL) {
-      return SNMP_ERR_NOSUCHNAME;
-    }
-
-    /* Change the key. */
-    if (decode_keychange(uptr->authProtocol, uptr->authProtocolLen,
-                         uptr->authKey, uptr->authKeyLen,
-                         string, size,
-                         uptr->authKey, &uptr->authKeyLen) != SNMPERR_SUCCESS) {
-        return SNMP_ERR_GENERR;
-    }
-  }
-  return SNMP_ERR_NOERROR;
-}  /* end write_usmUserOwnAuthKeyChange() */
 
 int
 write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, name, name_len)
@@ -801,6 +761,15 @@ write_usmUserPrivProtocol(action, var_val, var_val_type, var_val_len, statP, nam
   return SNMP_ERR_NOERROR;
 }  /* end write_usmUserPrivProtocol() */
 
+/*
+ * Note: This function handles both the usmUserPrivKeyChange and
+ *       usmUserOwnPrivKeyChange objects.  We are not passed the name
+ *       of the user requseting the keychange, so we leave this to the
+ *       calling module to verify when and if we should be called.  To
+ *       change this would require a change in the mib module API to
+ *       pass in the securityName requesting the change.
+ *
+ */
 int
 write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, name, name_len)
    int      action;
@@ -811,91 +780,59 @@ write_usmUserPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, na
    oid      *name;
    int      name_len;
 {
-  /* variables we may use later */
-  static unsigned char string[SNMP_MAXBUF_SMALL];
-  int size, bigsize=SNMP_MAXBUF_SMALL;
-  struct usmUser *uptr;
+  static unsigned char   string[SNMP_MAXBUF_SMALL];
+  int                    size, bigsize = SNMP_MAXBUF_SMALL;
+  struct usmUser        *uptr;
   unsigned char          buf[SNMP_MAXBUF_SMALL];
   int                    buflen = SNMP_MAXBUF_SMALL;
 
-  if (var_val_type != ASN_OCTET_STR){
-      DEBUGP("write to usmUserPrivKeyChange not ASN_OCTET_STR\n");
-      return SNMP_ERR_WRONGTYPE;
+  char                  *fnPrivKey    = "write_usmUserPrivKeyChange",
+                        *fnOwnPrivKey = "write_usmUserOwnPrivKeyChange",
+                        *fname;
+  
+  if (name[USM_MIB_LENGTH-1] == 9)
+    fname = fnPrivKey;
+  else
+    fname = fnOwnPrivKey;
+  
+  if (var_val_type != ASN_OCTET_STR) {
+    DEBUGP("write to %s not ASN_OCTET_STR\n", fname);
+    return SNMP_ERR_WRONGTYPE;
   }
-  if (var_val_len > sizeof(string)){
-      DEBUGP("write to usmUserPrivKeyChange: bad length\n");
-      return SNMP_ERR_WRONGLENGTH;
+
+  if (var_val_len > sizeof(string)) {
+    DEBUGP("write to %s: bad length\n", fname);
+    return SNMP_ERR_WRONGLENGTH;
   }
-  if (action == COMMIT){
-      /* parse the incoming string (key) out of the data */
-      size = sizeof(string);
-      asn_parse_string(var_val, &bigsize, &var_val_type, string, &size);
 
-      /* don't allow creations here */
-      if ((uptr = usm_parse_user(name, name_len)) == NULL) {
-        return SNMP_ERR_NOSUCHNAME;
-      }
+  if (action == COMMIT) {
+    /* parse the incoming string (key) out of the data */
+    size = sizeof(string);
+    asn_parse_string(var_val, &bigsize, &var_val_type, string, &size);
 
-      /* Change the key. */
-      DEBUGP("changing auth key for user %s\n", uptr->secName);
+    /* don't allow creations here */
+    if ((uptr = usm_parse_user(name, name_len)) == NULL) {
+      return SNMP_ERR_NOSUCHNAME;
+    }
 
-      if (decode_keychange(uptr->authProtocol, uptr->authProtocolLen,
-                           uptr->privKey, uptr->privKeyLen,
-                           string, size,
-                           buf, &buflen) != SNMPERR_SUCCESS) {
+    /* Change the key. */
+    DEBUGP("%s: changing priv key for user %s\n", fname, uptr->secName);
+
+    if (decode_keychange(uptr->authProtocol, uptr->authProtocolLen,
+                         uptr->privKey, uptr->privKeyLen,
+                         string, size,
+                         buf, &buflen) != SNMPERR_SUCCESS) {
+      DEBUGP("%s: ... failed\n", fname);
         return SNMP_ERR_GENERR;
-      }
-      SNMP_FREE(uptr->privKey);
-      memdup(&uptr->privKey, buf, buflen);
-      uptr->privKeyLen = buflen;
+    }
+    DEBUGP("%s: ... succeeded\n", fname);
+    SNMP_FREE(uptr->privKey);
+    memdup(&uptr->privKey, buf, buflen);
+    uptr->privKeyLen = buflen;
   }
+
   return SNMP_ERR_NOERROR;
 }  /* end write_usmUserPrivKeyChange() */
-
-int
-write_usmUserOwnPrivKeyChange(action, var_val, var_val_type, var_val_len, statP, name, name_len)
-   int      action;
-   u_char   *var_val;
-   u_char   var_val_type;
-   int      var_val_len;
-   u_char   *statP;
-   oid      *name;
-   int      name_len;
-{
-  /* variables we may use later */
-  static unsigned char string[SNMP_MAXBUF];
-  int size, bigsize=SNMP_MAXBUF_MEDIUM;
-  struct usmUser *uptr;
-
-  if (var_val_type != ASN_OCTET_STR){
-      DEBUGP("write to usmUserOwnPrivKeyChange not ASN_OCTET_STR\n");
-      return SNMP_ERR_WRONGTYPE;
-  }
-  if (var_val_len > sizeof(string)){
-      DEBUGP("write to usmUserOwnPrivKeyChange: bad length\n");
-      return SNMP_ERR_WRONGLENGTH;
-  }
-  if (action == COMMIT){
-      /* parse the incoming string (key) out of the data */
-      size = sizeof(string);
-      asn_parse_string(var_val, &bigsize, &var_val_type, string, &size);
-
-      /* don't allow creations here */
-      if ((uptr = usm_parse_user(name, name_len)) == NULL) {
-        return SNMP_ERR_NOSUCHNAME;
-      }
-
-      /* Change the key. */
-      if ( decode_keychange(uptr->privProtocol, uptr->privProtocolLen,
-                            uptr->privKey, uptr->privKeyLen,
-                            string, size,
-                            uptr->privKey, &uptr->privKeyLen) 
-           != SNMPERR_SUCCESS ) {
-        return SNMP_ERR_GENERR;
-      }
-  }
-  return SNMP_ERR_NOERROR;
-}  /* end write_usmUserOwnPrivKeyChange() */
 
 int
 write_usmUserPublic(action, var_val, var_val_type, var_val_len, statP, name, name_len)
