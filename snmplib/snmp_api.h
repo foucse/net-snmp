@@ -277,6 +277,7 @@ void snmp_read __P((fd_set *));
 void snmp_free_pdu __P((struct snmp_pdu *));
 
 void snmp_free_var __P((struct variable_list *));
+void snmp_free_varbind(struct variable_list *var);
 
 /*
  * int snmp_select_info(numfds, fdset, timeout, block)
@@ -372,7 +373,7 @@ int hex_to_binary __P((u_char *, u_char *));
 int ascii_to_binary __P((u_char *, u_char *));
 int snmp_add_var __P((struct snmp_pdu *, oid*, int, char, char *));
 oid  *snmp_duplicate_objid(oid *objToCopy, int);
-void  snmp_increment_statistic(int which);
+u_int snmp_increment_statistic(int which);
 u_int snmp_get_statistic(int which);
 void  snmp_init_statistics(void);
   

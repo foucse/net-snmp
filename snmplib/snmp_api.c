@@ -505,20 +505,20 @@ snmp_open(session)
 	case SNMP_ERR_NOERROR:
 	  break;
 	default:
-	  DEBUGP("remote engine returned an error: %s (%d)",
+	  DEBUGP("remote engine returned an error: %s (%d)\n",
 		 snmp_errstring(response->errstat), response->errstat);
 	}
 	break;
       case STAT_TIMEOUT:
       case STAT_ERROR:
       default:
-	DEBUGP("unable to connect with remote engine: %s (%d)",
+	DEBUGP("unable to connect with remote engine: %s (%d)\n",
 	       snmp_api_errstring(snmp_get_errno()),
 	       snmp_get_errno());
 	break;
       }
-      if (session->contextEngineIDLen == 0) {
-	DEBUGP("unable to determine remote engine ID");
+      if (slp->session->contextEngineIDLen == 0) {
+	DEBUGP("unable to determine remote engine ID\n");
 	return NULL;
       }
     }
@@ -2257,6 +2257,19 @@ snmp_free_var(var)
     free((char *)var);
 }
 
+void snmp_free_varbind(var)
+    struct variable_list *var;
+{
+  struct variable_list *ptr;
+  while(var) {
+    if (var->name) free((char *)var->name);
+    if (var->val.string) free((char *)var->val.string);
+    ptr = var->next_variable;
+    free((char *)var);
+    var = ptr;
+  }
+}
+
 /*
  * Frees the pdu and any malloc'd data associated with it.
  */
@@ -2288,7 +2301,7 @@ snmp_free_pdu(pdu)
 /*
  * Frees the pdu and any malloc'd data associated with it.
  */
-static void
+void
 snmp_free_internal_pdu(pdu)
     struct snmp_pdu *pdu;
 {
@@ -2372,7 +2385,16 @@ snmp_sess_read(sessp)
 	return;
     }
 
-    if (pdu->command == SNMP_MSG_RESPONSE){
+    if (pdu->command == SNMP_MSG_RESPONSE || pdu->command == SNMP_MSG_REPORT){
+        if (pdu->command == SNMP_MSG_REPORT) {
+          /* handle engineID discovery - */
+          if (sp->contextEngineIDLen == 0 && pdu->contextEngineIDLen) {
+            sp->contextEngineID = malloc(pdu->contextEngineIDLen);
+            memcpy(sp->contextEngineID, pdu->contextEngineID,
+                   pdu->contextEngineIDLen);
+            sp->contextEngineIDLen = pdu->contextEngineIDLen;
+          }
+        }
 	for(rp = isp->requests; rp; rp = rp->next_request){
 	    if (rp->request_id == pdu->reqid){
 		callback = sp->callback;
@@ -2401,14 +2423,6 @@ snmp_sess_read(sessp)
 	    }
 	    orp = rp;
 	}
-    } else if (pdu->command == SNMP_MSG_REPORT) {
-      /* handle engineID discovery - */
-      if (sp->contextEngineIDLen == 0 && pdu->contextEngineIDLen) {
-	sp->contextEngineID = malloc(pdu->contextEngineIDLen);
-	memcpy(sp->contextEngineID, pdu->contextEngineID,
-	       pdu->contextEngineIDLen);
-	sp->contextEngineIDLen = pdu->contextEngineIDLen;
-      }
     } else if (pdu->command == SNMP_MSG_GET
 	       || pdu->command == SNMP_MSG_GETNEXT
 	       || pdu->command == SNMP_MSG_TRAP
@@ -3016,9 +3030,12 @@ oid *snmp_duplicate_objid(oid *objToCopy, int objToCopyLen) {
 /* generic statistics counter functions */
 static u_int statistics[MAX_STATS];
 
-void snmp_increment_statistic(int which) {
-  if (which >= 0 && which <= MAX_STATS)
+u_int snmp_increment_statistic(int which) {
+  if (which >= 0 && which <= MAX_STATS) {
     statistics[which]++;
+    return statistics[which];
+  }
+  return 0;
 }
 
 u_int snmp_get_statistic(int which) {
