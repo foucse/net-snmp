@@ -273,6 +273,13 @@ void snmpd_free_trapsinks (void)
 static oid objid_enterprisetrap[] = {EXTENSIBLEMIB,251,0,0};
 static int length_enterprisetrap = sizeof(objid_enterprisetrap)/sizeof(objid_enterprisetrap[0]);
 
+u_char *memdup(u_char *s, int len)
+{
+    u_char *n = malloc(len);
+    memcpy(n, s, len);
+    return n;
+}
+
 static void send_v1_trap (struct snmp_session *ss,
 			  int trap, 
 			  int specific)
@@ -292,11 +299,11 @@ static void send_v1_trap (struct snmp_session *ss,
 
     pdu = snmp_pdu_create (SNMP_MSG_TRAP);
     if (trap == 6) {
-	pdu->enterprise = objid_enterprisetrap;
+	pdu->enterprise = (oid *)memdup((u_char *)objid_enterprisetrap, (length_enterprisetrap-2)*sizeof(oid));
 	pdu->enterprise_length = length_enterprisetrap-2;
     }
     else { 
-	pdu->enterprise = version_id;
+	pdu->enterprise = (oid *)memdup((u_char *)version_id, version_id_len*sizeof(oid));
 	pdu->enterprise_length = version_id_len;
     }
     pdu->agent_addr.sin_addr.s_addr = get_myaddr();
@@ -305,6 +312,7 @@ static void send_v1_trap (struct snmp_session *ss,
     pdu->time = diff.tv_sec * 100 + diff.tv_usec / 10000;
     if (snmp_send (ss, pdu) == 0) {
         snmp_perror ("snmpd: send_v1_trap");
+	snmp_free_pdu(pdu);
     }
 #ifdef USING_MIBII_SNMP_MIB_MODULE       
     snmp_outtraps++;
@@ -371,6 +379,7 @@ static void send_v2_trap (struct snmp_session *ss,
 
     if (snmp_send (ss, pdu) == 0) {
         snmp_perror ("snmpd: send_v2_trap");
+	snmp_free_pdu(pdu);
     }
 #ifdef USING_MIBII_SNMP_MIB_MODULE       
     snmp_outtraps++;
@@ -392,6 +401,7 @@ send_trap_pdu(struct snmp_pdu *pdu)
         mypdu = snmp_clone_pdu(pdu);
         if (snmp_send(sink->sesp, mypdu) == 0) {
           snmp_perror ("snmpd: send_trap_pdu");
+	  snmp_free_pdu(mypdu);
         }
 #ifdef USING_MIBII_SNMP_MIB_MODULE       
         snmp_outtraps++;

@@ -1365,6 +1365,7 @@ snmp_sess_async_send(void *sessp,
     int length = PACKET_LENGTH;
     struct request_list *rp;
     struct timeval tv;
+    long reqid;
     int expect_response = 1;
 
     session = slp->session; isp = slp->internal;
@@ -1594,6 +1595,7 @@ snmp_sess_async_send(void *sessp,
     }
 
     /* check if should get a response */
+    reqid = pdu->reqid;
     if (expect_response != 0) {
         gettimeofday(&tv, (struct timezone *)0);
 
@@ -1627,7 +1629,9 @@ snmp_sess_async_send(void *sessp,
 	tv.tv_usec %= 1000000L;
 	rp->expire = tv;
     }
-    return pdu->reqid;
+    else
+	snmp_free_pdu(pdu);
+    return reqid;
 }
 
 /*
