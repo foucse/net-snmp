@@ -65,7 +65,7 @@ processIncomingMsg (msgProcModel, maxMsgSize, secParams, secModel, secLevel,
 		    secNameLen, scopedPdu, scopedPduLen, maxSizeResponse,
 		    secStateRef)
      int msgProcModel;               /* not used */
-     int maxMsgSize;                 /* not used */
+     int maxMsgSize;                 /* IN - used to calc maxSizeResponse */
      u_char *secParams;              /* IN - BER encoded securityParameters */
      int secModel;                   /* not used */
      int secLevel;                   /* IN - authNoPriv, authPriv etc. */

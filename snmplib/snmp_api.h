@@ -129,7 +129,12 @@ typedef int (*snmp_callback) __P((int, struct snmp_session *, int, struct snmp_p
 #define SNMP_DEFAULT_TIME	    0
 #define SNMP_DEFAULT_VERSION	    -1
 #define SNMP_MAX_MSG_SIZE           1200 /* this is provisional */
+#define SNMP_MAX_ENG_SIZE     256
+#define SNMP_MAX_SEC_NAME_SIZE     256
+#define SNMP_MAX_SEC_NAME_SIZE     256
+#define SNMP_MAX_CONTEXT_SIZE     256
 #define SNMP_SEC_PARAM_BUF_SIZE     256
+
 extern char *snmp_api_errstring __P((int));
 extern void snmp_perror __P((char *));
 extern void snmp_set_detail __P((char *));
@@ -161,7 +166,10 @@ extern void snmp_set_detail __P((char *));
 #define SNMPERR_UNKNOWN_PDU	(-23)
 #define SNMPERR_TIMEOUT 	(-24)
 #define SNMPERR_BAD_RECVFROM 	(-25)
-#define SNMPERR_MAX		(-25)
+#define SNMPERR_BAD_ENG_ID 	(-26)
+#define SNMPERR_BAD_SEC_NAME 	(-27)
+#define SNMPERR_BAD_SEC_LEVEL 	(-28)
+#define SNMPERR_MAX		(-28)
 
 #define non_repeaters	errstat
 #define max_repetitions errindex

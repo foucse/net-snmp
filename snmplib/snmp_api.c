@@ -167,6 +167,14 @@ struct internal_snmp_pdu {
     int     version;
 
     snmp_ipaddr  address;    /* Address of peer */
+    u_char  *contextEngineID;	/* authoritative snmpEngineID */
+    int	    contextEngineIDLen;  /* Length of contextEngineID */
+    u_char  *contextName;	/* authoritative contextName */
+    int	    contextNameLen;  /* Length of contextName */
+    u_char  *securityName;	/* on behalf of this principal */
+    int	    securityNameLen;  /* Length of securityName. */
+    int	    securityModel; 
+    int	    securityLevel;  /* noAuthNoPriv, authNoPriv, authPriv */
     oid     *srcParty;
     int     srcPartyLen;
     oid     *dstParty;
@@ -235,6 +243,9 @@ static char *api_errors[-SNMPERR_MAX+1] = {
     "Unknown PDU type",
     "Timeout",
     "Failure in recvfrom",
+    "Unable to determine contextEngineID",
+    "Unable to determine contextName",
+    "Unable to determine securityLevel",
 };
 
 /*
@@ -261,6 +272,7 @@ void shift_array __P((u_char *, int, int));
 static void snmpv3_calc_msg_flags __P((int, int, u_char *));
 static int snmpv3_build __P((struct snmp_session *, struct snmp_pdu *, u_char *, int *));
 static int snmp_build __P((struct snmp_session *, struct snmp_pdu *, u_char *, int *));
+static int snmpv3_parse __P((struct internal_snmp_pdu *, u_char *, int*));
 static int snmp_parse __P((struct snmp_session *, struct internal_snmp_pdu *, u_char *, int));
 static int snmp_parse_version __P((u_char *, int));
 static void snmp_free_internal_pdu __P((struct snmp_pdu *));
@@ -470,6 +482,15 @@ snmp_open(session)
 	slp->next = Sessions;
 	Sessions = slp;
     }
+    /* if we are opening a V3 session and we don't know engineID
+       we must probe it - this must be done after the session is
+       created and inserted in the list so that the response can 
+       handled correctly */
+    if (session->version == SNMP_VERSION_3 && 
+	session->contextEngineIDLen == 0) {
+
+    }
+
     return (slp->session);
 }
 
@@ -1073,7 +1094,6 @@ snmp_build(session, pdu, packet, out_length)
     case SNMP_VERSION_sec:
     case SNMP_VERSION_2u:
     case SNMP_VERSION_2star:
-    case SNMP_VERSION_3:
     default:
 	return -1;
     }
@@ -1106,7 +1126,6 @@ snmp_build(session, pdu, packet, out_length)
     case SNMP_VERSION_sec:
     case SNMP_VERSION_2u:
     case SNMP_VERSION_2star:
-    case SNMP_VERSION_3:
     default:
 	return -1;
     }
@@ -1216,7 +1235,7 @@ snmp_pdu_build (struct snmp_pdu *pdu, u_char *cp, int *out_length) {
   }
 
   /* insert actual length of variable-bindings sequence */
-  asn_build_sequence(h2,&length,(u_char)(ASN_SEQUENCE|ASN_CONSTRUCTOR), cp-h2e);
+  asn_build_sequence(h2,&length,(u_char)(ASN_SEQUENCE|ASN_CONSTRUCTOR),cp-h2e);
 
   /* insert actual length of PDU sequence */
   asn_build_sequence(h1, &length, (u_char)pdu->command, cp - h1e);
@@ -1250,6 +1269,147 @@ snmp_parse_version (data, length)
   return version;
 }
 
+static int
+snmpv3_parse(pdu, data, length)
+     struct internal_snmp_pdu *pdu;
+     u_char  *data;
+     int     *length;
+{
+  u_char type;
+  long ver, msg_max_size, msg_sec_model;
+  int max_size_response;
+  u_char tmp_buf[SNMP_MAX_MSG_SIZE];
+  int tmp_buf_len;
+  u_char pdu_buf[SNMP_MAX_MSG_SIZE];
+  int pdu_buf_len;
+  u_char *sec_params;
+  u_char *msg_data;
+  int asn_len;
+
+  /* message is an ASN.1 SEQUENCE */
+  data = asn_parse_header(data, length, &type);
+  if (data == NULL){
+    ERROR_MSG("bad header");
+    return -1;
+  }
+  if (type != (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
+    ERROR_MSG("wrong auth header type");
+    return -1;
+  }
+
+  /* parse msgVersion */
+  data = asn_parse_int(data, length, &type, &ver, sizeof(ver));
+  if (data == NULL){
+    ERROR_MSG("bad parse of version");
+    return -1;
+  }
+  pdu->version = ver;
+
+  /* parse msgGlobalData sequence */
+  data = asn_parse_header(data, length, &type);
+  if (data == NULL){
+    ERROR_MSG("bad header");
+    return -1;
+  }
+  if (type != (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
+    ERROR_MSG("wrong msgGlobalData  header type");
+    return -1;
+  }
+
+  /* msgID - storing in reqid for now - may need seperate storage */
+  data = asn_parse_int(data, length, &type, &pdu->reqid, sizeof(pdu->reqid));
+  if (data == NULL) {
+    ERROR_MSG("error parsing msgID");
+    return -1;
+  }
+
+  /* msgMaxSize */
+  data = asn_parse_int(data, length, &type, &msg_max_size,
+		       sizeof(msg_max_size));
+  if (data == NULL) {
+    ERROR_MSG("error parsing msgMaxSize");
+    return -1;
+  }
+    
+  /* msgFlags */
+  tmp_buf_len = SNMP_MAX_MSG_SIZE;
+  data = asn_parse_string(data, length, &type, tmp_buf, &tmp_buf_len);
+  if (data == NULL) {
+    ERROR_MSG("error parsing msgFlags");
+    return -1;
+  }
+  pdu->securityLevel = 
+    (*tmp_buf & SNMP_MSG_FLAG_AUTH_BIT ?
+     (*tmp_buf & SNMP_MSG_FLAG_PRIV_BIT ? 
+      SNMP_SEC_LEVEL_AUTHPRIV : SNMP_SEC_LEVEL_AUTHNOPRIV) : 
+     SNMP_SEC_LEVEL_NOAUTH);
+
+  /* msgSecurityModel */
+  data = asn_parse_int(data, length, &type, &msg_sec_model,
+		       sizeof(msg_sec_model));
+  if (data == NULL) {
+    ERROR_MSG("error parsing msgSecurityModel");
+    return -1;
+  }
+  /* end of msgGlobalData */
+
+  /* save pointer securtityParameters for USM to parse */
+  sec_params = data;
+  asn_len = *length;
+  /* skip over securityParameters to message payload */
+  data = asn_parse_header(sec_params, &asn_len, &type);
+  msg_data = data + asn_len;
+
+  /* get length of message payload - msgData - not sure why USM needs this */
+  asn_len = *length;
+  data = asn_parse_header(msg_data, &asn_len, &type);
+
+  pdu->contextEngineID = malloc(SNMP_MAX_ENG_SIZE);
+  pdu->contextEngineIDLen = SNMP_MAX_ENG_SIZE;
+  pdu->securityName = malloc(SNMP_MAX_SEC_NAME_SIZE);
+  pdu->securityNameLen = SNMP_MAX_SEC_NAME_SIZE;
+  processIncomingMsg(SNMP_VERSION_3, msg_max_size, sec_params, msg_sec_model,
+		     pdu->securityLevel, msg_data, asn_len,
+		     pdu->contextEngineID, &pdu->contextEngineIDLen,
+		     pdu->securityName, &pdu->securityNameLen,
+		     pdu_buf, &pdu_buf_len, &max_size_response, NULL);
+
+  /* parse plaintext ScopedPDU sequence */
+  *length = pdu_buf_len;
+  data = asn_parse_header(pdu_buf, length, &type);
+  if (data == NULL){
+    ERROR_MSG("bad plaintext header");
+    return -1;
+  }
+  if (type != (ASN_SEQUENCE | ASN_CONSTRUCTOR)){
+    ERROR_MSG("wrong plaintext header type");
+    return -1;
+  }
+
+  /* parse contextEngineID from scopedPdu */
+  tmp_buf_len = SNMP_MAX_MSG_SIZE;
+  data = asn_parse_string(data, length, &type, tmp_buf, &tmp_buf_len);
+  if (data == NULL) {
+    ERROR_MSG("error parsing msgFlags");
+    return -1;
+  }
+  /* check that it agrees with engineID returned from USM above ? */
+
+  /* parse contextName from scopedPdu */
+  tmp_buf_len = SNMP_MAX_CONTEXT_SIZE;
+  data = asn_parse_string(data, length, &type, tmp_buf, &tmp_buf_len);
+  if (data == NULL) {
+    ERROR_MSG("error parsing msgFlags");
+    return -1;
+  }
+  if (tmp_buf_len) {
+    pdu->contextName = malloc(tmp_buf_len);
+    pdu->contextNameLen = tmp_buf_len;
+  }
+
+  return snmp_pdu_parse(pdu, data, length);
+}
+
 /*
  * Parses the packet received on the input session, and places the data into
  * the input pdu.  length is the length of the input packet.  If any errors
@@ -1262,38 +1422,32 @@ snmp_parse(session, pdu, data, length)
     u_char  *data;
     int	    length;
 {
-    u_char  msg_type;
     u_char  type;
     struct packet_info pkt, *pi = &pkt;
-    u_char  *var_val;
-    int     version, badtype;
-    int	    four, len;
     u_char community[COMMUNITY_MAX_LEN];
     int community_length = COMMUNITY_MAX_LEN;
-    struct internal_variable_list *vp = NULL;
-    oid objid[MAX_NAME_LEN];
-    char err[256];
+    int result = -1;
 
-    badtype = 0;
     snmp_errno = SNMPERR_BAD_PARSE;
     session->s_snmp_errno = SNMPERR_BAD_PARSE;
 
     if (session->version != SNMP_DEFAULT_VERSION)
-	version = session->version;
+	pdu->version = session->version;
     else 
-        version = snmp_parse_version(data,length);
+        pdu->version = snmp_parse_version(data,length);
 
-    switch (version) {
+    switch (pdu->version) {
     case SNMP_VERSION_1:
     case SNMP_VERSION_2c:
 
 	/* authenticates message and returns length if valid */
 	data = snmp_comstr_parse(data, &length,
                                  community, &community_length,
-			         &version);
+			         &pdu->version);
 	if (data == NULL)
 	    return -1;
-        if (version != session->version && session->version != SNMP_DEFAULT_VERSION)
+        if (pdu->version != session->version && 
+	    session->version != SNMP_DEFAULT_VERSION)
             return -1;
 	pdu->community_len = community_length;
 	pdu->community = (u_char *)malloc(community_length);
@@ -1305,6 +1459,7 @@ snmp_parse(session, pdu, data, length)
 	    if (data == NULL)
 		return 0; /* COMMENT OR CHANGE YYXX not an error ? */
 	}
+	result = snmp_pdu_parse(pdu, data, &length);
         break;
 
     case SNMP_VERSION_2p:
@@ -1330,11 +1485,14 @@ snmp_parse(session, pdu, data, length)
 				FIRST_PASS | LAST_PASS);
 	if (data == NULL)
 	    return -1;
-	version = pi->version;
+	pdu->version = pi->version;
+
+	result = snmp_pdu_parse(pdu, data, &length);
         break;
 #endif /* USE_V2PARTY_PROTOCOL */
 
     case SNMP_VERSION_3:
+      result = snmpv3_parse(pdu, data, &length);
       break;
 
     case SNMP_VERSION_sec:
@@ -1344,209 +1502,230 @@ snmp_parse(session, pdu, data, length)
         ERROR_MSG("unsupported/unknown message header type");
 	return -1;
     }
-    pdu->version = version;
 
-    /* Get the PDU type */
-    data = asn_parse_header(data, &length, &msg_type);
-    if (data == NULL)
-	return -1;
-    pdu->command = msg_type;
-
-    /* get the fields in the PDU preceeding the variable-bindings sequence */
-    if (pdu->command != SNMP_MSG_TRAP){
-        /* PDU is not an SNMPv1 TRAP */
-
-        /* request id */
-	data = asn_parse_int(data, &length, &type, &pdu->reqid,
-			     sizeof(pdu->reqid));
-	if (data == NULL) {
-	    ERROR_MSG(strcat(strcpy(err, "parsing request-id: "), snmp_detail));
-	    return -1;
-	}
-
-        /* error status (getbulk non-repeaters) */
-	data = asn_parse_int(data, &length, &type, &pdu->errstat,
-			     sizeof(pdu->errstat));
-	if (data == NULL) {
-	    ERROR_MSG(strcat(strcpy(err, "parsing error status: "), snmp_detail));
-	    return -1;
-	}
-
-        /* error index (getbulk max-repetitions) */
-	data = asn_parse_int(data, &length, &type, &pdu->errindex,
-			     sizeof(pdu->errindex));
-	if (data == NULL) {
-	    ERROR_MSG(strcat(strcpy(err, "parsing error index: "), snmp_detail));
-	    return -1;
-	}
+    if (result == 0) {
+      snmp_errno = 0;
+      session->s_snmp_errno = 0;
+      return 0;
     } else {
-        /* an SNMPv1 trap PDU */
+      return -1;
+    }
+}
 
-        /* enterprise */
-	pdu->enterprise_length = MAX_NAME_LEN;
-	data = asn_parse_objid(data, &length, &type, objid,
-			       &pdu->enterprise_length);
-	if (data == NULL)
-	    return -1;
-	pdu->enterprise = (oid *)malloc(pdu->enterprise_length * sizeof(oid));
-	memmove(pdu->enterprise, objid, pdu->enterprise_length * sizeof(oid));
+int
+snmp_pdu_parse(pdu, data, length)
+    struct internal_snmp_pdu *pdu;
+    u_char  *data;
+    int	    *length;
+{
+  u_char  type;
+  u_char  msg_type;
+  u_char  *var_val;
+  int      badtype;
+  int	    four, len;
+  struct internal_variable_list *vp = NULL;
+  oid objid[MAX_NAME_LEN];
+  char err[256];
 
-        /* agent-addr */
-	four = 4;
-	data = asn_parse_string(data, &length, &type,
-				(u_char *)&pdu->agent_addr.sin_addr.s_addr,
-				&four);
-	if (data == NULL)
-	    return -1;
+  badtype = 0;
 
-        /* generic trap */
-	data = asn_parse_int(data, &length, &type, (long *)&pdu->trap_type,
-			     sizeof(pdu->trap_type));
-	if (data == NULL)
-	    return -1;
+  /* Get the PDU type */
+  data = asn_parse_header(data, length, &msg_type);
+  if (data == NULL)
+    return -1;
+  pdu->command = msg_type;
 
-        /* specific trap */
-	data = asn_parse_int(data, &length, &type, (long *)&pdu->specific_type,
-			     sizeof(pdu->specific_type));
-	if (data == NULL)
-	    return -1;
+  /* get the fields in the PDU preceeding the variable-bindings sequence */
+  if (pdu->command != SNMP_MSG_TRAP){
+    /* PDU is not an SNMPv1 TRAP */
 
-        /* timestamp  */
-	data = asn_parse_unsigned_int(data, &length, &type, &pdu->time,
-				      sizeof(pdu->time));
-	if (data == NULL)
-	    return -1;
+    /* request id */
+    data = asn_parse_int(data, length, &type, &pdu->reqid,
+			 sizeof(pdu->reqid));
+    if (data == NULL) {
+      ERROR_MSG(strcat(strcpy(err, "parsing request-id: "), snmp_detail));
+      return -1;
     }
 
-    /* get header for variable-bindings sequence */
-    data = asn_parse_header(data, &length, &type);
+    /* error status (getbulk non-repeaters) */
+    data = asn_parse_int(data, length, &type, &pdu->errstat,
+			 sizeof(pdu->errstat));
+    if (data == NULL) {
+      ERROR_MSG(strcat(strcpy(err, "parsing error status: "), snmp_detail));
+      return -1;
+    }
+
+    /* error index (getbulk max-repetitions) */
+    data = asn_parse_int(data, length, &type, &pdu->errindex,
+			 sizeof(pdu->errindex));
+    if (data == NULL) {
+      ERROR_MSG(strcat(strcpy(err, "parsing error index: "), snmp_detail));
+      return -1;
+    }
+  } else {
+    /* an SNMPv1 trap PDU */
+
+    /* enterprise */
+    pdu->enterprise_length = MAX_NAME_LEN;
+    data = asn_parse_objid(data, length, &type, objid,
+			   &pdu->enterprise_length);
     if (data == NULL)
-	return -1;
-    if (type != (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR))
-	return -1;
+      return -1;
+    pdu->enterprise = (oid *)malloc(pdu->enterprise_length * sizeof(oid));
+    memmove(pdu->enterprise, objid, pdu->enterprise_length * sizeof(oid));
+
+    /* agent-addr */
+    four = 4;
+    data = asn_parse_string(data, length, &type,
+			    (u_char *)&pdu->agent_addr.sin_addr.s_addr,
+			    &four);
+    if (data == NULL)
+      return -1;
+
+    /* generic trap */
+    data = asn_parse_int(data, length, &type, (long *)&pdu->trap_type,
+			 sizeof(pdu->trap_type));
+    if (data == NULL)
+      return -1;
+
+    /* specific trap */
+    data = asn_parse_int(data, length, &type, (long *)&pdu->specific_type,
+			 sizeof(pdu->specific_type));
+    if (data == NULL)
+      return -1;
+
+    /* timestamp  */
+    data = asn_parse_unsigned_int(data, length, &type, &pdu->time,
+				  sizeof(pdu->time));
+    if (data == NULL)
+      return -1;
+  }
+
+  /* get header for variable-bindings sequence */
+  data = asn_parse_header(data, length, &type);
+  if (data == NULL)
+    return -1;
+  if (type != (u_char)(ASN_SEQUENCE | ASN_CONSTRUCTOR))
+    return -1;
 
     /* get each varBind sequence */
-    while((int)length > 0){
-	if (vp == NULL){
-	    vp = (struct internal_variable_list *)malloc(sizeof(struct internal_variable_list));
-	    pdu->variables = (struct variable_list *)vp;
-	} else {
-	    vp->next_variable = (struct variable_list *)malloc(sizeof(struct internal_variable_list));
-	    vp = (struct internal_variable_list *)vp->next_variable;
-	}
-
-	vp->next_variable = NULL;
-	vp->val.string = NULL;
-	vp->name_length = MAX_NAME_LEN;
-	vp->name = vp->name_loc;
-	vp->usedBuf = FALSE;
-	data = snmp_parse_var_op(data, vp->name, &vp->name_length, &vp->type,
-				 &vp->val_len, &var_val, (int *)&length);
-	if (data == NULL)
-	    return -1;
-
-	len = PACKET_LENGTH;
-	switch((short)vp->type){
-	    case ASN_INTEGER:
-		vp->val.integer = (long *)vp->buf;
-		vp->usedBuf = TRUE;
-		vp->val_len = sizeof(long);
-		asn_parse_int(var_val, &len, &vp->type,
-			      (long *)vp->val.integer,
-			      sizeof(vp->val.integer));
-		break;
-	    case ASN_COUNTER:
-	    case ASN_GAUGE:
-	    case ASN_TIMETICKS:
-	    case ASN_UINTEGER:
-		vp->val.integer = (long *)vp->buf;
-		vp->usedBuf = TRUE;
-		vp->val_len = sizeof(u_long);
-		asn_parse_unsigned_int(var_val, &len, &vp->type,
-				       (u_long *)vp->val.integer,
-				       sizeof(vp->val.integer));
-		break;
-#ifdef OPAQUE_SPECIAL_TYPES
-            case ASN_OPAQUE_COUNTER64:
-            case ASN_OPAQUE_U64:
-#endif /* OPAQUE_SPECIAL_TYPES */
-	    case ASN_COUNTER64:
-		vp->val.counter64 = (struct counter64 *)vp->buf;
-		vp->usedBuf = TRUE;
-		vp->val_len = sizeof(struct counter64);
-		asn_parse_unsigned_int64(var_val, &len, &vp->type,
-					 (struct counter64 *)vp->val.counter64,
-					 sizeof(*vp->val.counter64));
-		break;
-#ifdef OPAQUE_SPECIAL_TYPES
-	    case ASN_OPAQUE_FLOAT:
-		vp->val.floatVal = (float *)vp->buf;
-		vp->usedBuf = TRUE;
-		vp->val_len = sizeof(float);
-		asn_parse_float(var_val, &len, &vp->type,
-		                         vp->val.floatVal,
-					 vp->val_len);
-		break;
-	    case ASN_OPAQUE_DOUBLE:
-		vp->val.doubleVal = (double *)vp->buf;
-		vp->usedBuf = TRUE;
-		vp->val_len = sizeof(double);
-		asn_parse_double(var_val, &len, &vp->type,
-		                         vp->val.doubleVal,
-					 vp->val_len);
-		break;
-	    case ASN_OPAQUE_I64:
-		vp->val.counter64 = (struct counter64 *)vp->buf;
-		vp->usedBuf = TRUE;
-		vp->val_len = sizeof(struct counter64);
-		asn_parse_signed_int64(var_val, &len, &vp->type,
-			             (struct counter64 *)vp->val.counter64,
-				      sizeof(*vp->val.counter64));
-
-		break;
-#endif /* OPAQUE_SPECIAL_TYPES */
-	    case ASN_OCTET_STR:
-	    case ASN_IPADDRESS:
-	    case ASN_OPAQUE:
-	    case ASN_NSAP:
-		if (vp->val_len < 32){
-		    vp->val.string = (u_char *)vp->buf;
-		    vp->usedBuf = TRUE;
-		} else {
-		    vp->val.string = (u_char *)malloc((unsigned)vp->val_len);
-		}
-		asn_parse_string(var_val, &len, &vp->type, vp->val.string,
-				 &vp->val_len);
-		break;
-	    case ASN_OBJECT_ID:
-		vp->val_len = MAX_NAME_LEN;
-		asn_parse_objid(var_val, &len, &vp->type, objid, &vp->val_len);
-		vp->val_len *= sizeof(oid);
-		vp->val.objid = (oid *)malloc((unsigned)vp->val_len);
-		memmove(vp->val.objid, objid, vp->val_len);
-		break;
-            case SNMP_NOSUCHOBJECT:
-            case SNMP_NOSUCHINSTANCE:
-            case SNMP_ENDOFMIBVIEW:
-	    case ASN_NULL:
-		break;
-	    case ASN_BIT_STR:
-		vp->val.bitstring = (u_char *)malloc(vp->val_len);
-		asn_parse_bitstring(var_val, &len, &vp->type,
-				    vp->val.bitstring, &vp->val_len);
-		break;
-	    default:
-		fprintf(stderr,"bad type returned (%x)\n", vp->type);
-		badtype = 1;
-		break;
-	}
+  while((int)*length > 0){
+    if (vp == NULL){
+      vp = (struct internal_variable_list *)malloc(sizeof(struct internal_variable_list));
+      pdu->variables = (struct variable_list *)vp;
+    } else {
+      vp->next_variable = (struct variable_list *)malloc(sizeof(struct internal_variable_list));
+      vp = (struct internal_variable_list *)vp->next_variable;
     }
-    if (badtype == 0) {
-	snmp_errno = 0;
-	session->s_snmp_errno = 0;
+
+    vp->next_variable = NULL;
+    vp->val.string = NULL;
+    vp->name_length = MAX_NAME_LEN;
+    vp->name = vp->name_loc;
+    vp->usedBuf = FALSE;
+    data = snmp_parse_var_op(data, vp->name, &vp->name_length, &vp->type,
+			     &vp->val_len, &var_val, (int *)length);
+    if (data == NULL)
+      return -1;
+
+    len = PACKET_LENGTH;
+    switch((short)vp->type){
+    case ASN_INTEGER:
+      vp->val.integer = (long *)vp->buf;
+      vp->usedBuf = TRUE;
+      vp->val_len = sizeof(long);
+      asn_parse_int(var_val, &len, &vp->type,
+		    (long *)vp->val.integer,
+		    sizeof(vp->val.integer));
+      break;
+    case ASN_COUNTER:
+    case ASN_GAUGE:
+    case ASN_TIMETICKS:
+    case ASN_UINTEGER:
+      vp->val.integer = (long *)vp->buf;
+      vp->usedBuf = TRUE;
+      vp->val_len = sizeof(u_long);
+      asn_parse_unsigned_int(var_val, &len, &vp->type,
+			     (u_long *)vp->val.integer,
+			     sizeof(vp->val.integer));
+      break;
+#ifdef OPAQUE_SPECIAL_TYPES
+    case ASN_OPAQUE_COUNTER64:
+    case ASN_OPAQUE_U64:
+#endif /* OPAQUE_SPECIAL_TYPES */
+    case ASN_COUNTER64:
+      vp->val.counter64 = (struct counter64 *)vp->buf;
+      vp->usedBuf = TRUE;
+      vp->val_len = sizeof(struct counter64);
+      asn_parse_unsigned_int64(var_val, &len, &vp->type,
+			       (struct counter64 *)vp->val.counter64,
+			       sizeof(*vp->val.counter64));
+      break;
+#ifdef OPAQUE_SPECIAL_TYPES
+    case ASN_OPAQUE_FLOAT:
+      vp->val.floatVal = (float *)vp->buf;
+      vp->usedBuf = TRUE;
+      vp->val_len = sizeof(float);
+      asn_parse_float(var_val, &len, &vp->type,
+		      vp->val.floatVal,
+		      vp->val_len);
+      break;
+    case ASN_OPAQUE_DOUBLE:
+      vp->val.doubleVal = (double *)vp->buf;
+      vp->usedBuf = TRUE;
+      vp->val_len = sizeof(double);
+      asn_parse_double(var_val, &len, &vp->type,
+		       vp->val.doubleVal,
+		       vp->val_len);
+      break;
+    case ASN_OPAQUE_I64:
+      vp->val.counter64 = (struct counter64 *)vp->buf;
+      vp->usedBuf = TRUE;
+      vp->val_len = sizeof(struct counter64);
+      asn_parse_signed_int64(var_val, &len, &vp->type,
+			     (struct counter64 *)vp->val.counter64,
+			     sizeof(*vp->val.counter64));
+
+      break;
+#endif /* OPAQUE_SPECIAL_TYPES */
+    case ASN_OCTET_STR:
+    case ASN_IPADDRESS:
+    case ASN_OPAQUE:
+    case ASN_NSAP:
+      if (vp->val_len < 32){
+	vp->val.string = (u_char *)vp->buf;
+	vp->usedBuf = TRUE;
+      } else {
+	vp->val.string = (u_char *)malloc((unsigned)vp->val_len);
+      }
+      asn_parse_string(var_val, &len, &vp->type, vp->val.string,
+		       &vp->val_len);
+      break;
+    case ASN_OBJECT_ID:
+      vp->val_len = MAX_NAME_LEN;
+      asn_parse_objid(var_val, &len, &vp->type, objid, &vp->val_len);
+      vp->val_len *= sizeof(oid);
+      vp->val.objid = (oid *)malloc((unsigned)vp->val_len);
+      memmove(vp->val.objid, objid, vp->val_len);
+      break;
+    case SNMP_NOSUCHOBJECT:
+    case SNMP_NOSUCHINSTANCE:
+    case SNMP_ENDOFMIBVIEW:
+    case ASN_NULL:
+      break;
+    case ASN_BIT_STR:
+      vp->val.bitstring = (u_char *)malloc(vp->val_len);
+      asn_parse_bitstring(var_val, &len, &vp->type,
+			  vp->val.bitstring, &vp->val_len);
+      break;
+    default:
+      fprintf(stderr,"bad type returned (%x)\n", vp->type);
+      badtype = 1;
+      break;
     }
-    return 0;
-}
+  }
+  return badtype;
+}     
 
 /*
  * Sends the input pdu on the session after calling snmp_build to create
@@ -1646,6 +1825,7 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
     } else if (session->version == SNMP_DEFAULT_VERSION) {
 	/* It's OK */
     } else if (pdu->version != session->version) {
+      /* ENHANCE: we should support multi-lingual sessions */
         snmp_errno = SNMPERR_BAD_VERSION;
         session->s_snmp_errno = SNMPERR_BAD_VERSION;
         return 0;
@@ -1711,8 +1891,8 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
     } else if (pdu->command == SNMP_MSG_TRAP) {
         if ((pdu->version != SNMP_VERSION_1) &&
             (pdu->version != SNMP_VERSION_sec)) {
-          snmp_errno = SNMPERR_V2_IN_V1;
-          session->s_snmp_errno = SNMPERR_V2_IN_V1;
+          snmp_errno = SNMPERR_V1_IN_V2;
+          session->s_snmp_errno = SNMPERR_V1_IN_V2;
           return 0;
         }
         /* initialize defaulted Trap PDU fields */
@@ -1744,15 +1924,6 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	}
     }
 	
-    /* !!!!!!!!!!!!!!!!!!!!!! MAJOR PROBLEM  !!!!!!!!!!!!!!!!!!!!!!!
-     *
-     * This stuff needs to be cleanly added to the api.
-     * currently some applications are passing non-malloc'd data.
-     * we can't free this stuff because they would get hosed.
-     * Therefore this is a core leak.
-     * !!!!!!!!!!!!!!!!!!!!!! MAJOR PROBLEM  !!!!!!!!!!!!!!!!!!!!!!!
-     */
-
     /* setup administrative fields based on version */
     switch (pdu->version) {
     case SNMP_VERSION_1:
@@ -1807,11 +1978,74 @@ snmp_sess_async_send(sessp, pdu, callback, cb_data)
 	}
         break;
 #endif /* USE_V2PARTY_PROTOCOL */
+    case SNMP_VERSION_3:
+      if (pdu->contextEngineIDLen == 0) {
+	if (session->contextEngineIDLen == 0){
+	  snmp_errno = SNMPERR_BAD_ENG_ID;
+	  session->s_snmp_errno = SNMPERR_BAD_ENG_ID;
+	  return 0;
+	}
+	pdu->contextEngineID = 
+	  (u_char*)malloc((unsigned)session->contextEngineIDLen * 
+			  sizeof(u_char));
+	if (pdu->contextEngineID == NULL) {
+	  snmp_errno = SNMPERR_GENERR;
+	  session->s_snmp_errno = SNMPERR_GENERR;
+	  return 0;
+	}
+	memmove(pdu->contextEngineID, session->contextEngineID, 
+		session->contextEngineIDLen * sizeof(u_char));
+	pdu->contextEngineIDLen = session->contextEngineIDLen;
+      }
+
+      if (pdu->contextNameLen == 0) {
+	if (session->contextNameLen == 0){
+	  snmp_errno = SNMPERR_BAD_CONTEXT;
+	  session->s_snmp_errno = SNMPERR_BAD_CONTEXT;
+	  return 0;
+	}
+	pdu->contextName = (u_char*)malloc((unsigned)session->contextNameLen *
+					   sizeof(u_char));
+	if (pdu->contextName == NULL) {
+	  snmp_errno = SNMPERR_GENERR;
+	  session->s_snmp_errno = SNMPERR_GENERR;
+	  return 0;
+	}
+	memmove(pdu->contextName, session->contextName,
+		session->contextNameLen * sizeof(u_char));
+	pdu->contextNameLen = session->contextNameLen;
+      }
+
+      if (pdu->securityNameLen == 0) {
+	if (session->securityNameLen == 0){
+	  snmp_errno = SNMPERR_BAD_SEC_NAME;
+	  session->s_snmp_errno = SNMPERR_BAD_SEC_NAME;
+	  return 0;
+	}
+	pdu->securityName = 
+	  (u_char*)malloc((unsigned)session->securityNameLen * sizeof(u_char));
+	if (pdu->securityName == NULL) {
+	  snmp_errno = SNMPERR_GENERR;
+	  session->s_snmp_errno = SNMPERR_GENERR;
+	  return 0;
+	}
+	memmove(pdu->securityName, session->securityName,
+		session->securityNameLen * sizeof(u_char));
+	pdu->securityNameLen = session->securityNameLen;
+      }
+      if (pdu->securityLevel == 0) {
+	if (session->securityLevel == 0) {
+	    snmp_errno = SNMPERR_BAD_SEC_LEVEL;
+	    session->s_snmp_errno = SNMPERR_BAD_SEC_LEVEL;
+	    return 0;
+	}
+	pdu->securityLevel = session->securityLevel;
+      }
+      break;
 
     case SNMP_VERSION_sec:
     case SNMP_VERSION_2u:
     case SNMP_VERSION_2star:
-    case SNMP_VERSION_3:
     default:
         snmp_errno = SNMPERR_BAD_VERSION;
         session->s_snmp_errno = SNMPERR_BAD_VERSION;

@@ -114,16 +114,10 @@ snmp_pdu_create(command)
     pdu = (struct snmp_pdu *)malloc(sizeof(struct snmp_pdu));
     memset(pdu, 0, sizeof(struct snmp_pdu));
     pdu->version = SNMP_DEFAULT_VERSION;
-    pdu->srcPartyLen = 0;
-    pdu->dstPartyLen = 0;
-    pdu->community_len = 0;
     pdu->command = command;
     pdu->errstat = SNMP_DEFAULT_ERRSTAT;
     pdu->errindex = SNMP_DEFAULT_ERRINDEX;
     pdu->address.sin_addr.s_addr = SNMP_DEFAULT_ADDRESS;
-    pdu->enterprise = NULL;
-    pdu->enterprise_length = 0;
-    pdu->variables = NULL;
     return pdu;
 }
 
