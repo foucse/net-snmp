@@ -1363,7 +1363,7 @@ snmpv3_parse(pdu, data, length, after_header)
   u_char *sec_params;
   u_char *msg_data;
   u_char *cp;
-  int asn_len;
+  int asn_len, sec_params_len;
 
   /* message is an ASN.1 SEQUENCE */
   data = asn_parse_header(data, length, &type);
@@ -1438,11 +1438,11 @@ snmpv3_parse(pdu, data, length, after_header)
 
   /* save pointer securtityParameters for USM to parse */
   sec_params = data;
-  asn_len = *length;
+  sec_params_len = *length;
   /* skip over securityParameters to message payload */
-  data = asn_parse_header(sec_params, &asn_len, &type);
+  data = asn_parse_header(sec_params, &sec_params_len, &type);
   *length -= data-sec_params;
-  msg_data = data + asn_len;
+  msg_data = data + sec_params_len;
 
   /* get length of message payload - msgData - not sure why USM needs this */
   /* no, it needs the length of *all* of the data because its possibly
@@ -1454,7 +1454,8 @@ snmpv3_parse(pdu, data, length, after_header)
   pdu->contextEngineIDLen = SNMP_MAX_ENG_SIZE;
   pdu->securityName = malloc(SNMP_MAX_SEC_NAME_SIZE);
   pdu->securityNameLen = SNMP_MAX_SEC_NAME_SIZE;
-  processIncomingMsg(SNMP_VERSION_3, msg_max_size, sec_params, msg_sec_model,
+  processIncomingMsg(SNMP_VERSION_3, msg_max_size, sec_params, sec_params_len,
+                     msg_sec_model,
 		     pdu->securityLevel, msg_data, asn_len,
 		     pdu->contextEngineID, &pdu->contextEngineIDLen,
 		     pdu->securityName, &pdu->securityNameLen,
