@@ -106,7 +106,8 @@ sub pkt_read_packet_data {
 	next if /^\s*$/;
 	next if /^\s*\#/;
 	chomp;
-	next unless ($k,$v) = /(\w+)\s*=>\s*(\"[^\"]*\"|>?&\w+\([^\)]*\)|\S+);/;
+	next unless ($k,$v) = 
+	    /(\w+)\s*=>\s*(\"[^\"]*\"|&\w+\([^\)]*\)|\S+);/;
 	if (exists $data{$k}) {
 	    if (ref $data{$k} eq ARRAY) {
 		push(@{$data{$k}}, $v);

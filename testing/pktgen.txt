@@ -20,7 +20,7 @@ oriented values are defined for all fields so that a very minimal
 description can be used to produce a v3 message. INTEGER fields with
 no explicit default will default to zero (0). OBJECT_ID and STRING
 fields with no explicit default will default to a zero length object
-("").
+(""). 
 
 The tool is implemented in Perl and requires the Convert::BER module
 to be installed.
