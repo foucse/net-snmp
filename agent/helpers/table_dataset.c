@@ -21,7 +21,6 @@ static data_list *auto_tables;
 
 typedef struct data_set_tables_s {
    table_data_set *table_set;
-   table_data *table;
 } data_set_tables;
 
 typedef struct data_set_cache_s {
@@ -31,10 +30,10 @@ typedef struct data_set_cache_s {
 
 /** Create a table_data_set structure given a table_data definition */
 table_data_set *
-create_table_data_set(table_data *table) 
+create_table_data_set(const char *table_name) 
 {
     table_data_set *table_set = SNMP_MALLOC_TYPEDEF(table_data_set);
-    table_set->table = table;
+    table_set->table = create_table_data(table_name);
     return table_set;
 }
 
@@ -66,6 +65,33 @@ int
 register_table_data_set(handler_registration *reginfo, table_data_set *data_set,
                         table_registration_info *table_info)
 {
+    if (NULL == table_info) {
+        /* allocate the table if one wasn't allocated */
+        table_info = SNMP_MALLOC_TYPEDEF(table_registration_info);
+    }
+
+    if (NULL == table_info->indexes && data_set->table->indexes_template) {
+        /* copy the indexes in */
+        table_info->indexes =
+            snmp_clone_varbind(data_set->table->indexes_template);
+    }
+    
+    if ((!table_info->min_column || !table_info->max_column) &&
+        (data_set->default_row)) {
+        /* determine min/max columns */
+        unsigned int mincol = 0xffffffff, maxcol = 0;
+        table_data_set_storage *row;
+        
+        for(row = data_set->default_row; row; row = row->next) {
+            mincol = SNMP_MIN(mincol, row->column);
+            maxcol = SNMP_MAX(maxcol, row->column);
+        }
+        if (!table_info->min_column)
+            table_info->min_column = mincol;
+        if (!table_info->max_column)
+            table_info->max_column = maxcol;
+    }
+
     inject_handler(reginfo, get_table_data_set_handler(data_set));
     return register_table_data(reginfo, data_set->table, table_info);
 }
@@ -147,8 +173,8 @@ set_row_column(table_row *row, unsigned int column, int type,
         if (data->type != type)
             return SNMPERR_GENERR;
         
-        SNMP_FREE(data->data);
-        if (memdup(&data->data, value, value_len) != SNMPERR_SUCCESS) {
+        SNMP_FREE(data->data.voidp);
+        if (memdup(&data->data.string, value, value_len) != SNMPERR_SUCCESS) {
             snmp_log(LOG_CRIT, "no memory in set_row_column");
             return SNMPERR_MALLOC;
         }
@@ -214,7 +240,12 @@ table_data_set_helper_handler(
 
         if (row)
             data = (table_data_set_storage *) row->data;
-        if (!row || !table_info || !data)
+        if (!row || !table_info || !data) {
+            if (MODE_IS_SET(reqinfo->mode) {
+                /* ack */
+                /* XXXWWW creation */
+                set_request_error(reqinfo, requests, SNMP_ERR_NOSUCHNAME);
+            }
             continue;
 
         data = table_data_set_find_column(data, table_info->colnum);
@@ -227,7 +258,7 @@ table_data_set_helper_handler(
                     table_data_build_result(reginfo, reqinfo, requests, row,
                                             table_info->colnum,
                                             data->type,
-                                            data->data, data->data_len);
+                                            data->data.voidp, data->data_len);
                 break;
 
             case MODE_SET_RESERVE1:
@@ -253,7 +284,7 @@ table_data_set_helper_handler(
                         set_request_error(reqinfo, requests,
                                           SNMP_ERR_RESOURCEUNAVAILABLE);
                     } else {
-                        cache->data = data->data;
+                        cache->data = data->data.voidp;
                         cache->data_len = data->data_len;
                         request_add_list_data(requests, create_data_list(TABLE_DATA_SET_NAME, cache, free));
                     }
@@ -264,7 +295,7 @@ table_data_set_helper_handler(
 
             case MODE_SET_ACTION:
                 if (data) {
-                    memdup(&data->data, requests->requestvb->val.string,
+                    memdup(&data->data.string, requests->requestvb->val.string,
                            requests->requestvb->val_len);
                     data->data_len = requests->requestvb->val_len;
                 } else {
@@ -273,11 +304,11 @@ table_data_set_helper_handler(
                 break;
                 
             case MODE_SET_UNDO:
-                SNMP_FREE(data->data);
+                SNMP_FREE(data->data.voidp);
                 
                 cache = (data_set_cache *)
                     request_get_list_data(requests, TABLE_DATA_SET_NAME);
-                data->data = cache->data;
+                data->data.voidp = cache->data;
                 data->data_len = cache->data_len;
                 /* the cache itself is automatically freed by the
                    data_list routines */
@@ -309,8 +340,6 @@ config_parse_table_set(const char *token, char *line)
     table_data_set *table_set;
     struct index_list *index;
     unsigned int mincol = 0xffffff, maxcol = 0;
-    table_registration_info *table_info;
-    table_data *table;
     data_set_tables *tables;
     int type;
     
@@ -328,10 +357,7 @@ config_parse_table_set(const char *token, char *line)
         return;
     }
 
-    table = create_table_data(line);
-
-    /* about the table */
-    table_info = SNMP_MALLOC_TYPEDEF(table_registration_info);
+    table_set = create_table_data_set(line);
 
     /* loop through indexes and add types */
     for(index = tp->indexes; index; index = index->next) {
@@ -351,11 +377,8 @@ config_parse_table_set(const char *token, char *line)
             
         DEBUGMSGTL(("table_set_add_row","adding default index of type %d\n",
                     type));
-        table_data_add_index(table, type);
-        table_helper_add_index(table_info, type); /* xxx, huh? */
+        table_dataset_add_index(table_set, type);
     }
-
-    table_set = create_table_data_set(table);
 
     /* loop through children and add each column info */
     for(tp = tp->child_list; tp; tp = tp->next_peer) {
@@ -392,18 +415,14 @@ config_parse_table_set(const char *token, char *line)
         }
     }
 
-    table_info->min_column = mincol;
-    table_info->max_column = maxcol;
-                
     /* register the table */
     register_table_data_set(
         create_handler_registration(line, NULL, table_name, table_name_length,
                                     HANDLER_CAN_RWRITE),
-        table_set, table_info);
+        table_set, NULL);
 
     tables = SNMP_MALLOC_TYPEDEF(data_set_tables);
     tables->table_set = table_set;
-    tables->table = table;
     add_list_data(&auto_tables, create_data_list(line, tables, NULL));
 }
 
@@ -430,7 +449,8 @@ config_parse_add_row(const char *token, char *line)
     /* do the indexes first */
     row = create_table_data_row();
 
-    for(vb = tables->table->indexes_template; vb; vb = vb->next_variable) {
+    for(vb = tables->table_set->table->indexes_template; vb;
+        vb = vb->next_variable) {
         if (!line) {
             config_pwarn("missing an index value");
             return;
@@ -456,5 +476,17 @@ config_parse_add_row(const char *token, char *line)
         if (dr->writable)
             mark_row_column_writable(row, dr->column, 1); /* make writable */
     }
-    table_data_add_row(tables->table, row);
+    table_data_add_row(tables->table_set->table, row);
 }
+
+inline void table_dataset_add_index(table_data_set *table, int type) 
+{
+    table_data_add_index(table->table, type);
+}
+
+inline void table_dataset_add_row(table_data_set *table, table_row *row)
+{
+    table_data_add_row(table->table, row);
+}
+
+    

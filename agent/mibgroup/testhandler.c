@@ -128,30 +128,21 @@ init_testhandler(void) {
         column 2 = string = chair #1
         column 3 = string = chair #2  (most WGs have 2 chairs now)
     */
-    table = create_table_data("data_table_test");
-
-    table_data_add_index(table, ASN_OCTET_STR); /* the WG name */
-
-    table_set = create_table_data_set(table);
+    table_set = create_table_data_set("chairs");
     
     /* set up what a row "should" look like */
+    table_dataset_add_index(table_set, ASN_OCTET_STR);
     table_set_add_default_row(table_set, 2, ASN_OCTET_STR, 1);
     table_set_add_default_row(table_set, 3, ASN_OCTET_STR, 1);
-
-    /* about the table */
-    table_info = SNMP_MALLOC_TYPEDEF(table_registration_info);
-    table_info->min_column = 2;
-    table_info->max_column = 3;
-    table_helper_add_index(table_info, ASN_OCTET_STR);
 
     /* register the table */
     register_table_data_set(create_handler_registration("chairs",
                                                         NULL,
                                                         my_data_table_set_oid,
                                                         4, HANDLER_CAN_RWRITE),
-                            table_set, table_info);
+                            table_set, NULL);
 
-    /* add the data */
+    /* add the data, for the first row */
     row = create_table_data_row();
     table_row_add_index(row, ASN_OCTET_STR, "snmpv3",\
                         strlen("snmpv3"));
@@ -160,8 +151,9 @@ init_testhandler(void) {
     set_row_column(row, 3, ASN_OCTET_STR, "David Harrington",
                    strlen("David Harrington"));
     mark_row_column_writable(row, 3, 1); /* make writable */
-    table_data_add_row(table, row);
+    table_dataset_add_row(table_set, row);
 
+    /* add the data, for the second row */
     row = create_table_data_row();
     table_row_add_index(row, ASN_OCTET_STR, "snmpconf",\
                         strlen("snmpconf"));
@@ -171,7 +163,7 @@ init_testhandler(void) {
     set_row_column(row, 3, ASN_OCTET_STR, "Jon Saperia",
                    strlen("Jon Saperia"));
     mark_row_column_writable(row, 3, 1); /* make writable */
-    table_data_add_row(table, row);
+    table_dataset_add_row(table_set, row);
 }
 
 int

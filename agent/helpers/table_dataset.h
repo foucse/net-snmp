@@ -28,7 +28,18 @@ typedef struct table_data_set_storage_s {
    Value_Change_Ok *change_ok_fn;
 
    /* data actually stored */
-   u_char *data;
+    union { /* value of variable */
+       void    *voidp;
+       long    *integer;
+       u_char  *string;
+       oid     *objid;
+       u_char  *bitstring;
+       struct counter64 *counter64;
+#ifdef OPAQUE_SPECIAL_TYPES
+       float   *floatVal;
+       double  *doubleVal;
+#endif /* OPAQUE_SPECIAL_TYPES */
+    } data;
    u_long  data_len;
    
    struct table_data_set_storage_s *next;
@@ -48,12 +59,14 @@ table_data_set_storage *table_data_set_find_column(table_data_set_storage *,
 int register_table_data_set(handler_registration *, table_data_set *,
                             table_registration_info *);
 mib_handler *get_table_data_set_handler(table_data_set *);
-table_data_set *create_table_data_set(table_data *);
+table_data_set *create_table_data_set(const char *);
 int mark_row_column_writable(table_row *row, int column, int writable);
 inline table_data_set *extract_table_data_set(request_info *request);
 void config_parse_table_set(const char *token, char *line);
 void config_parse_add_row(const char *token, char *line);
-
+inline void table_dataset_add_index(table_data_set *table, int type);
+inline void table_dataset_add_row(table_data_set *table, table_row *row);
+    
 #ifdef __cplusplus
 };
 #endif
