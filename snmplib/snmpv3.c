@@ -214,5 +214,5 @@ snmpv3_get_engineTime(void) {
   struct timeval now;
 
   gettimeofday(&now, NULL);
-  return calculate_time_diff(now,snmpv3starttime)/100;
+  return calculate_time_diff(&now, &snmpv3starttime)/100;
 }
