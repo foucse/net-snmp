@@ -62,10 +62,10 @@
 
 #undef LOGFILE
 
-/* PERSISTENTDIR: If defined, the library is capabile of saving
+/* PERSISTENT_DIRECTORY: If defined, the library is capabile of saving
    persisant information to this directory in the form of configuration
-   lines: PERSISTENTDIR/NAME.persistent.conf */
-#define PERSISTENTDIR "/var/snmp"
+   lines: PERSISTENT_DIRECTORY/NAME.persistent.conf */
+#define PERSISTENT_DIRECTORY "/var/snmp"
 
 /* configuration files.  I rdist the first one and leave machine
    specific stuff in the second one */

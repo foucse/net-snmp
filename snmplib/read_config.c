@@ -414,7 +414,7 @@ read_config_files(when)
               ((homepath == NULL) ? "" : ":"),
               ((homepath == NULL) ? "" : homepath),
               ((homepath == NULL) ? "" : "/.snmp"),
-              PERSISTENTDIR);
+              PERSISTENT_DIRECTORY);
       envconfpath = defaultPath;
     }
     envconfpath = strdup(envconfpath);  /* prevent actually writing in env */
@@ -470,7 +470,7 @@ void read_config_print_usage(char *lead) {
  *	*line
  *      
  * 
- * Append line to a file named "<PERSISTENTDIR>/<type>.persistent.conf".
+ * Append line to a file named "<PERSISTENT_DIRECTORY>/<type>.persistent.conf".
  * Add a trailing newline if necessary.
  *
  * Intended for use by applications to store permenant configuration 
@@ -480,10 +480,10 @@ void read_config_print_usage(char *lead) {
 void
 read_config_store(char *type, char *line)
 {
-#ifdef PERSISTENTDIR
+#ifdef PERSISTENT_DIRECTORY
   char file[512];
   FILE *OUT;
-  sprintf(file,"%s/%s.conf",PERSISTENTDIR,type);
+  sprintf(file,"%s/%s.conf",PERSISTENT_DIRECTORY,type);
   if ((OUT = fopen(file, "a")) != NULL) {
     fprintf(OUT,line);
     if (line[strlen(line)] != '\n')
@@ -507,7 +507,7 @@ read_config_store(char *type, char *line)
  *	*type
  *      
  *
- * Unlink a file called "<PERSISTENTDIR>/<type>.conf".
+ * Unlink a file called "<PERSISTENT_DIRECTORY>/<type>.conf".
  *
  * Should be called just before all persistent information is supposed to be
  * written to clean out the existing persistent cache.
@@ -523,9 +523,9 @@ snmp_clean_persistent(char *type)
   char file[512], fileold[512];
   struct stat statbuf;
 
-  sprintf(file,"%s/%s.conf",PERSISTENTDIR,type);
+  sprintf(file,"%s/%s.conf",PERSISTENT_DIRECTORY,type);
   if (stat(file, &statbuf) == 0) {
-    sprintf(fileold,"%s/%s.conf.old",PERSISTENTDIR,type);
+    sprintf(fileold,"%s/%s.conf.old",PERSISTENT_DIRECTORY,type);
     if (rename(file, fileold)) {
       unlink(file);/* failed, try nuking it */
     }

@@ -30,6 +30,9 @@ AC_ARG_WITH(sys_contact,[  --with-sys-contact=\"who@where\"  Default system cont
 AC_ARG_WITH(sys_location,[  --with-sys-location=\"location\"  Default system location.
                                     (Default: Unknown)],ac_cv_user_prompt_SYS_LOC="$with_sys_location")
 AC_ARG_WITH(logfile,[  --with-logfile=\"location\"       Default log file location.],ac_cv_user_prompt_LOGFILE="$with_logfile")
+AC_ARG_WITH(persistent-directory,
+[  --with-persistent-directory=\"directory\"
+                                  Default directory for persistent data storage.],ac_cv_user_prompt_PERSISTENT_DIRECTORY="$with_persistent_directory")
 AC_ARG_WITH(mibdirs,[  --with-mibdirs=\"dir1:dir2:\"     Default directories to look for mibs.
                                     (Default: LIBDIR/snmp/mibs)],[DEFAULT_MIBDIRS="$with_mibdirs"
   AC_DEFINE_UNQUOTED(DEFAULT_MIBDIRS,"$with_mibdirs")
@@ -1210,7 +1213,7 @@ else
   defaultstore="/etc/snmp"
 fi
   
-AC_PROMPT_USER(PERSISTENTDIR,[
+AC_PROMPT_USER(PERSISTENT_DIRECTORY,[
 
 *** snmpd persistent storage location:
 
