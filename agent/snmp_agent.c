@@ -202,13 +202,11 @@ EM(-1);
     if (type == (ASN_SEQUENCE | ASN_CONSTRUCTOR))
     {
         asn_parse_int(cp, &len, &type, &version, sizeof(version));
-
-        DEBUGP("Parsing SNMPv%d message...\n", (version));
+        DEBUGP("parsing SNMPv%d message\n", (version?version:1));
 
         if (version == SNMP_VERSION_3)
 	{
           pdu      = snmp_pdu_create(SNMP_MSG_RESPONSE);
-          engineID = snmpv3_generate_engineID(&engineIDLen); /* XXX If NULL? */
 
           if (snmpv3_parse(pdu, data, &length, &data) == -1) {
             ret_err = snmp_get_errno();
@@ -223,6 +221,7 @@ EM(-1);
           pi->packet_end   = data + length;
 
           if (ret_err) {
+	    engineID = snmpv3_generate_engineID(&engineIDLen);/* XXX If NULL? */
             switch(ret_err) {
               case SNMPERR_USM_UNSUPPORTEDSECURITYLEVEL:
                 return snmpv3_make_report(out_data, out_length, pdu,
@@ -594,7 +593,7 @@ EM(-1);
      * Complete construction of the outgoing message;
      * properly create error responses.
      */
-    DEBUGP("Building SNMPv%d message...\n", pi->version);
+    DEBUGP("building SNMPv%d message\n", (pi->version?pi->version:1));
 
     switch( (short) errstat )
     {

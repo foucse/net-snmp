@@ -638,7 +638,7 @@ main(argc, argv)
 	u_char          *engineID;
 	int             engineIDLen;
         struct usmUser *user, *userListPtr;
-        char           *pid_file;
+        char           *pid_file = NULL;
         FILE           *PID;
 
 	logfile[0]		= 0;
