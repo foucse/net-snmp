@@ -342,6 +342,7 @@ void snmp_pdu_add_variable __P((struct snmp_pdu *, oid *, int, u_char, u_char *,
 int hex_to_binary __P((u_char *, u_char *));
 int ascii_to_binary __P((u_char *, u_char *));
 int snmp_add_var __P((struct snmp_pdu *, oid*, int, char, char *));
+oid *snmp_duplicate_objid(oid *objToCopy, int);
 #ifdef __STDC__
 void DEBUGP __P((const char *, ...));
 #else

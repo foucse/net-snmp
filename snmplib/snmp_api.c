@@ -2409,3 +2409,15 @@ snmp_sess_session(sessp)
     if (slp == NULL) return(NULL);
     return (slp->session);
 }
+
+/* snmp_duplicate_objid: duplicates (mallocs) an objid based on the
+   input objid */
+oid *snmp_duplicate_objid(oid *objToCopy, int objToCopyLen) {
+  oid *returnOid;
+  returnOid = (oid *) malloc(objToCopyLen*sizeof(oid));
+  if (returnOid) {
+    memmove(returnOid, objToCopy, objToCopyLen*sizeof(oid));
+  }
+  return returnOid;
+}
+
