@@ -36,11 +36,15 @@ extern unsigned char *var_snmpEngine __P((struct variable *, oid *, int *, int, 
    for the snmpEngine mib */
 
 struct variable2 snmpEngine_variables[] = {
-  { SNMPENGINEID        , ASN_OCTET_STR , RONLY , var_snmpEngine, 1, { 1 } },
-  { SNMPENGINEBOOTS     , ASN_INTEGER   , RWRITE , var_snmpEngine, 1, { 2 } },
-  { SNMPENGINETIME      , ASN_INTEGER   , RWRITE , var_snmpEngine, 1, { 3 } },
-  { SNMPENGINEMAXMESSAGESIZE, ASN_INTEGER   , RONLY , var_snmpEngine, 1, { 4 } },
-
+  { SNMPENGINEID        , ASN_OCTET_STR  , RONLY , var_snmpEngine, 1, { 1 } },
+#ifdef SNMP_TESTING_CODE 
+  { SNMPENGINEBOOTS     , ASN_INTEGER    , RWRITE, var_snmpEngine, 1, { 2 } },
+  { SNMPENGINETIME      , ASN_INTEGER    , RWRITE, var_snmpEngine, 1, { 3 } },
+#else /* !SNMP_TESTING_CODE */ 
+  { SNMPENGINEBOOTS     , ASN_INTEGER    , RONLY , var_snmpEngine, 1, { 2 } },
+  { SNMPENGINETIME      , ASN_INTEGER    , RONLY , var_snmpEngine, 1, { 3 } },
+#endif /* SNMP_TESTING_CODE */
+  { SNMPENGINEMAXMESSAGESIZE, ASN_INTEGER, RONLY , var_snmpEngine, 1, { 4 } },
 };
 
 /* now load this mib into the agents mib table */

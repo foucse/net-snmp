@@ -29,9 +29,10 @@ void init_snmpEngine __P((void)) {
 
 extern struct timeval starttime;
 
-/* shhhhhhhhh! */
+#ifdef SNMP_TESTING_CODE
 int write_engineBoots(int, u_char *,u_char, int, u_char *,oid*, int);
 int write_engineTime(int, u_char *,u_char, int, u_char *,oid*, int);
+#endif /* SNMP_TESTING_CODE */
 
 unsigned char *
 var_snmpEngine(vp, name, length, exact, var_len, write_method)
@@ -62,12 +63,16 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
       return (unsigned char *) engineID;
 
     case SNMPENGINEBOOTS:
+#ifdef SNMP_TESTING_CODE
       *write_method = write_engineBoots;
+#endif /* SNMP_TESTING_CODE */
       long_ret = snmpv3_local_snmpEngineBoots();
       return (unsigned char *) &long_ret;
 
     case SNMPENGINETIME:
+#ifdef SNMP_TESTING_CODE
       *write_method = write_engineTime;
+#endif /* SNMP_TESTING_CODE */
       long_ret = snmpv3_local_snmpEngineTime();
       return (unsigned char *) &long_ret;
 
@@ -81,10 +86,11 @@ var_snmpEngine(vp, name, length, exact, var_len, write_method)
   return 0;
 }
 
+#ifdef SNMP_TESTING_CODE
 /* write_engineBoots():
 
-   XXX: This is technically not writable, but we allow it so we can run
-   some time synchronization tests.
+   This is technically not writable a writable mib object, but we
+   allow it so we can run some time synchronization tests.
 */
 int
 write_engineBoots(action, var_val, var_val_type, var_val_len, statP, name, name_len)
@@ -129,8 +135,8 @@ write_engineBoots(action, var_val, var_val_type, var_val_len, statP, name, name_
 
 /* write_engineTime():
 
-   XXX: This is technically not writable, but we allow it so we can run
-   some time synchronization tests.
+   This is technically not writable a writable mib object, but we
+   allow it so we can run some time synchronization tests.
 */
 int
 write_engineTime(action, var_val, var_val_type, var_val_len, statP, name, name_len)
@@ -172,3 +178,5 @@ write_engineTime(action, var_val, var_val_type, var_val_len, statP, name, name_l
   }
   return SNMP_ERR_NOERROR;
 }
+
+#endif /* SNMP_TESTING_CODE */
