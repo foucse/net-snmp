@@ -176,10 +176,8 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
 
     case USMUSERPRIVPROTOCOL:
       *write_method = write_usmUserPrivProtocol;
-      objid[0] = 0;
-      objid[1] = 0;
-      *var_len = 2*sizeof(oid);
-      return (unsigned char *) objid;
+      *var_len = uptr->privProtocolLen*sizeof(oid);
+      return (unsigned char *) uptr->privProtocol;
 
     case USMUSERPRIVKEYCHANGE:
       *write_method = write_usmUserPrivKeyChange;
@@ -195,18 +193,23 @@ var_usmUser(vp, name, length, exact, var_len, write_method)
 
     case USMUSERPUBLIC:
       *write_method = write_usmUserPublic;
+      if (uptr->userPublicString) {
+        *length = strlen(uptr->userPublicString);
+        return uptr->userPublicString;
+      }
       *string = 0;
-      *var_len = strlen(string);
+      *length = 1; /* return an empty string if the public string
+                      hasn't been defined yet */
       return (unsigned char *) string;
 
     case USMUSERSTORAGETYPE:
       *write_method = write_usmUserStorageType;
-      long_ret = 0;
+      long_ret = uptr->userStorageType;
       return (unsigned char *) &long_ret;
 
     case USMUSERSTATUS:
       *write_method = write_usmUserStatus;
-      long_ret = 0;
+      long_ret = uptr->userStatus;
       return (unsigned char *) &long_ret;
 
     default:

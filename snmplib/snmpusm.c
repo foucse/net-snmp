@@ -13,6 +13,7 @@
 
 #include "asn1.h"
 #include "snmpv3.h"
+#include "snmp-tc.h"
 #include "snmpusm.h"
 
 /* usm_get_user(): Returns a user from userList based on the engineID,
@@ -206,6 +207,9 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
     if ((newUser->userPublicString = strdup(from->userPublicString)) == NULL)
       return usm_free_user(newUser);
 
+  newUser->userStatus = from->userStatus;
+  newUser->userStorageType = from->userStorageType;
+
   return newUser;
 }
 
@@ -213,7 +217,7 @@ struct usmUser *usm_clone_user(struct usmUser *from) {
    defaults defined in the USM document. */
 
 static oid usmDESPrivProtocol[] = { 1,3,6,1,6,3,10,1,2,2 };
-static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,2,2 };
+static oid usmHMACMD5AuthProtocol[] = { 1,3,6,1,6,3,10,1,1,2 };
   
 struct usmUser *usm_create_initial_user(void) {
   struct usmUser *newUser  = usm_clone_user(NULL);
@@ -245,6 +249,9 @@ struct usmUser *usm_create_initial_user(void) {
   newUser->authProtocolLen = sizeof(usmHMACMD5AuthProtocol)/sizeof(oid);
   memcpy(newUser->authProtocol, usmHMACMD5AuthProtocol,
          sizeof(usmHMACMD5AuthProtocol));
+  
+  newUser->userStatus = RS_ACTIVE;
+  newUser->userStorageType = ST_READONLY;
   
   return newUser;
 }

@@ -3,6 +3,7 @@
 #define SNMPUSM_H
 
 /* struct usmUser: a structure to represent a given user in a list */
+
 struct usmUser;
 struct usmUser {
    u_char         *engineID;
@@ -20,11 +21,15 @@ struct usmUser {
    u_char         *privKey;
    int            privKeyLen;
    u_char         *userPublicString;
+   int            userStatus;
+   int            userStorageType;
    struct usmUser *next;
    struct usmUser *prev;
 };
 
-/* functions defined in the sister .h file */
+/* Note: Any changes made to this structure need to be reflected in
+   the following functions: */
+
 struct usmUser *usm_get_user(char *engineID, int engineIDLen, char *name,
                          struct usmUser *userList);
 struct usmUser *usm_add_user(struct usmUser *user, struct usmUser *userList);
