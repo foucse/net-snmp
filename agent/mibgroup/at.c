@@ -34,7 +34,7 @@ static struct nlist at_nl[] = {
 
 #ifndef solaris2
 static void ARP_Scan_Init __P((void));
-#if defined(freebsd2) || defined (netbsd1) || defined (hpux) || defined (bsdi2)
+#if defined(freebsd2) || defined (netbsd1) || defined (hpux) || defined (bsdi2) || defined(openbsd2)
 static int ARP_Scan_Next __P((u_long *, char *, u_long *, u_short *));
 #else
 static int ARP_Scan_Next __P((u_long *, char *, u_long *));
@@ -84,9 +84,9 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
     oid			    current[16];
     static char		    PhysAddr[6], LowPhysAddr[6];
     u_long		    Addr, LowAddr;
-#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2)
+#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2)
     u_short		    ifIndex, lowIfIndex;
-#endif/* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) */
+#endif/* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2) */
     u_long		    ifType, lowIfType;
 
     int                     oid_length;
@@ -104,7 +104,7 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
     LowAddr = -1;      /* Don't have one yet */
     ARP_Scan_Init();
     for (;;) {
-#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2)
+#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2)
 	if (ARP_Scan_Next(&Addr, PhysAddr, &ifType, &ifIndex) == 0)
 	    break;
 	current[10] = ifIndex;
@@ -116,7 +116,7 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
 	else {			/* IP NetToMedia group oid */
 	    op = current + 11;
 	}
-#else /* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) */
+#else /* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2) */
 	if (ARP_Scan_Next(&Addr, PhysAddr, &ifType) == 0)
 	    break;
 	current[10] = 1;
@@ -128,7 +128,7 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
 	else {			/* IP NetToMedia group oid */
 	    op = current + 11;
 	}
-#endif /* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) */
+#endif /* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2) */
 	cp = (u_char *)&Addr;
 	*op++ = *cp++;
 	*op++ = *cp++;
@@ -139,9 +139,9 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
 	    if (compare(current, oid_length, name, *length) == 0){
 		bcopy((char *)current, (char *)lowest, oid_length * sizeof(oid));
 		LowAddr = Addr;
-#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2)
+#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2)
 		lowIfIndex = ifIndex;
-#endif /*  defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) */
+#endif /*  defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2) */
 		bcopy(PhysAddr, LowPhysAddr, sizeof(PhysAddr));
 		lowIfType = ifType;
 		break;	/* no need to search further */
@@ -155,9 +155,9 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
 		 */
 		bcopy((char *)current, (char *)lowest, oid_length * sizeof(oid));
 		LowAddr = Addr;
-#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2)
+#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2)
 		lowIfIndex = ifIndex;
-#endif /*  defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) */
+#endif /*  defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2) */
 		bcopy(PhysAddr, LowPhysAddr, sizeof(PhysAddr));
 		lowIfType = ifType;
 	    }
@@ -172,11 +172,11 @@ var_atEntry(vp, name, length, exact, var_len, write_method)
     switch(vp->magic){
 	case IPMEDIAIFINDEX:			/* also ATIFINDEX */
 	    *var_len = sizeof long_return;
-#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2)
+#if defined(freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2)
 	    long_return = lowIfIndex;
-#else /* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) */
+#else /* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2) */
 	    long_return = 1; /* XXX */
-#endif /* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) */
+#endif /* (freebsd2) || defined(netbsd1) || defined(hpux) || defined(bsdi2) || defined(openbsd2) */
 	    return (u_char *)&long_return;
 	case IPMEDIAPHYSADDRESS:		/* also ATPHYSADDRESS */
 	    *var_len = sizeof(LowPhysAddr);
@@ -428,7 +428,7 @@ static void ARP_Scan_Init __P((void))
 #endif /* CAN_USE_SYSCTL */
 }
 
-#if defined(freebsd2) || defined(netbsd1) || defined(bsdi2) || defined(hpux)
+#if defined(freebsd2) || defined(netbsd1) || defined(bsdi2) || defined(hpux) || defined(openbsd2)
 static int ARP_Scan_Next(IPAddr, PhysAddr, ifType, ifIndex)
 u_short *ifIndex;
 #else
@@ -438,7 +438,7 @@ u_long *IPAddr;
 char *PhysAddr;
 u_long *ifType;
 {
-#if !defined (netbsd1) && !defined (freebsd2) && !defined(bsdi2)
+#if !defined (netbsd1) && !defined (freebsd2) && !defined(bsdi2) && !defined(openbsd2)
 	register struct arptab *atab;
 
 	while (arptab_current < arptab_size) {
@@ -474,7 +474,7 @@ u_long *ifType;
 #endif
 	return(1);
 	}
-#else /* netbsd1, freebsd2, bsdi2 */
+#else /* netbsd1, freebsd2, bsdi2, openbsd2 */
 	struct rt_msghdr *rtm;
 	struct sockaddr_inarp *sin;
 	struct sockaddr_dl *sdl;
@@ -493,7 +493,7 @@ u_long *ifType;
 			return(1);
 		}
 	}
-#endif /* netbsd1, freebsd2, bsdi2 */
+#endif /* netbsd1, freebsd2, bsdi2, openbsd2 */
 	return(0);	    /* "EOF" */
 }
 #endif /* solaris2 */

@@ -588,7 +588,7 @@
 
 /*   swap MIN                     */
 #define MEMMIBNUM 4
-#if defined(hpux9) || defined(bsdi2) || defined(linux) || defined(freebsd2)
+#if defined(hpux9) || defined(bsdi2) || defined(linux) || defined(freebsd2) || defined(openbsd2)
 #define USEMEMMIB
 #endif
 
@@ -633,6 +633,7 @@
 #define IRIXID 9
 #define LINUXID 10
 #define BSDIID 11
+#define OPENBSDID 12
 #define UNKNOWNID 255
 
 #ifdef hpux9
@@ -667,6 +668,9 @@
 #endif
 #if defined(bsdi2) || defined(bsdi3)
 #define OSTYPE IRIXID
+#endif
+#ifdef openbsd2
+#define OSTYPE OPENBSDID
 #endif
 /* unknown */
 #ifndef OSTYPE

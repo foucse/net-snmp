@@ -23,7 +23,7 @@ static struct nlist tcp_nl[] = {
 #define N_HP_TCPMIB	2
 #if !defined(hpux) && !defined(solaris2)
 	{ "_tcpstat" },
-#ifdef netbsd1
+#if defined(netbsd1) || defined(openbsd2)
 	{ "_tcbtable" },
 #else
 	{ "_tcb" },
@@ -541,7 +541,7 @@ struct tcp_mib *tcpstat;
 #endif /* linux */
 
 
-#ifdef netbsd1
+#if defined(netbsd1) || defined(openbsd2)
 #define inp_next inp_queue.cqe_next
 #define inp_prev inp_queue.cqe_prev
 #endif
@@ -572,32 +572,32 @@ Again:	/*
 
 	KNLookup(tcp_nl, N_TCB, (char *)&cb, sizeof(struct inpcb));
 	inpcb = cb;
-#if !(defined(freebsd2) || defined(netbsd1))
+#if !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2))
 	prev = (struct inpcb *) tcp_nl[N_TCB].n_value;
-#endif /*  !(defined(freebsd2) || defined(netbsd1)) */
+#endif /*  !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2)) */
 	/*
 	 *	Scan the control blocks
 	 */
-#if defined(freebsd2) || defined(netbsd1)
+#if defined(freebsd2) || defined(netbsd1) || defined(openbsd2)
 	while ((inpcb.inp_next != NULL) && (inpcb.inp_next != (struct inpcb *) tcp_nl[N_TCB].n_value)) {
-#else /*  defined(freebsd2) || defined(netbsd1) */
+#else /*  defined(freebsd2) || defined(netbsd1) || defined(openbsd2) */
 	while (inpcb.inp_next != (struct inpcb *) tcp_nl[N_TCB].n_value) {
-#endif /*  defined(freebsd2) || defined(netbsd1) */
+#endif /*  defined(freebsd2) || defined(netbsd1) || defined(openbsd2) */
 		next = inpcb.inp_next;
 
 		if((klookup((unsigned long)next, (char *)&inpcb, sizeof (inpcb)) == 0)) {
 		    perror("TCP_Count_Connections - inpcb");
 		}
-#if !(defined(freebsd2) || defined(netbsd1))
+#if !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2))
 		if (inpcb.inp_prev != prev) {	    /* ??? */
 			sleep(1);
 			goto Again;
 		}
-#endif /*  !(defined(freebsd2) || defined(netbsd1)) */
+#endif /*  !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2)) */
 		if (inet_lnaof(inpcb.inp_laddr) == INADDR_ANY) {
-#if !(defined(freebsd2) || defined(netbsd1))
+#if !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2))
 			prev = next;
-#endif /*  !(defined(freebsd2) || defined(netbsd1)) */
+#endif /*  !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2)) */
 			continue;
 		}
 		if(klookup((unsigned long)inpcb.inp_ppcb, (char *)&tcpcb, sizeof (tcpcb)) == 0) {
@@ -608,9 +608,9 @@ Again:	/*
 		if ((tcpcb.t_state == TCPS_ESTABLISHED) ||
 		    (tcpcb.t_state == TCPS_CLOSE_WAIT))
 		    Established++;
-#if !(defined(freebsd2) || defined(netbsd1))
+#if !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2))
 		prev = next;
-#endif /*  !(defined(freebsd2) || defined(netbsd1)) */
+#endif /*  !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2)) */
 	}
 	return(Established);
 }
@@ -625,7 +625,7 @@ void TCP_Scan_Init __P((void))
 {
 #ifndef linux
     KNLookup(tcp_nl, N_TCB, (char *)&tcp_inpcb, sizeof(tcp_inpcb));
-#if !(defined(freebsd2) || defined(netbsd1))
+#if !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2))
     tcp_prev = (struct inpcb *) tcp_nl[N_TCB].n_value;
 #endif
 #else
@@ -709,7 +709,7 @@ struct inpcb *RetInPcb;
 #ifndef linux
 	struct tcpcb tcpcb;
 
-#if defined(freebsd2) || defined(netbsd1)
+#if defined(freebsd2) || defined(netbsd1) || defined(openbsd2)
 	if ((tcp_inpcb.inp_next == NULL) ||
 	    (tcp_inpcb.inp_next == (struct inpcb *) tcp_nl[N_TCB].n_value)) {
 #else
@@ -721,10 +721,10 @@ struct inpcb *RetInPcb;
 	next = tcp_inpcb.inp_next;
 
 	klookup((unsigned long)next, (char *)&tcp_inpcb, sizeof (tcp_inpcb));
-#if !(defined(netbsd1) || defined(freebsd2))
+#if !(defined(netbsd1) || defined(freebsd2) || defined(openbsd2))
 	if (tcp_inpcb.inp_prev != tcp_prev)	   /* ??? */
           return(-1); /* "FAILURE" */
-#endif /*  !(defined(netbsd1) || defined(freebsd2)) */
+#endif /*  !(defined(netbsd1) || defined(freebsd2) || defined(openbsd2)) */
 	klookup ( (int)tcp_inpcb.inp_ppcb, (char *)&tcpcb, sizeof (tcpcb));
 	*State = tcpcb.t_state;
 #else /* linux */
@@ -737,7 +737,7 @@ struct inpcb *RetInPcb;
 #endif
 
 	*RetInPcb = tcp_inpcb;
-#if !(defined(netbsd1) || defined(freebsd2))
+#if !(defined(netbsd1) || defined(freebsd2) || defined(openbsd2))
 	tcp_prev = next;
 #endif
 	return(1);	/* "OK" */

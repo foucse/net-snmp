@@ -22,7 +22,7 @@ static struct nlist udp_nl[] = {
 #define N_HP_UDPMIB	2
 #if !defined(hpux) && !defined(solaris2)
 	{ "_udpstat" },
-#ifdef netbsd1
+#if defined(netbsd1) || defined(openbsd2)
 	{ "_udbtable" },
 #else
 	{ "_udb" },
@@ -138,7 +138,7 @@ var_udp(vp, name, length, exact, var_len, write_method)
 
     switch (vp->magic){
 	case UDPINDATAGRAMS:
-#if defined(freebsd2) || defined(netbsd1)
+#if defined(freebsd2) || defined(netbsd1) || defined(openbsd2)
 	    long_return = udpstat.udps_ipackets;
 #else
 #if defined(linux)
@@ -149,7 +149,7 @@ var_udp(vp, name, length, exact, var_len, write_method)
 #endif
 	    return (u_char *) &long_return;
 	case UDPNOPORTS:
-#if defined(freebsd2) || defined(netbsd1)
+#if defined(freebsd2) || defined(netbsd1) || defined(openbsd2)
 	    long_return = udpstat.udps_noport;
 #else
 #if defined(linux)
@@ -160,7 +160,7 @@ var_udp(vp, name, length, exact, var_len, write_method)
 #endif
 	    return (u_char *) &long_return;
 	case UDPOUTDATAGRAMS:
-#if defined(freebsd2) || defined(netbsd1)
+#if defined(freebsd2) || defined(netbsd1) || defined(openbsd2)
 	    long_return = udpstat.udps_opackets;
 #else
 #if defined(linux)
@@ -388,7 +388,7 @@ static void UDP_Scan_Init()
 {
 #ifndef linux
     KNLookup(udp_nl, N_UDB, (char *)&udp_inpcb, sizeof(udp_inpcb));
-#if !(defined(freebsd2) || defined(netbsd1))
+#if !(defined(freebsd2) || defined(netbsd1) || defined(openbsd2))
     udp_prev = (struct inpcb *) udp_nl[N_UDB].n_value;
 #endif
 #else /* linux */
@@ -470,7 +470,7 @@ struct inpcb *RetInPcb;
 	    (udp_inpcb.inp_list.le_next ==
              (struct inpcb *) udp_nl[N_UDB].n_value)) {
 #else
-#if defined(netbsd1)
+#if defined(netbsd1) || defined(openbsd2)
 	if ((udp_inpcb.inp_queue.cqe_next == NULL) ||
 	    (udp_inpcb.inp_queue.cqe_next == (struct inpcb *) udp_nl[N_UDB].n_value)) {
 #else
@@ -480,7 +480,7 @@ struct inpcb *RetInPcb;
 	    return(0);	    /* "EOF" */
 	}
 
-#ifdef netbsd1
+#if defined(netbsd1) || defined(openbsd2)
 	next = udp_inpcb.inp_queue.cqe_next;
 #else
 #ifdef freebsd2
@@ -491,12 +491,12 @@ struct inpcb *RetInPcb;
 #endif
 
 	klookup((unsigned long)next, (char *)&udp_inpcb, sizeof (udp_inpcb));
-#if !(defined(netbsd1) || defined(freebsd2) || defined(linux))
+#if !(defined(netbsd1) || defined(freebsd2) || defined(linux) || defined(openbsd2))
 	if (udp_inpcb.inp_prev != udp_prev)	   /* ??? */
           return(-1); /* "FAILURE" */
 #endif
 	*RetInPcb = udp_inpcb;
-#if !(defined(netbsd1) || defined(freebsd2))
+#if !(defined(netbsd1) || defined(freebsd2) || defined(openbsd2))
 	udp_prev = next;
 #endif
 #else /* linux */
