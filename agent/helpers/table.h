@@ -81,6 +81,8 @@ unsigned int closest_column(unsigned int current, column_info *valid_columns);
 
 NodeHandler table_helper_handler;
 
+#define table_helper_add_index(tinfo, type) snmp_varlist_add_variable(&tinfo->indexes, NULL, 0, type, NULL, 0);
+
 #ifdef __cplusplus
 };
 #endif
