@@ -29,6 +29,8 @@ config_require(tcp-mib/data_access/tcpConn_freebsd4)
 config_require(tcp-mib/data_access/tcpConn_openbsd)
 #elif defined(netbsd1)
 config_require(tcp-mib/data_access/tcpConn_netbsd)
+#elif defined(WIN32) || defined (cygwin)
+config_require(tcp-mib/data_access/tcpConn_win32)
 #else
 #   define NETSNMP_TCPCONN_COMMON_ONLY
 #endif
