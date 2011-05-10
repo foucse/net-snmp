@@ -29,6 +29,8 @@ config_require(udp-mib/data_access/udp_endpoint_freebsd4)
 config_require(udp-mib/data_access/udp_endpoint_openbsd)
 #elif defined(netbsd1)
 config_require(udp-mib/data_access/udp_endpoint_netbsd)
+#elif defined (WIN32) || defined (cygwin)
+config_require(udp-mib/data_access/udp_endpoint_win32)
 #else
 #   define NETSNMP_UDP_ENDPOINT_COMMON_ONLY
 #endif
