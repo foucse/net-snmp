@@ -27,7 +27,7 @@ config_require(if-mib)
  * these new module re-rewrites have only been implemented for
  * linux.
  */
-#if defined( linux )
+#if defined(linux) || defined (WIN32) || defined (cygwin)
 config_require(ip-mib ip-forward-mib tcp-mib udp-mib)
 #elif defined(solaris2)
 config_require(tcp-mib udp-mib)

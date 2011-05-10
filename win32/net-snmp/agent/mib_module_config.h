@@ -318,6 +318,28 @@
 /* Define if compiling with the mibII/tcpTable module files.  */
 #define USING_MIBII_TCPTABLE_MODULE 1
  
+/* Define if compiling with the mibII/tcp module files.  */
+#define USING_TCP_MIB_TCPCONNECTIONTABLE_MODULE 1
+
+/* Define if compiling with the mibII/tcp module files.  */
+#define USING_TCP_MIB_TCPLISTENERTABLE_MODULE 1
+
+/* Define if compiling with the mibII/udp module files.  */
+#define USING_UDP_MIB_UDPENDPOINTTABLE_MODULE 1
+
+/* Define if compiling with the mibII/ip module files.  */
+#define USING_IP_MIB_IPADDRESSTABLE_MODULE 1
+
+/* Define if compiling with the mibII/ip module files.  */
+#define USING_IP_MIB_INETNETOMEDIATABLE_MODULE 1
+
+/* Define if compiling with the mibII/ip-forward module files.  */
+#define USING_IP_FORWARD_MIB_INETCIDRROUTETABLE_MODULE 1
+#define USING_IP_FORWARD_MIB_INETCIDRROUTETABLE_INETCIDRROUTETABLE_MODULE 1
+
+/* Define if compiling with the mibII/host module files.  */
+#define USING_HOST_HRSWRUNTABLE_MODULE 1
+
 /* Define if compiling with the mibII/ipAddr module files.  */
 #define USING_MIBII_IPADDR_MODULE 1
  

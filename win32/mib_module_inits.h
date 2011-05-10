@@ -11,6 +11,14 @@
   if (should_init("interfaces")) init_interfaces();
   if (should_init("tcp")) init_tcp();
   if (should_init("tcpTable")) init_tcpTable();
+  if (should_init("tcpConnectionTable")) init_tcpConnectionTable();
+  if (should_init("tcpListenerTable")) init_tcpListenerTable();
+  if (should_init("udpEndpointTable")) init_udpEndpointTable();
+  if (should_init("ipAddressTable")) init_ipAddressTable();
+  if (should_init("inetCidrRouteTable")) init_inetCidrRouteTable();
+  if (should_init("inetNetToMediaTable")) init_inetNetToMediaTable();
+  if (should_init("hrSWRunTable")) init_swrun();
+  if (should_init("hrSWRunTable")) init_hrSWRunTable();
   if (should_init("icmp")) init_icmp();
   if (should_init("ip")) init_ip();
   if (should_init("udp")) init_udp();

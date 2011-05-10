@@ -41,6 +41,7 @@ config_require(utilities)
    default, even if they're not supporting it in the agent (ie, the
    command line tools need to load them anyway) */
 config_add_mib(HOST-RESOURCES-MIB)
+config_add_mib(IP-FORWARD-MIB)
 config_add_mib(NOTIFICATION-LOG-MIB)
 config_add_mib(DISMAN-EVENT-MIB)
 #ifndef NETSNMP_NO_WRITE_SUPPORT
