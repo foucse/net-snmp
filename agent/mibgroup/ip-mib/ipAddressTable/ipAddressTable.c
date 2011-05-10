@@ -1490,6 +1490,7 @@ ipAddressIfIndex_check_value(ipAddressTable_rowreq_ctx * rowreq_ctx,
         return MFD_NOT_VALID_EVER;
     }
 
+#if !(defined (WIN32) || defined (cygwin))
     /*
      * find name for ifIndex
      */
@@ -1498,6 +1499,7 @@ ipAddressIfIndex_check_value(ipAddressTable_rowreq_ctx * rowreq_ctx,
                    ipAddressIfIndex_val));
         return MFD_NOT_VALID_NOW;
     }
+#endif
 
     return MFD_SUCCESS;         /* ipAddressIfIndex value not illegal */
 }                               /* ipAddressIfIndex_check_value */

@@ -220,6 +220,7 @@ netsnmp_access_ipaddress_entry_set(netsnmp_ipaddress_entry * entry)
         return -1;
     }
     
+#if !(defined (WIN32) || defined (cygwin))
     /*
      * make sure interface and ifIndex match up
      */
@@ -229,6 +230,7 @@ netsnmp_access_ipaddress_entry_set(netsnmp_ipaddress_entry * entry)
                   entry->if_index));
         return -1;
     }
+#endif
 
     /*
      * don't support non-volatile yet

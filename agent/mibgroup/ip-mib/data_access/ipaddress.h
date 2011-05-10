@@ -22,6 +22,8 @@ config_require(ip-mib/data_access/ipaddress_common)
 config_require(ip-mib/data_access/ipaddress_linux)
 #elif defined( solaris2 )
 config_require(ip-mib/data_access/ipaddress_solaris2)
+#elif defined (WIN32) || defined (cygwin)
+config_require(ip-mib/data_access/ipaddress_win32)
 #else
 config_error(the ipaddress data access library is not available in this environment.)
 #endif

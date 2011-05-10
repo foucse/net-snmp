@@ -20,9 +20,6 @@
 
 #include "ipAddressTable_data_access.h"
 
-#include <sys/ioctl.h>
-#include <errno.h>
-
 netsnmp_feature_require(container_lifo)
 netsnmp_feature_require(ipaddress_entry_update)
 
