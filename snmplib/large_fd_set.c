@@ -174,7 +174,13 @@ netsnmp_large_fd_set_resize(netsnmp_large_fd_set * fdset, int setsize)
     }
 
 #if defined(cygwin) || !defined(HAVE_WINSOCK_H)
-    {
+    if ( fdset->lfs_setsize == 0 && setsize == FD_SETSIZE ) {
+        /*
+         * Use the OS's FD_ZERO when we are going from
+         * "new" to FD_SETSIZE
+         */
+        FD_ZERO( fdset->lfs_setptr );
+    } else {
         int             i;
 
         /*
