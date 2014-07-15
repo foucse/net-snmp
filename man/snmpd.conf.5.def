@@ -1613,11 +1613,15 @@ SOCKPERMS and DIRPERMS must be octal digits (see
 ). By default this socket will only be accessible to subagents which 
 have the same userid as the agent.
 .PP
-There is one directive specifically relevant to running as
+There are two directives specifically relevant to running as
 an AgentX sub-agent:
-.IP "agentXPingInterval NUM"
+.IP "agentXReconnectInterval NUM"
 will make the subagent try and reconnect every NUM seconds to the
 master if it ever becomes (or starts) disconnected.
+.IP "agentXPingInterval NUM"
+will make the subagent ping the master agent every NUM seconds,
+and if the ping fails, abandon that connection and attempt
+to connect as above.
 .PP
 The remaining directives are relevant to both AgentX master
 and sub-agents:
