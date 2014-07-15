@@ -70,5 +70,6 @@
 #define NETSNMP_DS_AGENT_INTERNAL_SECLEVEL 12   /* used by internal queries */
 #define NETSNMP_DS_AGENT_MAX_GETBULKREPEATS 13 /* max getbulk repeats */
 #define NETSNMP_DS_AGENT_MAX_GETBULKRESPONSES 14   /* max getbulk respones */
+#define NETSNMP_DS_AGENT_AGENTX_RECONNECT_INTERVAL 15   /* reconnect interval if different from ping interval */
 
 #endif

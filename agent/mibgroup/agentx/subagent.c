@@ -98,12 +98,14 @@ subagent_startup(int majorID, int minorID,
 {
     DEBUGMSGTL(("agentx/subagent", "connecting to master...\n"));
     /*
-     * if a valid ping interval has been defined, call agentx_reopen_session
+     * if a valid reconnect interval has been defined, call agentx_reopen_session
      * to try to connect to master or setup a ping alarm if it couldn't
      * succeed. if no ping interval was set up, just try to connect once.
      */
     if (netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID,
-                           NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL) > 0)
+                           NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL) > 0 ||
+        netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID,
+                           NETSNMP_DS_AGENT_AGENTX_RECONNECT_INTERVAL) > 0)
         agentx_reopen_session(0, NULL);
     else {
         subagent_open_master_session();
@@ -276,7 +278,12 @@ handle_agentx_packet(int operation, netsnmp_session * session, int reqid,
         struct synch_state *state = (struct synch_state *) magic;
         int             period =
             netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID,
-                               NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL);
+                               NETSNMP_DS_AGENT_AGENTX_RECONNECT_INTERVAL);
+
+        if (period <= 0) {
+            period = netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID,
+                                        NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL);
+        }
         DEBUGMSGTL(("agentx/subagent",
                     "transport disconnect indication\n"));
 
@@ -1020,12 +1027,17 @@ subagent_register_ping_alarm(int majorID, int minorID,
         ss->securityModel = snmp_alarm_register(ping_interval, SA_REPEAT,
                                                 agentx_check_session, ss);
     } else {
+        int             reconnect_interval =
+            netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID,
+                               NETSNMP_DS_AGENT_AGENTX_RECONNECT_INTERVAL);
+        if (reconnect_interval <= 0)
+            reconnect_interval = ping_interval;
         /*
          * attempt to open it later instead 
          */
         DEBUGMSGTL(("agentx/subagent",
                     "subagent not properly attached, postponing registration till later....\n"));
-        snmp_alarm_register(ping_interval, SA_REPEAT,
+        snmp_alarm_register(reconnect_interval, SA_REPEAT,
                             agentx_reopen_session, NULL);
     }
     return 0;

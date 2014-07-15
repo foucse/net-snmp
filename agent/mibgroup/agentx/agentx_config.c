@@ -221,9 +221,17 @@ agentx_config_init(void)
                                    "agentxPingInterval",
                                    NETSNMP_DS_APPLICATION_ID,
                                    NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL);
+        netsnmp_ds_register_config(ASN_INTEGER,
+                                   netsnmp_ds_get_string(NETSNMP_DS_LIBRARY_ID,
+                                                         NETSNMP_DS_LIB_APPTYPE),
+                                   "agentxReconnectInterval",
+                                   NETSNMP_DS_APPLICATION_ID,
+                                   NETSNMP_DS_AGENT_AGENTX_RECONNECT_INTERVAL);
         /* ping and/or reconnect by default every 15 seconds */
         netsnmp_ds_set_int(NETSNMP_DS_APPLICATION_ID,
                            NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL, 15);
+        netsnmp_ds_set_int(NETSNMP_DS_APPLICATION_ID,
+                           NETSNMP_DS_AGENT_AGENTX_RECONNECT_INTERVAL, 0);
         
     }
 #endif /* USING_AGENTX_SUBAGENT_MODULE */
